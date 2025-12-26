@@ -6,7 +6,6 @@ use async_trait::async_trait;
 use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use uuid::Uuid;
 
 use crate::application::ports::SessionRepositoryPort;
 use crate::domain::{entities::UserSession, errors::ApplicationError};
@@ -42,7 +41,7 @@ impl SessionRepositoryPort for PostgresSessionRepository {
         Ok(result.into())
     }
     
-    async fn find_by_id(&self, id: &Uuid) -> Result<Option<UserSession>, ApplicationError> {
+    async fn find_by_id(&self, id: i32) -> Result<Option<UserSession>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let result = user_sessions::table
@@ -69,7 +68,7 @@ impl SessionRepositoryPort for PostgresSessionRepository {
         Ok(result.map(Into::into))
     }
     
-    async fn find_active_by_user_id(&self, user_id: &Uuid) -> Result<Vec<UserSession>, ApplicationError> {
+    async fn find_active_by_user_id(&self, user_id: i32) -> Result<Vec<UserSession>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let results = user_sessions::table
@@ -87,14 +86,14 @@ impl SessionRepositoryPort for PostgresSessionRepository {
     async fn update(&self, session: &UserSession) -> Result<UserSession, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
-        let result = diesel::update(user_sessions::table.filter(user_sessions::id.eq(&session.id)))
+        let result = diesel::update(user_sessions::table.filter(user_sessions::id.eq(session.id)))
             .set((
                 user_sessions::token_hash.eq(&session.token_hash),
                 user_sessions::refresh_token_hash.eq(&session.refresh_token_hash),
                 user_sessions::expires_at.eq(session.expires_at),
                 user_sessions::refresh_expires_at.eq(session.refresh_expires_at),
-                user_sessions::updated_at.eq(Utc::now()),
                 user_sessions::is_active.eq(session.is_active),
+                user_sessions::last_activity.eq(session.last_activity),
                 user_sessions::revoked_at.eq(session.revoked_at),
                 user_sessions::revoked_reason.eq(&session.revoked_reason),
             ))
@@ -105,7 +104,7 @@ impl SessionRepositoryPort for PostgresSessionRepository {
         Ok(result.into())
     }
     
-    async fn delete(&self, id: &Uuid) -> Result<(), ApplicationError> {
+    async fn delete(&self, id: i32) -> Result<(), ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         diesel::delete(user_sessions::table.filter(user_sessions::id.eq(id)))
@@ -116,7 +115,7 @@ impl SessionRepositoryPort for PostgresSessionRepository {
         Ok(())
     }
     
-    async fn delete_by_user_id(&self, user_id: &Uuid) -> Result<u64, ApplicationError> {
+    async fn delete_by_user_id(&self, user_id: i32) -> Result<u64, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let count = diesel::delete(user_sessions::table.filter(user_sessions::user_id.eq(user_id)))
@@ -127,7 +126,7 @@ impl SessionRepositoryPort for PostgresSessionRepository {
         Ok(count as u64)
     }
     
-    async fn revoke(&self, id: &Uuid, reason: &str) -> Result<(), ApplicationError> {
+    async fn revoke(&self, id: i32, reason: &str) -> Result<(), ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         diesel::update(user_sessions::table.filter(user_sessions::id.eq(id)))
@@ -135,7 +134,6 @@ impl SessionRepositoryPort for PostgresSessionRepository {
                 user_sessions::is_active.eq(false),
                 user_sessions::revoked_at.eq(Some(Utc::now())),
                 user_sessions::revoked_reason.eq(Some(reason)),
-                user_sessions::updated_at.eq(Utc::now()),
             ))
             .execute(&mut conn)
             .await
@@ -144,7 +142,7 @@ impl SessionRepositoryPort for PostgresSessionRepository {
         Ok(())
     }
     
-    async fn revoke_all_except(&self, user_id: &Uuid, except_session_id: &Uuid, reason: &str) -> Result<u64, ApplicationError> {
+    async fn revoke_all_except(&self, user_id: i32, except_session_id: i32, reason: &str) -> Result<u64, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let count = diesel::update(
@@ -157,7 +155,6 @@ impl SessionRepositoryPort for PostgresSessionRepository {
             user_sessions::is_active.eq(false),
             user_sessions::revoked_at.eq(Some(Utc::now())),
             user_sessions::revoked_reason.eq(Some(reason)),
-            user_sessions::updated_at.eq(Utc::now()),
         ))
         .execute(&mut conn)
         .await
@@ -179,7 +176,7 @@ impl SessionRepositoryPort for PostgresSessionRepository {
         Ok(count as u64)
     }
     
-    async fn count_active_by_user_id(&self, user_id: &Uuid) -> Result<i64, ApplicationError> {
+    async fn count_active_by_user_id(&self, user_id: i32) -> Result<i64, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let count = user_sessions::table

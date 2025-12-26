@@ -4,7 +4,6 @@
 //! Reemplaza JWT con tokens opacos almacenados en BD.
 
 
-use uuid::Uuid;
 use crate::domain::{entities::UserSession, errors::ApplicationError};
 
 /// Token de sesión generado
@@ -30,7 +29,7 @@ pub trait SessionManagerPort: Send + Sync {
     /// Crear una nueva sesión para un usuario
     fn create_session(
         &self,
-        user_id: Uuid,
+        user_id: i32,
         user_agent: Option<String>,
         ip_address: Option<String>,
     ) -> Result<(UserSession, SessionTokenData), ApplicationError>;

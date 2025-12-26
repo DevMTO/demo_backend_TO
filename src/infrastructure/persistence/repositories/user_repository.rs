@@ -5,7 +5,6 @@
 use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use uuid::Uuid;
 use tracing::{debug, warn, info, instrument};
 
 use crate::application::ports::UserRepositoryPort;
@@ -49,7 +48,7 @@ impl UserRepositoryPort for PostgresUserRepository {
     }
     
     #[instrument(skip(self))]
-    async fn find_by_id(&self, id: &Uuid) -> Result<Option<User>, ApplicationError> {
+    async fn find_by_id(&self, id: i32) -> Result<Option<User>, ApplicationError> {
         debug!("🔍 Buscando usuario por ID: {}", id);
         let mut conn = self.pool.get_connection().await?;
         
@@ -147,7 +146,7 @@ impl UserRepositoryPort for PostgresUserRepository {
     async fn update(&self, user: &User) -> Result<User, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
-        let result = diesel::update(users::table.filter(users::id.eq(&user.id)))
+        let result = diesel::update(users::table.filter(users::id.eq(user.id)))
             .set((
                 users::username.eq(&user.username),
                 users::email.eq(&user.email),
@@ -156,8 +155,8 @@ impl UserRepositoryPort for PostgresUserRepository {
                 users::id_entidad.eq(&user.id_entidad),
                 users::nombre_entidad.eq(&user.nombre_entidad),
                 users::status.eq(user.status.to_string()),
-                users::updated_at.eq(user.updated_at),
                 users::last_login.eq(user.last_login),
+                users::updated_by.eq(user.updated_by),
             ))
             .get_result::<UserModel>(&mut conn)
             .await
@@ -166,7 +165,7 @@ impl UserRepositoryPort for PostgresUserRepository {
         Ok(result.into())
     }
     
-    async fn delete(&self, id: &Uuid) -> Result<(), ApplicationError> {
+    async fn delete(&self, id: i32) -> Result<(), ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         diesel::update(users::table.filter(users::id.eq(id)))

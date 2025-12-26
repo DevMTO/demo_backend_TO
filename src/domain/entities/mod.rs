@@ -19,19 +19,7 @@ pub mod entrada;
 pub mod file;
 pub mod pago;
 
-// Re-exports - Auth
-pub use user::{User, UserInfo, UserRole, UserStatus};
+// Re-exports - Solo los tipos usados activamente
+// Auth core
+pub use user::{User, UserRole, UserStatus};
 pub use session::UserSession;
-
-// Re-exports - Tour Operator
-pub use persona::Persona;
-pub use agencia::Agencia;
-pub use tour::Tour;
-pub use transporte::Transporte;
-pub use vehiculo::Vehiculo;
-pub use conductor::Conductor;
-pub use guia::Guia;
-pub use restaurante::Restaurante;
-pub use entrada::Entrada;
-pub use file::File;
-pub use pago::Pago;

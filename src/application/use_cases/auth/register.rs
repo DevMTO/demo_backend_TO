@@ -12,7 +12,8 @@ use crate::application::ports::{
     UserRepositoryPort,
     PasswordHasherPort,
 };
-use crate::application::dtos::{RegisterRequest, UserDetailDto};
+use crate::application::dtos::auth_dto::RegisterRequest;
+use crate::application::dtos::user_dto::UserDetailDto;
 
 /// Resultado del registro
 pub struct RegisterOutput {

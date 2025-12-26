@@ -6,7 +6,6 @@ use axum::{
     extract::FromRequestParts,
     http::request::Parts,
 };
-use uuid::Uuid;
 
 use crate::domain::{entities::User, errors::ApplicationError};
 use crate::presentation::routes::AppState;
@@ -15,7 +14,7 @@ use crate::presentation::routes::AppState;
 #[derive(Debug, Clone)]
 pub struct AuthUser {
     pub user: User,
-    pub session_id: Uuid,
+    pub session_id: i32,
     /// Token rotado si la sesión fue renovada automáticamente
     pub rotated_token: Option<String>,
 }

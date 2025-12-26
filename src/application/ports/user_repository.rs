@@ -4,7 +4,6 @@
 
 
 use async_trait::async_trait;
-use uuid::Uuid;
 use crate::domain::{entities::User, errors::ApplicationError};
 
 /// Puerto de salida para repositorio de usuarios
@@ -14,7 +13,7 @@ pub trait UserRepositoryPort: Send + Sync {
     async fn create(&self, user: &User) -> Result<User, ApplicationError>;
     
     /// Buscar usuario por ID
-    async fn find_by_id(&self, id: &Uuid) -> Result<Option<User>, ApplicationError>;
+    async fn find_by_id(&self, id: i32) -> Result<Option<User>, ApplicationError>;
     
     /// Buscar usuario por email
     async fn find_by_email(&self, email: &str) -> Result<Option<User>, ApplicationError>;
@@ -29,7 +28,7 @@ pub trait UserRepositoryPort: Send + Sync {
     async fn update(&self, user: &User) -> Result<User, ApplicationError>;
     
     /// Eliminar usuario (soft delete)
-    async fn delete(&self, id: &Uuid) -> Result<(), ApplicationError>;
+    async fn delete(&self, id: i32) -> Result<(), ApplicationError>;
     
     /// Verificar si existe un email
     async fn exists_by_email(&self, email: &str) -> Result<bool, ApplicationError>;

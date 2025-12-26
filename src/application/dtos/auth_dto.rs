@@ -4,7 +4,6 @@
 //! NO usamos JWT - solo tokens de sesión opacos con HMAC.
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use validator::Validate;
 
 /// Request para login
@@ -24,8 +23,8 @@ pub struct LoginRequest {
 /// Request para registro de usuario
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct RegisterRequest {
-    /// ID de la persona ya registrada en el sistema
-    pub id_persona: Uuid,
+    /// ID de la persona ya registrada en el sistema (opcional)
+    pub id_persona: Option<i32>,
     
     #[validate(length(min = 3, max = 50, message = "Username must be between 3 and 50 characters"))]
     pub username: String,
@@ -43,7 +42,7 @@ pub struct RegisterRequest {
     pub role: Option<String>,
     
     /// ID de la entidad asociada (agencia, transporte, etc.)
-    pub id_entidad: Option<Uuid>,
+    pub id_entidad: Option<i32>,
     
     /// Nombre de la entidad asociada
     pub nombre_entidad: Option<String>,
@@ -53,14 +52,14 @@ pub struct RegisterRequest {
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthResponse {
     pub user: AuthUserInfo,
-    pub session_id: Uuid,
+    pub session_id: i32,
     pub expires_in: i64,
     /// Indica si la sesión fue extendida (remember_me)
     pub extended_session: bool,
 }
 
 impl AuthResponse {
-    pub fn new(user: AuthUserInfo, session_id: Uuid, expires_in: i64, extended_session: bool) -> Self {
+    pub fn new(user: AuthUserInfo, session_id: i32, expires_in: i64, extended_session: bool) -> Self {
         Self {
             user,
             session_id,
@@ -73,12 +72,12 @@ impl AuthResponse {
 /// Información del usuario autenticado (sin datos sensibles)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthUserInfo {
-    pub id: Uuid,
-    pub id_persona: Uuid,
+    pub id: i32,
+    pub id_persona: Option<i32>,
     pub username: String,
     pub email: String,
     pub role: String,
-    pub id_entidad: Option<Uuid>,
+    pub id_entidad: Option<i32>,
     pub nombre_entidad: Option<String>,
     pub status: String,
 }

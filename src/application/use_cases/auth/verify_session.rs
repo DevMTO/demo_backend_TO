@@ -3,7 +3,6 @@
 //! Caso de uso para verificar sesiones activas usando tokens opacos.
 
 use std::sync::Arc;
-use uuid::Uuid;
 
 use crate::domain::{
     entities::User,
@@ -20,7 +19,7 @@ use crate::application::dtos::auth_dto::AuthUserInfo;
 pub struct SessionVerification {
     pub user: User,
     pub user_info: AuthUserInfo,
-    pub session_id: Uuid,
+    pub session_id: i32,
     /// Nuevo token si fue rotado
     pub new_token: Option<String>,
 }
@@ -61,7 +60,7 @@ impl VerifySessionUseCase {
         
         // 4. Obtener el usuario
         let user = self.user_repository
-            .find_by_id(&session.user_id)
+            .find_by_id(session.user_id)
             .await?
             .ok_or_else(|| ApplicationError::NotFound("User not found".to_string()))?;
         

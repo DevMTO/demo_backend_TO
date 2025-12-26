@@ -10,7 +10,7 @@ use axum::{
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use tower_cookies::Cookies;
-use tracing::{info, warn, error, debug, instrument};
+use tracing::{info, warn, debug, instrument};
 
 use crate::application::dtos::auth_dto::{
     LoginRequest, LogoutRequest, AuthResponse,
@@ -96,7 +96,7 @@ pub async fn logout_handler(
     
     // Ejecutar caso de uso
     let count = state.container.logout_use_case
-        .execute(&auth_user.user.id, &auth_user.session_id, request)
+        .execute(auth_user.user.id, auth_user.session_id, request)
         .await?;
     
     // Limpiar cookie de sesión

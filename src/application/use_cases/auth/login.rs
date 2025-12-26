@@ -3,13 +3,9 @@
 //! Caso de uso para iniciar sesión con cookies de sesión.
 
 use std::sync::Arc;
-use uuid::Uuid;
 use tracing::{info, warn, debug, instrument};
 
-use crate::domain::{
-    entities::UserSession,
-    errors::ApplicationError,
-};
+use crate::domain::errors::ApplicationError;
 use crate::application::ports::{
     UserRepositoryPort,
     SessionRepositoryPort,
@@ -21,7 +17,7 @@ use crate::application::dtos::auth_dto::{LoginRequest, AuthUserInfo};
 /// Resultado del login (para cookies de sesión)
 pub struct LoginOutput {
     pub user_info: AuthUserInfo,
-    pub session_id: Uuid,
+    pub session_id: i32,
     pub session_token: String,
     pub expires_in_seconds: i64,
 }
@@ -110,7 +106,7 @@ impl LoginUseCase {
         // 4. Verificar límite de sesiones activas
         debug!("📊 Verificando sesiones activas...");
         let active_sessions_count = self.session_repository
-            .count_active_by_user_id(&user.id)
+            .count_active_by_user_id(user.id)
             .await?;
         
         debug!("Sesiones activas: {}/{}", active_sessions_count, self.max_sessions);
@@ -119,12 +115,12 @@ impl LoginUseCase {
             info!("⚠️ Límite de sesiones alcanzado, revocando sesión más antigua");
             // Revocar la sesión más antigua si se excede el límite
             let sessions = self.session_repository
-                .find_active_by_user_id(&user.id)
+                .find_active_by_user_id(user.id)
                 .await?;
             
             if let Some(oldest) = sessions.first() {
                 self.session_repository
-                    .revoke(&oldest.id, "Límite de sesiones excedido")
+                    .revoke(oldest.id, "Límite de sesiones excedido")
                     .await?;
             }
         }

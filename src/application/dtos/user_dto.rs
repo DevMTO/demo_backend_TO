@@ -4,7 +4,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use validator::Validate;
 
 use crate::domain::entities::User;
@@ -12,12 +11,12 @@ use crate::domain::entities::User;
 /// Información completa del usuario (para administradores)
 #[derive(Debug, Clone, Serialize)]
 pub struct UserDetailDto {
-    pub id: Uuid,
-    pub id_persona: Uuid,
+    pub id: i32,
+    pub id_persona: Option<i32>,
     pub username: String,
     pub email: String,
     pub role: String,
-    pub id_entidad: Option<Uuid>,
+    pub id_entidad: Option<i32>,
     pub nombre_entidad: Option<String>,
     pub status: String,
     pub created_at: DateTime<Utc>,
@@ -46,8 +45,8 @@ impl From<User> for UserDetailDto {
 /// Request para crear usuario
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct CreateUserRequest {
-    /// ID de la persona ya registrada en el sistema
-    pub id_persona: Uuid,
+    /// ID de la persona ya registrada en el sistema (opcional)
+    pub id_persona: Option<i32>,
     
     #[validate(length(min = 3, max = 50, message = "Username must be between 3 and 50 characters"))]
     pub username: String,
@@ -62,7 +61,7 @@ pub struct CreateUserRequest {
     pub role: String,
     
     /// ID de la entidad asociada (agencia, transporte, etc.)
-    pub id_entidad: Option<Uuid>,
+    pub id_entidad: Option<i32>,
     
     /// Nombre de la entidad asociada
     pub nombre_entidad: Option<String>,
@@ -78,7 +77,7 @@ pub struct UpdateUserRequest {
     
     pub status: Option<String>,
     
-    pub id_entidad: Option<Uuid>,
+    pub id_entidad: Option<i32>,
     
     pub nombre_entidad: Option<String>,
 }

@@ -3,7 +3,6 @@
 //! Caso de uso para cerrar sesión.
 
 use std::sync::Arc;
-use uuid::Uuid;
 
 use crate::domain::errors::ApplicationError;
 use crate::application::ports::SessionRepositoryPort;
@@ -22,8 +21,8 @@ impl LogoutUseCase {
     /// Ejecutar el caso de uso de logout
     pub async fn execute(
         &self,
-        user_id: &Uuid,
-        session_id: &Uuid,
+        user_id: i32,
+        session_id: i32,
         request: LogoutRequest,
     ) -> Result<u64, ApplicationError> {
         if request.all_sessions {

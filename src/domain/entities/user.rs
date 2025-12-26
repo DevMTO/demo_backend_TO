@@ -5,7 +5,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// Status del usuario
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -100,10 +99,10 @@ impl Default for UserRole {
 /// Campos: id, id_persona, username, email, password, role, id_entidad, nombre_entidad, status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
-    /// ID único del usuario (integer en DB, UUID internamente)
-    pub id: Uuid,
+    /// ID único del usuario (SERIAL en DB)
+    pub id: i32,
     /// ID de la persona asociada (FK a persona)
-    pub id_persona: Uuid,
+    pub id_persona: Option<i32>,
     /// Nombre de usuario único
     pub username: String,
     /// Email único
@@ -113,23 +112,27 @@ pub struct User {
     /// Rol del usuario en el sistema
     pub role: UserRole,
     /// ID de la entidad a la que pertenece (agencia, transporte, etc.)
-    pub id_entidad: Option<Uuid>,
+    pub id_entidad: Option<i32>,
     /// Nombre de la entidad (tipo: agencia, transporte, etc.)
     pub nombre_entidad: Option<String>,
     /// Status del usuario
     pub status: UserStatus,
+    /// Fecha del último login
+    pub last_login: Option<DateTime<Utc>>,
     /// Fecha de creación
     pub created_at: DateTime<Utc>,
     /// Fecha de última actualización
     pub updated_at: DateTime<Utc>,
-    /// Fecha del último login
-    pub last_login: Option<DateTime<Utc>>,
+    /// ID del usuario que creó este registro
+    pub created_by: Option<i32>,
+    /// ID del usuario que actualizó este registro
+    pub updated_by: Option<i32>,
 }
 
 impl User {
-    /// Crear un nuevo usuario con valores por defecto
+    /// Crear un nuevo usuario con valores por defecto (id será asignado por DB)
     pub fn new(
-        id_persona: Uuid,
+        id_persona: Option<i32>,
         username: String,
         email: String,
         password_hash: String,
@@ -137,7 +140,7 @@ impl User {
     ) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: 0, // Será asignado por la DB (SERIAL)
             id_persona,
             username,
             email,
@@ -146,20 +149,22 @@ impl User {
             id_entidad: None,
             nombre_entidad: None,
             status: UserStatus::PendienteVerificacion,
+            last_login: None,
             created_at: now,
             updated_at: now,
-            last_login: None,
+            created_by: None,
+            updated_by: None,
         }
     }
     
     /// Crear usuario con entidad asociada
     pub fn with_entidad(
-        id_persona: Uuid,
+        id_persona: Option<i32>,
         username: String,
         email: String,
         password_hash: String,
         role: UserRole,
-        id_entidad: Uuid,
+        id_entidad: i32,
         nombre_entidad: String,
     ) -> Self {
         let mut user = Self::new(id_persona, username, email, password_hash, role);
@@ -237,7 +242,7 @@ impl User {
     }
     
     /// Actualiza la entidad asociada
-    pub fn set_entidad(&mut self, id_entidad: Uuid, nombre_entidad: String) {
+    pub fn set_entidad(&mut self, id_entidad: i32, nombre_entidad: String) {
         self.id_entidad = Some(id_entidad);
         self.nombre_entidad = Some(nombre_entidad);
         self.updated_at = Utc::now();
@@ -254,12 +259,12 @@ impl User {
 /// Información del usuario para respuestas API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
-    pub id: Uuid,
-    pub id_persona: Uuid,
+    pub id: i32,
+    pub id_persona: Option<i32>,
     pub username: String,
     pub email: String,
     pub role: String,
-    pub id_entidad: Option<Uuid>,
+    pub id_entidad: Option<i32>,
     pub nombre_entidad: Option<String>,
     pub status: String,
 }

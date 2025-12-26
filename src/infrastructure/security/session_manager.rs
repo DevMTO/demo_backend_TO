@@ -9,7 +9,6 @@ use hmac::{Hmac, Mac};
 use rand::RngCore;
 use sha2::Sha256;
 use subtle::ConstantTimeEq;
-use uuid::Uuid;
 
 use crate::application::ports::{SessionManagerPort, SessionTokenData};
 use crate::config::AppConfig;
@@ -44,7 +43,7 @@ impl SecureSessionManager {
     }
 
     fn is_idle_timeout(&self, session: &UserSession) -> bool {
-        if let Some(last_activity) = session.last_activity_at {
+        if let Some(last_activity) = session.last_activity {
             let idle_threshold = Duration::minutes(self.idle_timeout_minutes);
             Utc::now() - last_activity > idle_threshold
         } else {
@@ -83,7 +82,7 @@ impl SessionManagerPort for SecureSessionManager {
 
     fn create_session(
         &self,
-        user_id: Uuid,
+        user_id: i32,
         user_agent: Option<String>,
         ip_address: Option<String>,
     ) -> Result<(UserSession, SessionTokenData), ApplicationError> {
@@ -91,21 +90,21 @@ impl SessionManagerPort for SecureSessionManager {
         let now = Utc::now();
 
         let session = UserSession {
-            id: Uuid::new_v4(),
+            id: 0, // Será asignado por la DB (SERIAL)
             user_id,
             token_hash: session_token.token_hash.clone(),
             refresh_token_hash: None,
-            created_at: now,
-            updated_at: now,
             expires_at: now + Duration::hours(self.session_expiration_hours),
             refresh_expires_at: None,
-            user_agent,
             ip_address,
-            device_fingerprint: None, // TODO: Implementar fingerprinting
+            user_agent,
+            device_fingerprint: None,
             is_active: true,
+            last_activity: Some(now),
             revoked_at: None,
             revoked_reason: None,
-            last_activity_at: Some(now),
+            created_at: now,
+            updated_at: now,
         };
 
         Ok((session, session_token))
@@ -125,7 +124,7 @@ impl SessionManagerPort for SecureSessionManager {
     }
 
     fn should_rotate_token(&self, session: &UserSession) -> bool {
-        if let Some(last_activity) = session.last_activity_at {
+        if let Some(last_activity) = session.last_activity {
             let rotation_threshold = Duration::minutes(self.rotation_interval_minutes);
             Utc::now() - last_activity > rotation_threshold
         } else {
@@ -137,12 +136,12 @@ impl SessionManagerPort for SecureSessionManager {
         let new_token = self.generate_token()?;
         session.token_hash = new_token.token_hash.clone();
         session.updated_at = Utc::now();
-        session.last_activity_at = Some(Utc::now());
+        session.last_activity = Some(Utc::now());
         Ok(new_token)
     }
 
     fn touch_session(&self, session: &mut UserSession) {
-        session.last_activity_at = Some(Utc::now());
+        session.last_activity = Some(Utc::now());
         session.updated_at = Utc::now();
     }
 }

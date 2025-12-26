@@ -2,7 +2,7 @@
 
 diesel::table! {
     agencias (id) {
-        id -> Uuid,
+        id -> Int4,
         #[max_length = 200]
         nombre -> Varchar,
         #[max_length = 11]
@@ -14,18 +14,20 @@ diesel::table! {
         direccion -> Nullable<Text>,
         paleta_colores -> Nullable<Jsonb>,
         media -> Nullable<Jsonb>,
-        encargado -> Nullable<Uuid>,
+        encargado -> Nullable<Int4>,
         is_active -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     conductores (id) {
-        id -> Uuid,
-        id_persona -> Uuid,
-        id_transporte -> Nullable<Uuid>,
+        id -> Int4,
+        id_persona -> Int4,
+        id_transporte -> Nullable<Int4>,
         #[max_length = 20]
         nro_brevete -> Varchar,
         tiene_soat -> Bool,
@@ -33,12 +35,14 @@ diesel::table! {
         status -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     entradas (id) {
-        id -> Uuid,
+        id -> Int4,
         #[max_length = 200]
         nombre -> Varchar,
         precio -> Numeric,
@@ -50,40 +54,99 @@ diesel::table! {
         is_active -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
+    file_entradas (id) {
+        id -> Int4,
+        id_file -> Int4,
+        id_entrada -> Int4,
+        cantidad -> Int4,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
+    file_guias (id) {
+        id -> Int4,
+        id_file -> Int4,
+        id_guia -> Int4,
+        #[max_length = 30]
+        rol -> Nullable<Varchar>,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
+    file_pasajeros (id) {
+        id -> Int4,
+        id_file -> Int4,
+        id_persona -> Int4,
+        #[max_length = 10]
+        asiento -> Nullable<Varchar>,
+        #[max_length = 30]
+        tipo_pasajero -> Nullable<Varchar>,
+        notas -> Nullable<Text>,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
+    file_restaurantes (id) {
+        id -> Int4,
+        id_file -> Int4,
+        id_restaurante -> Int4,
+        #[max_length = 30]
+        tipo_servicio -> Nullable<Varchar>,
+        dia -> Nullable<Int4>,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
+    file_vehiculos (id) {
+        id -> Int4,
+        id_file -> Int4,
+        id_vehiculo -> Int4,
+        id_conductor -> Nullable<Int4>,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     files (id) {
-        id -> Uuid,
-        #[max_length = 20]
-        file_code -> Varchar,
-        id_tour -> Uuid,
-        id_agencia -> Uuid,
-        guias -> Nullable<Jsonb>,
-        pasajeros -> Nullable<Jsonb>,
-        vehiculos -> Nullable<Jsonb>,
-        restaurante -> Nullable<Jsonb>,
-        entradas -> Nullable<Jsonb>,
-        fechas -> Nullable<Jsonb>,
+        id -> Int4,
+        id_tour -> Int4,
+        id_agencia -> Int4,
+        fecha_inicio -> Date,
+        fecha_fin -> Date,
         #[max_length = 200]
         lugar_recojo -> Nullable<Varchar>,
-        hora_recojo -> Nullable<Timestamptz>,
+        hora_recojo -> Nullable<Time>,
         notas -> Nullable<Text>,
         #[max_length = 30]
         status -> Varchar,
         monto_total -> Numeric,
         monto_pagado -> Numeric,
-        created_by -> Nullable<Uuid>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     guias (id) {
-        id -> Uuid,
-        id_persona -> Uuid,
+        id -> Int4,
+        id_persona -> Int4,
         #[max_length = 30]
         nro_carnet -> Varchar,
         idiomas -> Nullable<Jsonb>,
@@ -92,43 +155,15 @@ diesel::table! {
         status -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    login_attempts (id) {
-        id -> Uuid,
-        #[max_length = 255]
-        identifier -> Varchar,
-        #[max_length = 45]
-        ip_address -> Varchar,
-        user_agent -> Nullable<Text>,
-        success -> Bool,
-        failure_reason -> Nullable<Text>,
-        created_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    oauth_providers (id) {
-        id -> Int4,
-        user_id -> Uuid,
-        #[max_length = 50]
-        provider -> Varchar,
-        #[max_length = 255]
-        provider_user_id -> Varchar,
-        access_token -> Nullable<Text>,
-        refresh_token -> Nullable<Text>,
-        expires_at -> Nullable<Timestamptz>,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     pagos (id) {
-        id -> Uuid,
-        id_file -> Uuid,
+        id -> Int4,
+        id_file -> Int4,
         #[max_length = 30]
         tipo_movimiento -> Varchar,
         #[max_length = 200]
@@ -141,15 +176,16 @@ diesel::table! {
         evidencia -> Nullable<Jsonb>,
         fecha_pago -> Timestamptz,
         notas -> Nullable<Text>,
-        registrado_por -> Nullable<Uuid>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     personas (id) {
-        id -> Uuid,
+        id -> Int4,
         #[max_length = 30]
         tipo_documento -> Varchar,
         #[max_length = 20]
@@ -165,26 +201,14 @@ diesel::table! {
         fecha_nacimiento -> Nullable<Date>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    refresh_tokens (id) {
-        id -> Uuid,
-        user_id -> Uuid,
-        session_id -> Uuid,
-        #[max_length = 255]
-        token_hash -> Varchar,
-        expires_at -> Timestamptz,
-        created_at -> Timestamptz,
-        used_at -> Nullable<Timestamptz>,
-        is_revoked -> Bool,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     restaurantes (id) {
-        id -> Uuid,
+        id -> Int4,
         #[max_length = 200]
         nombre -> Varchar,
         direccion -> Text,
@@ -199,36 +223,39 @@ diesel::table! {
         is_active -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     tours (id) {
-        id -> Uuid,
-        id_agencia -> Uuid,
+        id -> Int4,
         #[max_length = 200]
         nombre -> Varchar,
         #[max_length = 200]
         lugar_inicio -> Varchar,
         #[max_length = 200]
         lugar_fin -> Varchar,
-        hora_inicio -> Nullable<Timestamptz>,
-        hora_fin -> Nullable<Timestamptz>,
+        hora_inicio -> Nullable<Time>,
+        hora_fin -> Nullable<Time>,
         detalles -> Nullable<Jsonb>,
         itinerario -> Nullable<Jsonb>,
-        precio -> Numeric,
+        precio_base -> Numeric,
         duracion_dias -> Nullable<Int4>,
         max_personas -> Nullable<Int4>,
         media -> Nullable<Jsonb>,
         is_active -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     transportes (id) {
-        id -> Uuid,
+        id -> Int4,
         #[max_length = 200]
         nombre -> Varchar,
         #[max_length = 11]
@@ -238,41 +265,44 @@ diesel::table! {
         #[max_length = 255]
         correo -> Nullable<Varchar>,
         direccion -> Nullable<Text>,
-        encargado -> Nullable<Uuid>,
+        encargado -> Nullable<Int4>,
         is_active -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     user_sessions (id) {
-        id -> Uuid,
-        user_id -> Uuid,
+        id -> Int4,
+        user_id -> Int4,
         #[max_length = 255]
         token_hash -> Varchar,
         #[max_length = 255]
         refresh_token_hash -> Nullable<Varchar>,
         expires_at -> Timestamptz,
         refresh_expires_at -> Nullable<Timestamptz>,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
         #[max_length = 45]
         ip_address -> Nullable<Varchar>,
         user_agent -> Nullable<Text>,
         #[max_length = 100]
         device_fingerprint -> Nullable<Varchar>,
         is_active -> Bool,
+        last_activity -> Nullable<Timestamptz>,
         revoked_at -> Nullable<Timestamptz>,
         #[max_length = 50]
         revoked_reason -> Nullable<Varchar>,
-        last_activity_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
 diesel::table! {
     users (id) {
-        id -> Uuid,
+        id -> Int4,
+        id_persona -> Nullable<Int4>,
         #[max_length = 50]
         username -> Varchar,
         #[max_length = 255]
@@ -280,22 +310,23 @@ diesel::table! {
         password_hash -> Text,
         #[max_length = 20]
         role -> Varchar,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-        last_login -> Nullable<Timestamptz>,
-        id_persona -> Nullable<Uuid>,
-        id_entidad -> Nullable<Uuid>,
+        id_entidad -> Nullable<Int4>,
         #[max_length = 200]
         nombre_entidad -> Nullable<Varchar>,
         #[max_length = 30]
         status -> Varchar,
+        last_login -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::table! {
     vehiculos (id) {
-        id -> Uuid,
-        id_transporte -> Uuid,
+        id -> Int4,
+        id_transporte -> Int4,
         #[max_length = 100]
         nombre -> Varchar,
         #[max_length = 100]
@@ -308,38 +339,51 @@ diesel::table! {
         media -> Nullable<Jsonb>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
 diesel::joinable!(agencias -> personas (encargado));
 diesel::joinable!(conductores -> personas (id_persona));
 diesel::joinable!(conductores -> transportes (id_transporte));
+diesel::joinable!(file_entradas -> entradas (id_entrada));
+diesel::joinable!(file_entradas -> files (id_file));
+diesel::joinable!(file_entradas -> users (created_by));
+diesel::joinable!(file_guias -> files (id_file));
+diesel::joinable!(file_guias -> guias (id_guia));
+diesel::joinable!(file_guias -> users (created_by));
+diesel::joinable!(file_pasajeros -> files (id_file));
+diesel::joinable!(file_pasajeros -> personas (id_persona));
+diesel::joinable!(file_pasajeros -> users (created_by));
+diesel::joinable!(file_restaurantes -> files (id_file));
+diesel::joinable!(file_restaurantes -> restaurantes (id_restaurante));
+diesel::joinable!(file_restaurantes -> users (created_by));
+diesel::joinable!(file_vehiculos -> conductores (id_conductor));
+diesel::joinable!(file_vehiculos -> files (id_file));
+diesel::joinable!(file_vehiculos -> users (created_by));
+diesel::joinable!(file_vehiculos -> vehiculos (id_vehiculo));
 diesel::joinable!(files -> agencias (id_agencia));
 diesel::joinable!(files -> tours (id_tour));
-diesel::joinable!(files -> users (created_by));
 diesel::joinable!(guias -> personas (id_persona));
-diesel::joinable!(oauth_providers -> users (user_id));
 diesel::joinable!(pagos -> files (id_file));
-diesel::joinable!(pagos -> users (registrado_por));
-diesel::joinable!(refresh_tokens -> user_sessions (session_id));
-diesel::joinable!(refresh_tokens -> users (user_id));
-diesel::joinable!(tours -> agencias (id_agencia));
 diesel::joinable!(transportes -> personas (encargado));
 diesel::joinable!(user_sessions -> users (user_id));
-diesel::joinable!(users -> personas (id_persona));
 diesel::joinable!(vehiculos -> transportes (id_transporte));
 
 diesel::allow_tables_to_appear_in_same_query!(
     agencias,
     conductores,
     entradas,
+    file_entradas,
+    file_guias,
+    file_pasajeros,
+    file_restaurantes,
+    file_vehiculos,
     files,
     guias,
-    login_attempts,
-    oauth_providers,
     pagos,
     personas,
-    refresh_tokens,
     restaurantes,
     tours,
     transportes,
