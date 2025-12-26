@@ -1,6 +1,6 @@
 //! # HTTP Routes
 //! 
-//! Definición de rutas de la API con cookies de sesión ultra-seguras.
+//! Definición de rutas de la API con cookies de sesión.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -19,38 +19,36 @@ use tower_cookies::CookieManagerLayer;
 
 use crate::config::AppConfig;
 use crate::infrastructure::container::DependencyContainer;
-use super::handlers::auth_handlers;
+use super::handlers::{
+    login_handler,
+    logout_handler,
+    verify_session_handler,
+    health_check,
+};
 
 /// Estado compartido de la aplicación
 #[derive(Clone)]
 pub struct AppState {
     pub container: Arc<DependencyContainer>,
-    pub config: AppConfig,
 }
 
 /// Crear el router principal de la aplicación
 pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) -> Router {
-    let state = AppState {
-        container,
-        config: config.clone(),
-    };
+    let state = AppState { container };
     
     // Configurar CORS
     let cors = create_cors_layer(config);
     
-    // Router de autenticación (solo sesiones, NO JWT)
+    // Router de autenticación
     let auth_routes = Router::new()
-        .route("/login", post(auth_handlers::login))
-        .route("/register", post(auth_handlers::register))
-        .route("/logout", post(auth_handlers::logout))
-        .route("/me", get(auth_handlers::get_current_user))
-        .route("/verify", get(auth_handlers::verify_session))
-        .route("/touch", post(auth_handlers::touch_session));
+        .route("/login", post(login_handler))
+        .route("/logout", post(logout_handler))
+        .route("/verify", get(verify_session_handler))
+        .route("/me", get(verify_session_handler)); // Alias para verificar sesión actual
     
     // Router de health check
     let health_routes = Router::new()
-        .route("/", get(health_check))
-        .route("/ready", get(readiness_check));
+        .route("/", get(health_check));
     
     // Router principal
     Router::new()
@@ -93,14 +91,4 @@ fn create_cors_layer(config: &AppConfig) -> CorsLayer {
         ])
         .allow_credentials(true)
         .max_age(Duration::from_secs(config.cors_max_age_secs))
-}
-
-/// Health check endpoint
-async fn health_check() -> &'static str {
-    "OK"
-}
-
-/// Readiness check endpoint
-async fn readiness_check() -> &'static str {
-    "READY"
 }

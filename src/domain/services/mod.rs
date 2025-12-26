@@ -1,7 +1,5 @@
 //! # Domain Services
 //! 
 //! Servicios de dominio (lógica que no pertenece a una entidad específica).
+//! Actualmente vacío - los servicios se agregarán según necesidad.
 
-pub mod session_policy;
-
-pub use session_policy::*;

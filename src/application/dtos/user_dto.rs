@@ -1,7 +1,6 @@
 //! # User DTOs
 //! 
-//! Data Transfer Objects para usuarios.
-
+//! Data Transfer Objects para usuarios según el diagrama de base de datos.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -14,13 +13,13 @@ use crate::domain::entities::User;
 #[derive(Debug, Clone, Serialize)]
 pub struct UserDetailDto {
     pub id: Uuid,
+    pub id_persona: Uuid,
     pub username: String,
     pub email: String,
-    pub display_name: Option<String>,
     pub role: String,
-    pub email_verified: bool,
-    pub is_active: bool,
-    pub mfa_enabled: bool,
+    pub id_entidad: Option<Uuid>,
+    pub nombre_entidad: Option<String>,
+    pub status: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_login: Option<DateTime<Utc>>,
@@ -30,13 +29,13 @@ impl From<User> for UserDetailDto {
     fn from(user: User) -> Self {
         Self {
             id: user.id,
+            id_persona: user.id_persona,
             username: user.username,
             email: user.email,
-            display_name: user.display_name,
             role: user.role.to_string(),
-            email_verified: user.email_verified,
-            is_active: user.is_active,
-            mfa_enabled: user.mfa_enabled,
+            id_entidad: user.id_entidad,
+            nombre_entidad: user.nombre_entidad,
+            status: user.status.to_string(),
             created_at: user.created_at,
             updated_at: user.updated_at,
             last_login: user.last_login,
@@ -47,6 +46,9 @@ impl From<User> for UserDetailDto {
 /// Request para crear usuario
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct CreateUserRequest {
+    /// ID de la persona ya registrada en el sistema
+    pub id_persona: Uuid,
+    
     #[validate(length(min = 3, max = 50, message = "Username must be between 3 and 50 characters"))]
     pub username: String,
     
@@ -56,23 +58,29 @@ pub struct CreateUserRequest {
     #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub password: String,
     
-    pub display_name: Option<String>,
-    
     #[validate(length(min = 1, message = "Role is required"))]
     pub role: String,
+    
+    /// ID de la entidad asociada (agencia, transporte, etc.)
+    pub id_entidad: Option<Uuid>,
+    
+    /// Nombre de la entidad asociada
+    pub nombre_entidad: Option<String>,
 }
 
 /// Request para actualizar usuario
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct UpdateUserRequest {
-    pub display_name: Option<String>,
-    
     #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
     
     pub role: Option<String>,
     
-    pub is_active: Option<bool>,
+    pub status: Option<String>,
+    
+    pub id_entidad: Option<Uuid>,
+    
+    pub nombre_entidad: Option<String>,
 }
 
 /// Lista paginada de usuarios

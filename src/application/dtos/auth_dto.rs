@@ -1,8 +1,7 @@
 //! # Auth DTOs
 //! 
-//! Data Transfer Objects para autenticación con cookies de sesión ultra-seguras.
+//! Data Transfer Objects para autenticación con cookies de sesión.
 //! NO usamos JWT - solo tokens de sesión opacos con HMAC.
-
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -17,17 +16,17 @@ pub struct LoginRequest {
     #[validate(length(min = 1, message = "Password is required"))]
     pub password: String,
     
-    /// Código MFA (opcional, requerido si MFA está habilitado)
-    pub mfa_code: Option<String>,
-    
     /// Recordar sesión (extender duración)
     #[serde(default)]
     pub remember_me: bool,
 }
 
-/// Request para registro
+/// Request para registro de usuario
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct RegisterRequest {
+    /// ID de la persona ya registrada en el sistema
+    pub id_persona: Uuid,
+    
     #[validate(length(min = 3, max = 50, message = "Username must be between 3 and 50 characters"))]
     pub username: String,
     
@@ -40,26 +39,20 @@ pub struct RegisterRequest {
     #[validate(must_match(other = "password", message = "Passwords do not match"))]
     pub password_confirm: String,
     
-    pub display_name: Option<String>,
+    /// Rol del usuario (opcional, default: Operador)
+    pub role: Option<String>,
     
-    /// Documento de identidad (opcional)
-    pub document: Option<DocumentInfo>,
-}
-
-/// Información de documento de identidad
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct DocumentInfo {
-    #[validate(length(min = 1, message = "Document type is required"))]
-    pub document_type: String,
+    /// ID de la entidad asociada (agencia, transporte, etc.)
+    pub id_entidad: Option<Uuid>,
     
-    #[validate(length(min = 1, message = "Document number is required"))]
-    pub document_number: String,
+    /// Nombre de la entidad asociada
+    pub nombre_entidad: Option<String>,
 }
 
 /// Response de autenticación exitosa (solo sesión, sin JWT)
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthResponse {
-    pub user: UserInfo,
+    pub user: AuthUserInfo,
     pub session_id: Uuid,
     pub expires_in: i64,
     /// Indica si la sesión fue extendida (remember_me)
@@ -67,7 +60,7 @@ pub struct AuthResponse {
 }
 
 impl AuthResponse {
-    pub fn new(user: UserInfo, session_id: Uuid, expires_in: i64, extended_session: bool) -> Self {
+    pub fn new(user: AuthUserInfo, session_id: Uuid, expires_in: i64, extended_session: bool) -> Self {
         Self {
             user,
             session_id,
@@ -77,16 +70,17 @@ impl AuthResponse {
     }
 }
 
-/// Información básica del usuario (sin datos sensibles)
+/// Información del usuario autenticado (sin datos sensibles)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserInfo {
+pub struct AuthUserInfo {
     pub id: Uuid,
+    pub id_persona: Uuid,
     pub username: String,
     pub email: String,
-    pub display_name: Option<String>,
     pub role: String,
-    pub email_verified: bool,
-    pub mfa_enabled: bool,
+    pub id_entidad: Option<Uuid>,
+    pub nombre_entidad: Option<String>,
+    pub status: String,
 }
 
 /// Request para cambio de contraseña

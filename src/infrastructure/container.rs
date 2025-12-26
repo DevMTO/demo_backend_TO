@@ -1,7 +1,6 @@
 //! # Dependency Container
 //! 
-//! Contenedor de inyección de dependencias con sesiones ultra-seguras.
-
+//! Contenedor de inyección de dependencias.
 
 use std::sync::Arc;
 
@@ -14,7 +13,6 @@ use crate::application::ports::{
 };
 use crate::application::use_cases::auth::{
     LoginUseCase,
-    RegisterUseCase,
     LogoutUseCase,
     VerifySessionUseCase,
 };
@@ -29,23 +27,25 @@ use crate::infrastructure::security::{
 };
 
 /// Contenedor de dependencias
+/// 
+/// Expone solo los componentes necesarios para la capa de presentación.
 pub struct DependencyContainer {
-    // Repositories
-    pub user_repository: Arc<dyn UserRepositoryPort>,
-    pub session_repository: Arc<dyn SessionRepositoryPort>,
-    
-    // Security
-    pub password_hasher: Arc<dyn PasswordHasherPort>,
-    pub session_manager: Arc<dyn SessionManagerPort>,
-    
-    // Use Cases
+    // Use Cases - Auth
     pub login_use_case: Arc<LoginUseCase>,
-    pub register_use_case: Arc<RegisterUseCase>,
     pub logout_use_case: Arc<LogoutUseCase>,
     pub verify_session_use_case: Arc<VerifySessionUseCase>,
     
+    // Session Manager para middleware
+    pub session_manager: Arc<dyn SessionManagerPort>,
+    
     // Config
-    pub config: AppConfig,
+    pub cookie_name: String,
+    pub cookie_secure: bool,
+    pub cookie_same_site: String,
+    pub cookie_domain: String,
+    pub cookie_path: String,
+    pub cookie_http_only: bool,
+    pub cookie_max_age_hours: i64,
 }
 
 impl DependencyContainer {
@@ -83,31 +83,28 @@ impl DependencyContainer {
             session_manager.clone(),
         ));
         
-        let register_use_case = Arc::new(RegisterUseCase::new(
-            user_repository.clone(),
-            password_hasher.clone(),
-        ));
-        
         let logout_use_case = Arc::new(LogoutUseCase::new(
             session_repository.clone(),
         ));
         
         let verify_session_use_case = Arc::new(VerifySessionUseCase::new(
-            user_repository.clone(),
-            session_repository.clone(),
+            user_repository,
+            session_repository,
             session_manager.clone(),
         ));
         
         Ok(Self {
-            user_repository,
-            session_repository,
-            password_hasher,
-            session_manager,
             login_use_case,
-            register_use_case,
             logout_use_case,
             verify_session_use_case,
-            config,
+            session_manager,
+            cookie_name: config.cookie_name,
+            cookie_secure: config.cookie_secure,
+            cookie_same_site: config.cookie_same_site,
+            cookie_domain: config.cookie_domain,
+            cookie_path: config.cookie_path,
+            cookie_http_only: config.cookie_http_only,
+            cookie_max_age_hours: config.cookie_max_age_hours,
         })
     }
 }

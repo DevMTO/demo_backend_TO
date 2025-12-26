@@ -1,9 +1,5 @@
 //! # Domain Value Objects
 //! 
 //! Objetos de valor inmutables del dominio.
-
-pub mod email;
-pub mod password;
-
-pub use email::*;
-pub use password::*;
+//! 
+//! Actualmente vacío. Los value objects se agregarán según necesidad.

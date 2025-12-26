@@ -10,6 +10,15 @@ pub mod ports;
 pub mod use_cases;
 pub mod dtos;
 
-pub use ports::*;
-pub use use_cases::*;
-pub use dtos::*;
+// Re-exports específicos
+pub use dtos::auth_dto::{
+    LoginRequest, RegisterRequest, AuthResponse, AuthUserInfo,
+    ChangePasswordRequest, LogoutRequest, SuccessResponse,
+};
+pub use dtos::user_dto::{
+    UserDetailDto, CreateUserRequest, UpdateUserRequest,
+    UserListResponse, PaginationParams,
+};
+pub use ports::password_hasher::PasswordHasherPort;
+pub use use_cases::auth::{LoginUseCase, LogoutUseCase, VerifySessionUseCase};
+

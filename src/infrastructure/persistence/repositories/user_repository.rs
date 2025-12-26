@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use uuid::Uuid;
+use tracing::{debug, warn, info, instrument};
 
 use crate::application::ports::UserRepositoryPort;
 use crate::domain::{entities::User, errors::ApplicationError};
@@ -28,7 +29,9 @@ impl PostgresUserRepository {
 
 #[async_trait]
 impl UserRepositoryPort for PostgresUserRepository {
+    #[instrument(skip(self, user))]
     async fn create(&self, user: &User) -> Result<User, ApplicationError> {
+        debug!("📝 Creando usuario: {}", user.username);
         let mut conn = self.pool.get_connection().await?;
         let new_user: NewUserModel = user.into();
         
@@ -36,12 +39,18 @@ impl UserRepositoryPort for PostgresUserRepository {
             .values(&new_user)
             .get_result::<UserModel>(&mut conn)
             .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+            .map_err(|e| {
+                warn!("❌ Error al crear usuario: {}", e);
+                ApplicationError::Repository(e.to_string())
+            })?;
         
+        info!("✅ Usuario creado: {} (id: {})", result.username, result.id);
         Ok(result.into())
     }
     
+    #[instrument(skip(self))]
     async fn find_by_id(&self, id: &Uuid) -> Result<Option<User>, ApplicationError> {
+        debug!("🔍 Buscando usuario por ID: {}", id);
         let mut conn = self.pool.get_connection().await?;
         
         let result = users::table
@@ -49,12 +58,22 @@ impl UserRepositoryPort for PostgresUserRepository {
             .first::<UserModel>(&mut conn)
             .await
             .optional()
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+            .map_err(|e| {
+                warn!("❌ Error al buscar usuario por ID: {}", e);
+                ApplicationError::Repository(e.to_string())
+            })?;
+        
+        match &result {
+            Some(user) => debug!("✅ Usuario encontrado: {}", user.username),
+            None => debug!("⚠️ Usuario no encontrado con ID: {}", id),
+        }
         
         Ok(result.map(Into::into))
     }
     
+    #[instrument(skip(self))]
     async fn find_by_email(&self, email: &str) -> Result<Option<User>, ApplicationError> {
+        debug!("🔍 Buscando usuario por email: {}", email);
         let mut conn = self.pool.get_connection().await?;
         
         let result = users::table
@@ -62,12 +81,22 @@ impl UserRepositoryPort for PostgresUserRepository {
             .first::<UserModel>(&mut conn)
             .await
             .optional()
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+            .map_err(|e| {
+                warn!("❌ Error al buscar usuario por email: {}", e);
+                ApplicationError::Repository(e.to_string())
+            })?;
+        
+        match &result {
+            Some(user) => debug!("✅ Usuario encontrado: {}", user.username),
+            None => debug!("⚠️ Usuario no encontrado con email: {}", email),
+        }
         
         Ok(result.map(Into::into))
     }
     
+    #[instrument(skip(self))]
     async fn find_by_username(&self, username: &str) -> Result<Option<User>, ApplicationError> {
+        debug!("🔍 Buscando usuario por username: {}", username);
         let mut conn = self.pool.get_connection().await?;
         
         let result = users::table
@@ -75,12 +104,22 @@ impl UserRepositoryPort for PostgresUserRepository {
             .first::<UserModel>(&mut conn)
             .await
             .optional()
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+            .map_err(|e| {
+                warn!("❌ Error al buscar usuario por username: {}", e);
+                ApplicationError::Repository(e.to_string())
+            })?;
+        
+        match &result {
+            Some(user) => debug!("✅ Usuario encontrado: {}", user.username),
+            None => debug!("⚠️ Usuario no encontrado con username: {}", username),
+        }
         
         Ok(result.map(Into::into))
     }
     
+    #[instrument(skip(self))]
     async fn find_by_email_or_username(&self, identifier: &str) -> Result<Option<User>, ApplicationError> {
+        debug!("🔍 Buscando usuario por email o username: {}", identifier);
         let mut conn = self.pool.get_connection().await?;
         let identifier_lower = identifier.to_lowercase();
         
@@ -92,7 +131,15 @@ impl UserRepositoryPort for PostgresUserRepository {
             .first::<UserModel>(&mut conn)
             .await
             .optional()
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+            .map_err(|e| {
+                warn!("❌ Error al buscar usuario por email/username: {}", e);
+                ApplicationError::Repository(e.to_string())
+            })?;
+        
+        match &result {
+            Some(user) => debug!("✅ Usuario encontrado: {} (id: {})", user.username, user.id),
+            None => debug!("⚠️ Usuario no encontrado con identifier: {}", identifier),
+        }
         
         Ok(result.map(Into::into))
     }
@@ -105,17 +152,12 @@ impl UserRepositoryPort for PostgresUserRepository {
                 users::username.eq(&user.username),
                 users::email.eq(&user.email),
                 users::password_hash.eq(&user.password_hash),
-                users::display_name.eq(&user.display_name),
                 users::role.eq(user.role.to_string()),
-                users::email_verified.eq(user.email_verified),
-                users::is_active.eq(user.is_active),
+                users::id_entidad.eq(&user.id_entidad),
+                users::nombre_entidad.eq(&user.nombre_entidad),
+                users::status.eq(user.status.to_string()),
                 users::updated_at.eq(user.updated_at),
                 users::last_login.eq(user.last_login),
-                users::updated_by.eq(&user.updated_by),
-                users::version.eq(user.version),
-                users::mfa_enabled.eq(user.mfa_enabled),
-                users::mfa_secret.eq(&user.mfa_secret),
-                users::mfa_backup_codes.eq(&user.mfa_backup_codes),
             ))
             .get_result::<UserModel>(&mut conn)
             .await
@@ -128,7 +170,7 @@ impl UserRepositoryPort for PostgresUserRepository {
         let mut conn = self.pool.get_connection().await?;
         
         diesel::update(users::table.filter(users::id.eq(id)))
-            .set(users::is_active.eq(false))
+            .set(users::status.eq("inactivo"))
             .execute(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
@@ -166,7 +208,7 @@ impl UserRepositoryPort for PostgresUserRepository {
         let mut conn = self.pool.get_connection().await?;
         
         let mut query = users::table
-            .filter(users::is_active.eq(true))
+            .filter(users::status.eq("activo"))
             .order(users::created_at.desc())
             .into_boxed();
         
@@ -190,7 +232,7 @@ impl UserRepositoryPort for PostgresUserRepository {
         let mut conn = self.pool.get_connection().await?;
         
         let count = users::table
-            .filter(users::is_active.eq(true))
+            .filter(users::status.eq("activo"))
             .count()
             .get_result(&mut conn)
             .await

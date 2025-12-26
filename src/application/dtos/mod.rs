@@ -1,15 +1,6 @@
 //! # Application DTOs
 //!
 //! Data Transfer Objects para la capa de aplicación.
-//!
-//! ## TypeScript Types (ts-rs)
-//!
-//! Los tipos TypeScript están organizados en módulos separados dentro de `ts/`.
-//! Para generar los tipos, ejecutar:
-//! ```bash
-//! cargo test export_ts_types -- --nocapture
-//! ```
-//! Los archivos se generan en `../../frontend/src/domain/contracts/`
 
 pub mod auth_dto;
 pub mod user_dto;
@@ -21,12 +12,16 @@ pub use auth_dto::{
     LogoutRequest,
     RegisterRequest,
     SuccessResponse,
-    UserInfo,
+    AuthUserInfo,
+    ChangePasswordRequest,
 };
 
-// Módulo ts/ contiene tipos para generación TypeScript (ts-rs)
-// NO lo re-exportamos aquí porque son tipos solo para exportar a frontend
-// Los tests de exportación están en ts/mod.rs
-// Ejecutar con: cargo test export_ts_types -- --nocapture
+pub use user_dto::{
+    UserDetailDto,
+    CreateUserRequest,
+    UpdateUserRequest,
+    UserListResponse,
+    PaginationParams,
+};
 pub mod ts;
 

@@ -2,12 +2,11 @@
 //! 
 //! Caso de uso para verificar sesiones activas usando tokens opacos.
 
-
 use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::domain::{
-    entities::{User, UserSession},
+    entities::User,
     errors::ApplicationError,
 };
 use crate::application::ports::{
@@ -15,16 +14,15 @@ use crate::application::ports::{
     SessionRepositoryPort,
     SessionManagerPort,
 };
-use crate::application::dtos::UserInfo;
+use crate::application::dtos::auth_dto::AuthUserInfo;
 
 /// Resultado de verificación de sesión
 pub struct SessionVerification {
     pub user: User,
-    pub user_info: UserInfo,
+    pub user_info: AuthUserInfo,
     pub session_id: Uuid,
-    /// Nuevo token si fue rotado (String plano para la cookie)
+    /// Nuevo token si fue rotado
     pub new_token: Option<String>,
-    pub session: UserSession,
 }
 
 /// Use case para verificar sesión con cookies seguras
@@ -68,7 +66,7 @@ impl VerifySessionUseCase {
             .ok_or_else(|| ApplicationError::NotFound("User not found".to_string()))?;
         
         // 5. Verificar que el usuario esté activo
-        if !user.is_active {
+        if !user.is_active() {
             return Err(ApplicationError::Authentication("User is inactive".to_string()));
         }
         
@@ -76,7 +74,7 @@ impl VerifySessionUseCase {
         let new_token = if self.session_manager.should_rotate_token(&session) {
             let token_data = self.session_manager.rotate_token(&mut session)?;
             self.session_repository.update(&session).await?;
-            Some(token_data.token) // Extraer solo el token plano para la cookie
+            Some(token_data.token)
         } else {
             // Solo actualizar última actividad
             self.session_manager.touch_session(&mut session);
@@ -85,14 +83,15 @@ impl VerifySessionUseCase {
         };
         
         // 7. Construir respuesta
-        let user_info = UserInfo {
+        let user_info = AuthUserInfo {
             id: user.id,
+            id_persona: user.id_persona,
             username: user.username.clone(),
             email: user.email.clone(),
-            display_name: user.display_name.clone(),
             role: user.role.to_string(),
-            email_verified: user.email_verified,
-            mfa_enabled: user.mfa_enabled,
+            id_entidad: user.id_entidad,
+            nombre_entidad: user.nombre_entidad.clone(),
+            status: user.status.to_string(),
         };
         
         Ok(SessionVerification {
@@ -100,7 +99,6 @@ impl VerifySessionUseCase {
             user_info,
             session_id: session.id,
             new_token,
-            session,
         })
     }
 }

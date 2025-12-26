@@ -4,4 +4,5 @@
 
 pub mod auth;
 
-pub use auth::*;
+pub use auth::{LoginUseCase, LogoutUseCase, VerifySessionUseCase};
+

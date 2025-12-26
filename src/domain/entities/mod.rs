@@ -1,12 +1,10 @@
 //! # Domain Entities
 //! 
-//! Entidades de dominio del sistema Tour Operator.
+//! Entidades de dominio del sistema Tour Operator según diagrama de base de datos.
 
 // Core Auth Entities
 pub mod user;
 pub mod session;
-pub mod document_type;
-pub mod user_document;
 
 // Tour Operator Business Entities
 pub mod persona;
@@ -22,19 +20,18 @@ pub mod file;
 pub mod pago;
 
 // Re-exports - Auth
-pub use user::*;
-pub use session::*;
-pub use document_type::*;
-pub use user_document::*;
+pub use user::{User, UserInfo, UserRole, UserStatus};
+pub use session::UserSession;
+
 // Re-exports - Tour Operator
-pub use persona::*;
-pub use agencia::*;
-pub use tour::*;
-pub use transporte::*;
-pub use vehiculo::*;
-pub use conductor::*;
-pub use guia::*;
-pub use restaurante::*;
-pub use entrada::*;
-pub use file::*;
-pub use pago::*;
+pub use persona::Persona;
+pub use agencia::Agencia;
+pub use tour::Tour;
+pub use transporte::Transporte;
+pub use vehiculo::Vehiculo;
+pub use conductor::Conductor;
+pub use guia::Guia;
+pub use restaurante::Restaurante;
+pub use entrada::Entrada;
+pub use file::File;
+pub use pago::Pago;

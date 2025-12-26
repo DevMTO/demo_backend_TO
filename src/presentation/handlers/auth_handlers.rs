@@ -1,7 +1,6 @@
 //! # Auth Handlers
 //! 
-//! Handlers para endpoints de autenticación con cookies de sesión ultra-seguras.
-//! NO usamos JWT - solo tokens de sesión opacos con HMAC y HttpOnly cookies.
+//! Handlers para endpoints de autenticación con cookies de sesión.
 
 use axum::{
     extract::State,
@@ -11,42 +10,68 @@ use axum::{
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use tower_cookies::Cookies;
+use tracing::{info, warn, error, debug, instrument};
 
-use crate::application::dtos::{
-    LoginRequest, RegisterRequest, LogoutRequest,
-    AuthResponse, SuccessResponse, UserInfo,
+use crate::application::dtos::auth_dto::{
+    LoginRequest, LogoutRequest, AuthResponse,
+    SuccessResponse, AuthUserInfo,
 };
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 
-/// Cookie name for session token (ultra-seguro, HttpOnly, SameSite=Strict)
-const SESSION_COOKIE_NAME: &str = "__Host-session";
-
 /// Login handler - crea sesión y establece cookie segura
-pub async fn login(
+#[instrument(skip(state, cookies, request), fields(identifier = %request.identifier))]
+pub async fn login_handler(
     State(state): State<AppState>,
     cookies: Cookies,
     Json(request): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    // Extraer IP y User-Agent del request (simplificado)
-    let ip_address = None; // TODO: extraer de headers X-Forwarded-For / X-Real-IP
-    let user_agent = None; // TODO: extraer de header User-Agent
+    info!("🔐 Intento de login para: {}", request.identifier);
+    
+    // Extraer IP y User-Agent del request
+    let ip_address = None;
+    let user_agent = None;
     
     // Ejecutar caso de uso
-    let output = state.container.login_use_case
+    debug!("Ejecutando LoginUseCase...");
+    let output = match state.container.login_use_case
         .execute(request.clone(), ip_address, user_agent)
-        .await?;
+        .await {
+            Ok(output) => {
+                info!("✅ Login exitoso para usuario: {} (id: {})", output.user_info.username, output.user_info.id);
+                output
+            },
+            Err(e) => {
+                warn!("❌ Login fallido para {}: {:?}", request.identifier, e);
+                return Err(e);
+            }
+        };
     
-    // Configurar cookie de sesión ultra-segura
+    // Configurar cookie de sesión
+    debug!("Configurando cookie de sesión...");
+    debug!("Cookie config - name: {}, path: {}, http_only: {}, secure: {}, same_site: {}", 
+        state.container.cookie_name,
+        state.container.cookie_path,
+        state.container.cookie_http_only,
+        state.container.cookie_secure,
+        state.container.cookie_same_site
+    );
+    
     let session_cookie = create_session_cookie(
         &output.session_token,
         output.expires_in_seconds,
-        &state.config,
+        &state.container,
     );
+    
+    info!("🍪 Cookie creada: name={}, max_age={}s", 
+        state.container.cookie_name, 
+        output.expires_in_seconds
+    );
+    
     cookies.add(session_cookie);
     
-    // Construir respuesta (el token NO se envía en el body, solo en cookie)
+    // Construir respuesta
     let auth_response = AuthResponse::new(
         output.user_info,
         output.session_id,
@@ -54,35 +79,30 @@ pub async fn login(
         request.remember_me,
     );
     
+    info!("🎉 Login completo, sesión creada: {}", output.session_id);
+    
     Ok((StatusCode::OK, Json(auth_response)))
 }
 
-/// Register handler - crea usuario sin iniciar sesión
-pub async fn register(
-    State(state): State<AppState>,
-    Json(request): Json<RegisterRequest>,
-) -> Result<impl IntoResponse, ApplicationError> {
-    let output = state.container.register_use_case
-        .execute(request)
-        .await?;
-    
-    Ok((StatusCode::CREATED, Json(output.user_info)))
-}
-
 /// Logout handler - invalida sesión y limpia cookies
-pub async fn logout(
+#[instrument(skip(state, cookies, auth_user, request))]
+pub async fn logout_handler(
     State(state): State<AppState>,
     cookies: Cookies,
     auth_user: AuthUser,
     Json(request): Json<LogoutRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
+    info!("🚪 Logout para usuario: {} (sesión: {})", auth_user.user.username, auth_user.session_id);
+    
     // Ejecutar caso de uso
     let count = state.container.logout_use_case
         .execute(&auth_user.user.id, &auth_user.session_id, request)
         .await?;
     
     // Limpiar cookie de sesión
-    remove_session_cookie(&cookies, &state.config);
+    remove_session_cookie(&cookies, &state.container);
+    
+    info!("✅ Logout completado: {} sesión(es) cerrada(s)", count);
     
     Ok((
         StatusCode::OK,
@@ -90,113 +110,83 @@ pub async fn logout(
     ))
 }
 
-/// Get current user handler - devuelve información del usuario autenticado
-pub async fn get_current_user(
-    auth_user: AuthUser,
-) -> Result<impl IntoResponse, ApplicationError> {
-    let user_info = UserInfo {
-        id: auth_user.user.id,
-        username: auth_user.user.username.clone(),
-        email: auth_user.user.email.clone(),
-        display_name: auth_user.user.display_name.clone(),
-        role: auth_user.user.role.to_string(),
-        email_verified: auth_user.user.email_verified,
-        mfa_enabled: auth_user.user.mfa_enabled,
-    };
-    
-    Ok((StatusCode::OK, Json(user_info)))
-}
-
 /// Verify session handler - verifica que la sesión sea válida
-pub async fn verify_session(
+#[instrument(skip(state, cookies, auth_user))]
+pub async fn verify_session_handler(
     State(state): State<AppState>,
     cookies: Cookies,
     auth_user: AuthUser,
 ) -> Result<impl IntoResponse, ApplicationError> {
+    info!("🔍 Verificando sesión para usuario: {}", auth_user.user.username);
+    
     // Si la sesión fue rotada, actualizar la cookie
     if let Some(new_token) = auth_user.rotated_token.as_ref() {
+        debug!("Token rotado, actualizando cookie...");
         let session_cookie = create_session_cookie(
             new_token,
-            state.config.session_expiration_hours * 3600,
-            &state.config,
+            state.container.cookie_max_age_hours * 3600,
+            &state.container,
         );
         cookies.add(session_cookie);
     }
     
-    Ok((
-        StatusCode::OK,
-        Json(serde_json::json!({
-            "valid": true,
-            "user_id": auth_user.user.id,
-            "session_id": auth_user.session_id,
-            "token_rotated": auth_user.rotated_token.is_some(),
-        })),
-    ))
+    let user_info = AuthUserInfo {
+        id: auth_user.user.id,
+        id_persona: auth_user.user.id_persona,
+        username: auth_user.user.username.clone(),
+        email: auth_user.user.email.clone(),
+        role: auth_user.user.role.to_string(),
+        id_entidad: auth_user.user.id_entidad,
+        nombre_entidad: auth_user.user.nombre_entidad.clone(),
+        status: auth_user.user.status.to_string(),
+    };
+    
+    info!("✅ Sesión válida para: {}", auth_user.user.username);
+    
+    Ok((StatusCode::OK, Json(user_info)))
 }
 
-/// Touch session handler - actualiza actividad sin verificar completamente
-pub async fn touch_session(
-    auth_user: AuthUser,
-) -> Result<impl IntoResponse, ApplicationError> {
-    Ok((
-        StatusCode::OK,
-        Json(serde_json::json!({
-            "success": true,
-            "session_id": auth_user.session_id,
-        })),
-    ))
+/// Health check endpoint
+pub async fn health_check() -> &'static str {
+    "OK"
 }
 
-/// Helper para crear cookies de sesión ultra-seguras
-fn create_session_cookie<'a>(
+/// Helper para crear cookies de sesión
+fn create_session_cookie(
     token: &str,
     max_age_secs: i64,
-    config: &crate::config::AppConfig,
+    container: &crate::infrastructure::container::DependencyContainer,
 ) -> Cookie<'static> {
-    // SameSite siempre Strict para máxima seguridad contra CSRF
-    let same_site = match config.cookie_same_site.to_lowercase().as_str() {
-        "lax" => SameSite::Lax, // Solo para desarrollo
-        "none" => SameSite::None, // PELIGROSO - solo para casos específicos con HTTPS
-        _ => SameSite::Strict, // DEFAULT: máxima seguridad
-    };
-    
-    // Usamos __Host- prefix para máxima seguridad:
-    // - Requiere HTTPS (Secure)
-    // - No puede tener Domain attribute
-    // - Path debe ser "/"
-    let cookie_name = if config.cookie_secure {
-        SESSION_COOKIE_NAME // __Host-session
-    } else {
-        "session" // Para desarrollo sin HTTPS
-    };
-    
-    Cookie::build((cookie_name.to_string(), token.to_string()))
-        .path("/")
-        .http_only(true) // NO accesible desde JavaScript - previene XSS
-        .secure(config.cookie_secure) // HTTPS only en producción
-        .same_site(same_site) // Previene CSRF
-        .max_age(time::Duration::seconds(max_age_secs))
-        .build()
-}
-
-/// Helper para eliminar cookie de sesión
-fn remove_session_cookie(cookies: &Cookies, config: &crate::config::AppConfig) {
-    let same_site = match config.cookie_same_site.to_lowercase().as_str() {
+    let same_site = match container.cookie_same_site.to_lowercase().as_str() {
         "lax" => SameSite::Lax,
         "none" => SameSite::None,
         _ => SameSite::Strict,
     };
     
-    let cookie_name = if config.cookie_secure {
-        SESSION_COOKIE_NAME
-    } else {
-        "session"
+    Cookie::build((container.cookie_name.clone(), token.to_string()))
+        .path(container.cookie_path.clone())
+        .http_only(container.cookie_http_only)
+        .secure(container.cookie_secure)
+        .same_site(same_site)
+        .max_age(time::Duration::seconds(max_age_secs))
+        .build()
+}
+
+/// Helper para eliminar cookie de sesión
+fn remove_session_cookie(
+    cookies: &Cookies,
+    container: &crate::infrastructure::container::DependencyContainer,
+) {
+    let same_site = match container.cookie_same_site.to_lowercase().as_str() {
+        "lax" => SameSite::Lax,
+        "none" => SameSite::None,
+        _ => SameSite::Strict,
     };
     
-    let removal_cookie = Cookie::build((cookie_name.to_string(), "".to_string()))
-        .path("/")
-        .http_only(true)
-        .secure(config.cookie_secure)
+    let removal_cookie = Cookie::build((container.cookie_name.clone(), "".to_string()))
+        .path(container.cookie_path.clone())
+        .http_only(container.cookie_http_only)
+        .secure(container.cookie_secure)
         .same_site(same_site)
         .max_age(time::Duration::ZERO)
         .build();

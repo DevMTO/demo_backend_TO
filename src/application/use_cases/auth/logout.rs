@@ -2,13 +2,12 @@
 //! 
 //! Caso de uso para cerrar sesión.
 
-
 use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::domain::errors::ApplicationError;
 use crate::application::ports::SessionRepositoryPort;
-use crate::application::dtos::LogoutRequest;
+use crate::application::dtos::auth_dto::LogoutRequest;
 
 /// Use case para logout
 pub struct LogoutUseCase {
@@ -40,12 +39,5 @@ impl LogoutUseCase {
                 .await?;
             Ok(1)
         }
-    }
-    
-    /// Logout simple (solo sesión actual)
-    pub async fn execute_simple(&self, session_id: &Uuid) -> Result<(), ApplicationError> {
-        self.session_repository
-            .revoke(session_id, "Logout")
-            .await
     }
 }

@@ -4,4 +4,5 @@
 
 pub mod auth_middleware;
 
-pub use auth_middleware::*;
+// El middleware se usa directamente en routes.rs
+

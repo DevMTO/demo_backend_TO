@@ -12,11 +12,11 @@ use crate::application::ports::{
     UserRepositoryPort,
     PasswordHasherPort,
 };
-use crate::application::dtos::{RegisterRequest, UserInfo};
+use crate::application::dtos::{RegisterRequest, UserDetailDto};
 
 /// Resultado del registro
 pub struct RegisterOutput {
-    pub user_info: UserInfo,
+    pub user: UserDetailDto,
 }
 
 /// Use case para registro
@@ -62,37 +62,28 @@ impl RegisterUseCase {
         // 4. Hashear la contraseña
         let password_hash = self.password_hasher.hash(&request.password)?;
         
-        // 5. Crear el usuario
-        let mut user = User::new(
+        // 5. Parsear el rol (por defecto Operador)
+        let role = request.role
+            .as_deref()
+            .unwrap_or("operador")
+            .parse::<UserRole>()
+            .unwrap_or_default();
+        
+        // 6. Crear el usuario
+        let user = User::new(
+            request.id_persona,
             request.username.clone(),
             request.email.clone(),
             password_hash,
-            UserRole::User, // Por defecto, rol de usuario normal
+            role,
         );
         
-        if let Some(display_name) = request.display_name {
-            user.display_name = Some(display_name);
-        }
-        
-        // 6. Persistir el usuario
+        // 7. Persistir el usuario
         let created_user = self.user_repository.create(&user).await?;
         
-        // 7. TODO: Si se proporcionó documento, crear el registro
-        // if let Some(document) = request.document {
-        //     // Crear user_document
-        // }
-        
         // 8. Construir respuesta
-        let user_info = UserInfo {
-            id: created_user.id,
-            username: created_user.username,
-            email: created_user.email,
-            display_name: created_user.display_name,
-            role: created_user.role.to_string(),
-            email_verified: created_user.email_verified,
-            mfa_enabled: created_user.mfa_enabled,
-        };
-        
-        Ok(RegisterOutput { user_info })
+        Ok(RegisterOutput { 
+            user: UserDetailDto::from(created_user) 
+        })
     }
 }
