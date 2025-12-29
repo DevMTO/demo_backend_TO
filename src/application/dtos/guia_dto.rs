@@ -1,16 +1,21 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::{Guia, StatusGuia};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct GuiaResponse {
     pub id: i32,
     pub id_persona: i32,
     pub nro_carnet: String,
+    #[ts(type = "object | null")]
     pub idiomas: Option<JsonValue>,
+    #[ts(type = "object | null")]
     pub especialidades: Option<JsonValue>,
     pub status: String,
     pub created_at: DateTime<Utc>,
@@ -32,7 +37,9 @@ impl From<Guia> for GuiaResponse {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateGuiaRequest {
     pub id_persona: i32,
     
@@ -64,7 +71,9 @@ impl CreateGuiaRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateGuiaRequest {
     pub id_persona: Option<i32>,
     

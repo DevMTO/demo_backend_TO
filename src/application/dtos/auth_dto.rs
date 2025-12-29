@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use validator::Validate;
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct LoginRequest {
     #[validate(length(min = 1, message = "Identifier is required"))]
     pub identifier: String,
@@ -9,15 +12,15 @@ pub struct LoginRequest {
     #[validate(length(min = 1, message = "Password is required"))]
     pub password: String,
     
-    /// Recordar sesión (extender duración)
     #[serde(default)]
     pub remember_me: bool,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct RegisterRequest {
-    /// ID de la persona ya registrada en el sistema (opcional)
     pub id_persona: Option<i32>,
     
     #[validate(length(min = 3, max = 50, message = "Username must be between 3 and 50 characters"))]
@@ -32,22 +35,20 @@ pub struct RegisterRequest {
     #[validate(must_match(other = "password", message = "Passwords do not match"))]
     pub password_confirm: String,
     
-    /// Rol del usuario (opcional, default: Operador)
     pub role: Option<String>,
     
-    /// ID de la entidad asociada (agencia, transporte, etc.)
     pub id_entidad: Option<i32>,
     
-    /// Nombre de la entidad asociada
     pub nombre_entidad: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct AuthResponse {
     pub user: AuthUserInfo,
     pub session_id: i32,
     pub expires_in: i64,
-    /// Indica si la sesión fue extendida (remember_me)
     pub extended_session: bool,
 }
 
@@ -62,7 +63,9 @@ impl AuthResponse {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct AuthUserInfo {
     pub id: i32,
     pub id_persona: Option<i32>,
@@ -74,7 +77,9 @@ pub struct AuthUserInfo {
     pub status: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct ChangePasswordRequest {
     #[validate(length(min = 1, message = "Current password is required"))]
     pub current_password: String,
@@ -86,14 +91,17 @@ pub struct ChangePasswordRequest {
     pub new_password_confirm: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct LogoutRequest {
-    /// Cerrar todas las sesiones
     #[serde(default)]
     pub all_sessions: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct SuccessResponse {
     pub success: bool,
     pub message: String,

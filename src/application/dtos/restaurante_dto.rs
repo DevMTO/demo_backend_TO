@@ -2,20 +2,25 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use bigdecimal::BigDecimal;
+use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::Restaurante;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct RestauranteResponse {
     pub id: i32,
     pub nombre: String,
     pub direccion: String,
     pub telefono: Option<String>,
     pub correo: Option<String>,
+    #[ts(type = "object | null")]
     pub tipo_atencion: Option<JsonValue>,
     pub precio_promedio: Option<BigDecimal>,
     pub capacidad: Option<i32>,
+    #[ts(type = "object | null")]
     pub horario: Option<JsonValue>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
@@ -41,7 +46,9 @@ impl From<Restaurante> for RestauranteResponse {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateRestauranteRequest {
     #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
     pub nombre: String,
@@ -65,6 +72,7 @@ pub struct CreateRestauranteRequest {
     pub capacidad: Option<i32>,
     
     /// {"lunes": "8:00-22:00", "martes": "8:00-22:00", ...}
+    #[ts(type = "object | null")]
     pub horario: Option<JsonValue>,
 }
 
@@ -90,7 +98,9 @@ impl CreateRestauranteRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateRestauranteRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
@@ -112,6 +122,7 @@ pub struct UpdateRestauranteRequest {
     #[validate(range(min = 1))]
     pub capacidad: Option<i32>,
     
+    #[ts(type = "object | null")]
     pub horario: Option<JsonValue>,
     
     pub is_active: Option<bool>,

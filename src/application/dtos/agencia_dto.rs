@@ -1,11 +1,14 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::Agencia;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct AgenciaResponse {
     pub id: i32,
     pub nombre: String,
@@ -13,7 +16,9 @@ pub struct AgenciaResponse {
     pub telefono: Option<String>,
     pub correo: Option<String>,
     pub direccion: Option<String>,
+    #[ts(type = "object | null")]
     pub paleta_colores: Option<JsonValue>,
+    #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
     pub encargado: Option<i32>,
     pub is_active: bool,
@@ -40,7 +45,9 @@ impl From<Agencia> for AgenciaResponse {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct AgenciaListItemDto {
     pub id: i32,
     pub nombre: String,
@@ -48,7 +55,9 @@ pub struct AgenciaListItemDto {
     pub telefono: Option<String>,
     pub correo: Option<String>,
     pub direccion: Option<String>,
+    #[ts(type = "object | null")]
     pub paleta_colores: Option<JsonValue>,
+    #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
     pub encargado: Option<i32>,
     pub encargado_nombre: Option<String>,
@@ -57,7 +66,9 @@ pub struct AgenciaListItemDto {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateAgenciaRequest {
     #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
     pub nombre: String,
@@ -73,8 +84,10 @@ pub struct CreateAgenciaRequest {
     
     pub direccion: Option<String>,
     
+    #[ts(type = "object | null")]
     pub paleta_colores: Option<JsonValue>,
     
+    #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
     
     pub encargado: Option<i32>,
@@ -102,7 +115,9 @@ impl CreateAgenciaRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateAgenciaRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
@@ -118,8 +133,10 @@ pub struct UpdateAgenciaRequest {
     
     pub direccion: Option<String>,
     
+    #[ts(type = "object | null | undefined")]
     pub paleta_colores: Option<JsonValue>,
     
+    #[ts(type = "object | null | undefined")]
     pub media: Option<JsonValue>,
     
     pub encargado: Option<i32>,
@@ -162,7 +179,9 @@ impl UpdateAgenciaRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct AgenciaListResponse {
     pub items: Vec<AgenciaResponse>,
     pub total: i64,

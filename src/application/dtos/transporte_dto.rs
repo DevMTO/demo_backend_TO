@@ -1,10 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::Transporte;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct TransporteResponse {
     pub id: i32,
     pub nombre: String,
@@ -35,7 +38,9 @@ impl From<Transporte> for TransporteResponse {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateTransporteRequest {
     #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
     pub nombre: String,
@@ -74,7 +79,9 @@ impl CreateTransporteRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateTransporteRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
@@ -124,7 +131,9 @@ impl UpdateTransporteRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct TransporteListResponse {
     pub items: Vec<TransporteResponse>,
     pub total: i64,

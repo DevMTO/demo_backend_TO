@@ -2,11 +2,14 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use bigdecimal::BigDecimal;
+use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::{Pago, TipoMovimiento};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct PagoResponse {
     pub id: i32,
     pub id_file: i32,
@@ -15,6 +18,7 @@ pub struct PagoResponse {
     pub monto: BigDecimal,
     pub metodo_pago: Option<String>,
     pub referencia: Option<String>,
+    #[ts(type = "object | null")]
     pub evidencia: Option<JsonValue>,
     pub fecha_pago: DateTime<Utc>,
     pub notas: Option<String>,
@@ -41,7 +45,9 @@ impl From<Pago> for PagoResponse {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreatePagoRequest {
     pub id_file: i32,
     
@@ -61,6 +67,7 @@ pub struct CreatePagoRequest {
     pub referencia: Option<String>,
     
     /// Evidencia del pago (comprobante, etc.)
+    #[ts(type = "object | null")]
     pub evidencia: Option<JsonValue>,
     
     pub fecha_pago: Option<DateTime<Utc>>,
@@ -92,7 +99,9 @@ impl CreatePagoRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdatePagoRequest {
     #[validate(length(min = 2, max = 30))]
     pub tipo_movimiento: Option<String>,
@@ -109,6 +118,7 @@ pub struct UpdatePagoRequest {
     #[validate(length(max = 100))]
     pub referencia: Option<String>,
     
+    #[ts(type = "object | null")]
     pub evidencia: Option<JsonValue>,
     
     pub fecha_pago: Option<DateTime<Utc>>,

@@ -1,11 +1,14 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::{Vehiculo, StatusVehiculo};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct VehiculoResponse {
     pub id: i32,
     pub id_transporte: i32,
@@ -14,6 +17,7 @@ pub struct VehiculoResponse {
     pub placa: String,
     pub capacidad: i32,
     pub status: String,
+    #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -36,7 +40,9 @@ impl From<Vehiculo> for VehiculoResponse {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateVehiculoRequest {
     pub id_transporte: i32,
     
@@ -73,7 +79,9 @@ impl CreateVehiculoRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateVehiculoRequest {
     pub id_transporte: Option<i32>,
     
@@ -92,6 +100,7 @@ pub struct UpdateVehiculoRequest {
     #[validate(length(max = 20))]
     pub status: Option<String>,
     
+    #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
 }
 
@@ -127,7 +136,9 @@ impl UpdateVehiculoRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct VehiculoListResponse {
     pub items: Vec<VehiculoResponse>,
     pub total: i64,

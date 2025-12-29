@@ -1,7 +1,6 @@
 // Auth DTOs
 pub mod auth_dto;
 pub mod user_dto;
-pub mod ts;
 
 // Business Entity DTOs
 pub mod persona_dto;

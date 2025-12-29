@@ -1,10 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::User;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UserDetailDto {
     pub id: i32,
     pub id_persona: Option<i32>,
@@ -38,7 +41,9 @@ impl From<User> for UserDetailDto {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateUserRequest {
     /// ID de la persona ya registrada en el sistema (opcional)
     pub id_persona: Option<i32>,
@@ -63,7 +68,9 @@ pub struct CreateUserRequest {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateUserRequest {
     #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
@@ -77,7 +84,9 @@ pub struct UpdateUserRequest {
     pub nombre_entidad: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UserListItemDto {
     pub id: i32,
     pub nombre_completo: Option<String>,
@@ -91,7 +100,9 @@ pub struct UserListItemDto {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UserListResponse {
     pub users: Vec<UserDetailDto>,
     pub total: i64,

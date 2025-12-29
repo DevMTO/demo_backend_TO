@@ -1,11 +1,14 @@
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use bigdecimal::BigDecimal;
+use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::File;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct FileResponse {
     pub id: i32,
     pub id_tour: i32,
@@ -45,7 +48,9 @@ impl From<File> for FileResponse {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateFileRequest {
     pub id_tour: i32,
     
@@ -89,7 +94,9 @@ impl CreateFileRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateFileRequest {
     pub id_tour: Option<i32>,
     

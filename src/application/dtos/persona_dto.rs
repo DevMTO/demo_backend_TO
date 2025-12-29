@@ -1,10 +1,13 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::{Persona, TipoDocumento};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct PersonaResponse {
     pub id: i32,
     pub tipo_documento: String,
@@ -22,7 +25,7 @@ impl From<Persona> for PersonaResponse {
     fn from(p: Persona) -> Self {
         Self {
             id: p.id,
-            tipo_documento: p.tipo_documento.to_string(), // Enum → String
+            tipo_documento: p.tipo_documento.to_string(),
             nro_documento: p.nro_documento,
             nombre: p.nombre,
             apellidos: p.apellidos,
@@ -35,7 +38,9 @@ impl From<Persona> for PersonaResponse {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreatePersonaRequest {
     #[validate(length(min = 2, max = 30, message = "Tipo documento inválido"))]
     pub tipo_documento: String,
@@ -61,7 +66,6 @@ pub struct CreatePersonaRequest {
 impl CreatePersonaRequest {
     pub fn into_entity(self, created_by: Option<i32>) -> Persona {
         let now = Utc::now();
-        // Parse tipo_documento String to enum, default to Dni if invalid
         let tipo = self.tipo_documento.parse::<TipoDocumento>()
             .unwrap_or(TipoDocumento::Dni);
         Persona {
@@ -81,7 +85,9 @@ impl CreatePersonaRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdatePersonaRequest {
     #[validate(length(min = 2, max = 30))]
     pub tipo_documento: Option<String>,
@@ -107,7 +113,6 @@ pub struct UpdatePersonaRequest {
 impl UpdatePersonaRequest {
     pub fn apply_to(self, mut persona: Persona, updated_by: Option<i32>) -> Persona {
         if let Some(tipo) = self.tipo_documento {
-            // Parse String to enum, keep old value if invalid
             if let Ok(tipo_enum) = tipo.parse::<TipoDocumento>() {
                 persona.tipo_documento = tipo_enum;
             }
@@ -136,7 +141,9 @@ impl UpdatePersonaRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct PersonaListResponse {
     pub items: Vec<PersonaResponse>,
     pub total: i64,

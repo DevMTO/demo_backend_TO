@@ -2,11 +2,14 @@ use chrono::{DateTime, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use bigdecimal::BigDecimal;
+use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::Tour;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct TourResponse {
     pub id: i32,
     pub nombre: String,
@@ -14,11 +17,14 @@ pub struct TourResponse {
     pub lugar_fin: String,
     pub hora_inicio: Option<NaiveTime>,
     pub hora_fin: Option<NaiveTime>,
+    #[ts(type = "object | null")]
     pub detalles: Option<JsonValue>,
+    #[ts(type = "object | null")]
     pub itinerario: Option<JsonValue>,
     pub precio_base: BigDecimal,
     pub duracion_dias: Option<i32>,
     pub max_personas: Option<i32>,
+    #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
@@ -47,7 +53,9 @@ impl From<Tour> for TourResponse {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateTourRequest {
     #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
     pub nombre: String,
@@ -62,8 +70,10 @@ pub struct CreateTourRequest {
     
     pub hora_fin: Option<NaiveTime>,
     
+    #[ts(type = "object | null")]
     pub detalles: Option<JsonValue>,
     
+    #[ts(type = "object | null")]
     pub itinerario: Option<JsonValue>,
     
     #[validate(range(min = 0.0, message = "Precio debe ser positivo"))]
@@ -75,6 +85,7 @@ pub struct CreateTourRequest {
     #[validate(range(min = 1, message = "Máximo personas mínimo 1"))]
     pub max_personas: Option<i32>,
     
+    #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
 }
 
@@ -103,7 +114,9 @@ impl CreateTourRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateTourRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
@@ -118,8 +131,10 @@ pub struct UpdateTourRequest {
     
     pub hora_fin: Option<NaiveTime>,
     
+    #[ts(type = "object | null")]
     pub detalles: Option<JsonValue>,
     
+    #[ts(type = "object | null")]
     pub itinerario: Option<JsonValue>,
     
     #[validate(range(min = 0.0))]
@@ -131,6 +146,7 @@ pub struct UpdateTourRequest {
     #[validate(range(min = 1))]
     pub max_personas: Option<i32>,
     
+    #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
     
     pub is_active: Option<bool>,
@@ -180,7 +196,9 @@ impl UpdateTourRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct TourListResponse {
     pub items: Vec<TourResponse>,
     pub total: i64,
