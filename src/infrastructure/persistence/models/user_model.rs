@@ -1,8 +1,3 @@
-//! # User Database Model
-//! 
-//! Modelo de Diesel para la tabla users según el diagrama.
-//! IMPORTANTE: El orden de los campos DEBE coincidir con schema.rs
-
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -10,10 +5,6 @@ use serde::{Deserialize, Serialize};
 use crate::domain::entities::{User, UserRole, UserStatus};
 use crate::infrastructure::persistence::schema::users;
 
-/// Modelo queryable para usuarios
-/// Orden de campos según schema.rs:
-/// id, id_persona, username, email, password_hash, role, id_entidad, 
-/// nombre_entidad, status, last_login, created_at, updated_at, created_by, updated_by
 #[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
 #[diesel(table_name = users)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -34,7 +25,6 @@ pub struct UserModel {
     pub updated_by: Option<i32>,
 }
 
-/// Modelo insertable para usuarios (sin id, es SERIAL)
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = users)]
 pub struct NewUserModel<'a> {
@@ -51,7 +41,6 @@ pub struct NewUserModel<'a> {
     pub updated_by: Option<i32>,
 }
 
-/// Modelo actualizable para usuarios
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = users)]
 pub struct UpdateUserModel<'a> {
@@ -99,9 +88,11 @@ impl<'a> From<&'a User> for NewUserModel<'a> {
             role: match &user.role {
                 UserRole::SuperAdmin => "superadmin",
                 UserRole::Admin => "admin",
-                UserRole::SubAdmin => "subadmin",
-                UserRole::Operador => "operador",
-                UserRole::Viewer => "viewer",
+                UserRole::Agencia => "agencia",
+                UserRole::Transportes => "transportes",
+                UserRole::Conductor => "conductor",
+                UserRole::Guia => "guia",
+                UserRole::Restaurante => "restaurante",
             },
             id_entidad: user.id_entidad,
             nombre_entidad: user.nombre_entidad.as_deref(),

@@ -1,13 +1,8 @@
-//! # Guía Types - TypeScript Exports
-//!
-//! Tipos de guía turístico exportables a TypeScript.
-
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-/// Status del guía
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -19,7 +14,6 @@ pub enum StatusGuiaTs {
     Inactivo,
 }
 
-/// Información de guía
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -38,7 +32,6 @@ pub struct GuiaTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear guía
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -52,7 +45,6 @@ pub struct CreateGuiaRequestTs {
     pub id_agencia: Option<Uuid>,
 }
 
-/// Request para actualizar guía
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -65,7 +57,6 @@ pub struct UpdateGuiaRequestTs {
     pub status: Option<StatusGuiaTs>,
 }
 
-/// Lista paginada de guías
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -78,7 +69,6 @@ pub struct GuiaListResponseTs {
     pub total_pages: i64,
 }
 
-/// Guía con datos de persona expandidos
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

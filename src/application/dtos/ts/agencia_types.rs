@@ -1,13 +1,8 @@
-//! # Agencia Types - TypeScript Exports
-//!
-//! Tipos de agencia exportables a TypeScript.
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-/// Información de agencia
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -26,7 +21,6 @@ pub struct AgenciaTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear agencia
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -41,7 +35,6 @@ pub struct CreateAgenciaRequestTs {
     pub web: Option<String>,
 }
 
-/// Request para actualizar agencia
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -57,7 +50,6 @@ pub struct UpdateAgenciaRequestTs {
     pub is_active: Option<bool>,
 }
 
-/// Lista paginada de agencias
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

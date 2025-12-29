@@ -1,13 +1,8 @@
-//! # Restaurante Types - TypeScript Exports
-//!
-//! Tipos de restaurante exportables a TypeScript.
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-/// Información de restaurante
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -29,7 +24,6 @@ pub struct RestauranteTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear restaurante
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -46,7 +40,6 @@ pub struct CreateRestauranteRequestTs {
     pub horario_cierre: Option<String>,
 }
 
-/// Request para actualizar restaurante
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -64,7 +57,6 @@ pub struct UpdateRestauranteRequestTs {
     pub is_active: Option<bool>,
 }
 
-/// Lista paginada de restaurantes
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

@@ -1,13 +1,7 @@
-//! # Vehiculo Entity
-//! 
-//! Entidad para vehículos de transporte.
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use uuid::Uuid;
 
-/// Estado del vehículo
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StatusVehiculo {
     Disponible,
@@ -47,35 +41,38 @@ impl Default for StatusVehiculo {
     }
 }
 
-/// Entidad Vehículo
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Vehiculo {
-    pub id: Uuid,
-    pub id_transporte: Uuid,
+    pub id: i32,
+    pub id_transporte: i32,
     pub nombre: String,
     pub modelo: Option<String>,
     pub placa: String,
     pub capacidad: i32,
     pub status: StatusVehiculo,
-    pub media: JsonValue,
+    pub media: Option<JsonValue>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    pub updated_by: Option<i32>,
 }
 
 impl Vehiculo {
-    pub fn new(id_transporte: Uuid, nombre: String, placa: String, capacidad: i32) -> Self {
+    pub fn new(id_transporte: i32, nombre: String, placa: String, capacidad: i32) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: 0, // Será asignado por la DB (SERIAL)
             id_transporte,
             nombre,
             modelo: None,
             placa,
             capacidad,
             status: StatusVehiculo::Disponible,
-            media: serde_json::json!({}),
+            media: Some(serde_json::json!({})),
             created_at: now,
             updated_at: now,
+            created_by: None,
+            updated_by: None,
         }
     }
     

@@ -1,36 +1,3 @@
-//! # TypeScript Types Module
-//!
-//! Este módulo exporta todos los tipos necesarios para generar
-//! archivos TypeScript usando ts-rs.
-//!
-//! ## Organización
-//!
-//! Los tipos están organizados por dominio:
-//! - `auth_types`: Autenticación (login, logout, tokens)
-//! - `user_types`: Usuarios y sesiones
-//! - `persona_types`: Personas (datos personales)
-//! - `agencia_types`: Agencias de viaje
-//! - `tour_types`: Tours
-//! - `transporte_types`: Transportes, vehículos, conductores
-//! - `guia_types`: Guías turísticos
-//! - `restaurante_types`: Restaurantes
-//! - `entrada_types`: Entradas (pasajeros en tours)
-//! - `file_types`: Archivos y documentos
-//! - `pago_types`: Pagos y movimientos financieros
-//!
-//! ## Uso
-//!
-//! Para generar los tipos TypeScript ejecutar:
-//! ```bash
-//! cargo test export_ts_types -- --nocapture
-//! ```
-//!
-//! ## Nota sobre warnings de ts-rs
-//!
-//! Los warnings "failed to parse serde attribute" de ts-rs son esperados
-//! ya que ts-rs no soporta `skip_serializing_if`. Estos atributos son
-//! para serde (serialización runtime) y no afectan la generación de tipos.
-
 pub mod agencia_types;
 pub mod auth_types;
 pub mod entrada_types;

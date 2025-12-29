@@ -1,8 +1,3 @@
-﻿//! # Secure Session Manager
-//! 
-//! Gestor de sesiones ultra-seguras usando tokens opacos y cookies HttpOnly.
-//! No usa JWT - todas las sesiones se almacenan en la base de datos.
-
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chrono::{Duration, Utc};
 use hmac::{Hmac, Mac};
@@ -17,7 +12,6 @@ use crate::domain::errors::ApplicationError;
 
 type HmacSha256 = Hmac<Sha256>;
 
-/// Gestor de sesiones ultra-seguras
 #[derive(Clone)]
 pub struct SecureSessionManager {
     secret_key: Vec<u8>,
@@ -90,7 +84,7 @@ impl SessionManagerPort for SecureSessionManager {
         let now = Utc::now();
 
         let session = UserSession {
-            id: 0, // Será asignado por la DB (SERIAL)
+            id: 0,
             user_id,
             token_hash: session_token.token_hash.clone(),
             refresh_token_hash: None,

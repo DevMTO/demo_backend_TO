@@ -1,14 +1,9 @@
-//! # User DTOs
-//! 
-//! Data Transfer Objects para usuarios según el diagrama de base de datos.
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 use crate::domain::entities::User;
 
-/// Información completa del usuario (para administradores)
 #[derive(Debug, Clone, Serialize)]
 pub struct UserDetailDto {
     pub id: i32,
@@ -42,7 +37,7 @@ impl From<User> for UserDetailDto {
     }
 }
 
-/// Request para crear usuario
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct CreateUserRequest {
     /// ID de la persona ya registrada en el sistema (opcional)
@@ -67,7 +62,7 @@ pub struct CreateUserRequest {
     pub nombre_entidad: Option<String>,
 }
 
-/// Request para actualizar usuario
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct UpdateUserRequest {
     #[validate(email(message = "Invalid email format"))]
@@ -82,7 +77,20 @@ pub struct UpdateUserRequest {
     pub nombre_entidad: Option<String>,
 }
 
-/// Lista paginada de usuarios
+#[derive(Debug, Clone, Serialize)]
+pub struct UserListItemDto {
+    pub id: i32,
+    pub nombre_completo: Option<String>,
+    pub username: String,
+    pub email: String,
+    pub role: String,
+    pub nombre_entidad: Option<String>,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub last_login: Option<DateTime<Utc>>,
+}
+
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 pub struct UserListResponse {
     pub users: Vec<UserDetailDto>,
@@ -92,6 +100,7 @@ pub struct UserListResponse {
     pub total_pages: i64,
 }
 
+#[allow(dead_code)]
 impl UserListResponse {
     pub fn new(users: Vec<UserDetailDto>, total: i64, page: i64, per_page: i64) -> Self {
         let total_pages = (total as f64 / per_page as f64).ceil() as i64;
@@ -105,7 +114,7 @@ impl UserListResponse {
     }
 }
 
-/// Parámetros de paginación
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct PaginationParams {
     #[serde(default = "default_page")]
@@ -123,6 +132,7 @@ fn default_per_page() -> i64 {
     20
 }
 
+#[allow(dead_code)]
 impl PaginationParams {
     pub fn offset(&self) -> i64 {
         (self.page - 1) * self.per_page

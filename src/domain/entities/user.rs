@@ -1,12 +1,6 @@
-//! # User Entity
-//! 
-//! Entidad de usuario del sistema según el diagrama de base de datos.
-//! Usuario vinculado a una persona y una entidad (agencia, transporte, etc.)
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Status del usuario
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum UserStatus {
     Activo,
@@ -46,19 +40,22 @@ impl Default for UserStatus {
     }
 }
 
-/// Roles del sistema con jerarquía de permisos
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum UserRole {
-    /// Administrador supremo con acceso total
+    /// Administrador supremo con acceso total al sistema (SYSCO)
     SuperAdmin,
-    /// Administrador de agencia
+    /// Administrador de agencia - gestiona files, tours, personal
     Admin,
-    /// Sub-administrador con acceso limitado
-    SubAdmin,
-    /// Operador/Usuario regular
-    Operador,
-    /// Solo lectura
-    Viewer,
+    /// Personal de agencia - acceso a consultas y reportes
+    Agencia,
+    /// Empresa de transporte - gestiona vehículos y conductores
+    Transportes,
+    /// Conductor - ve sus asignaciones y puede aceptar/rechazar
+    Conductor,
+    /// Guía turístico - ve itinerarios asignados
+    Guia,
+    /// Restaurante - ve reservas de grupos
+    Restaurante,
 }
 
 impl std::fmt::Display for UserRole {
@@ -66,9 +63,11 @@ impl std::fmt::Display for UserRole {
         match self {
             UserRole::SuperAdmin => write!(f, "superadmin"),
             UserRole::Admin => write!(f, "admin"),
-            UserRole::SubAdmin => write!(f, "subadmin"),
-            UserRole::Operador => write!(f, "operador"),
-            UserRole::Viewer => write!(f, "viewer"),
+            UserRole::Agencia => write!(f, "agencia"),
+            UserRole::Transportes => write!(f, "transportes"),
+            UserRole::Conductor => write!(f, "conductor"),
+            UserRole::Guia => write!(f, "guia"),
+            UserRole::Restaurante => write!(f, "restaurante"),
         }
     }
 }
@@ -80,9 +79,11 @@ impl std::str::FromStr for UserRole {
         match s.to_lowercase().as_str() {
             "superadmin" => Ok(UserRole::SuperAdmin),
             "admin" => Ok(UserRole::Admin),
-            "subadmin" => Ok(UserRole::SubAdmin),
-            "operador" | "user" => Ok(UserRole::Operador),
-            "viewer" => Ok(UserRole::Viewer),
+            "agencia" => Ok(UserRole::Agencia),
+            "transportes" | "transporte" => Ok(UserRole::Transportes),
+            "conductor" => Ok(UserRole::Conductor),
+            "guia" | "guide" => Ok(UserRole::Guia),
+            "restaurante" | "restaurant" => Ok(UserRole::Restaurante),
             _ => Err(format!("Invalid role: {s}")),
         }
     }
@@ -90,13 +91,10 @@ impl std::str::FromStr for UserRole {
 
 impl Default for UserRole {
     fn default() -> Self {
-        UserRole::Operador
+        UserRole::Agencia // Rol más común por defecto
     }
 }
 
-/// Entidad de Usuario según diagrama
-/// 
-/// Campos: id, id_persona, username, email, password, role, id_entidad, nombre_entidad, status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     /// ID único del usuario (SERIAL en DB)
@@ -177,7 +175,7 @@ impl User {
     // Métodos de verificación de roles
     // ========================================
     
-    /// Verifica si es SuperAdmin
+    /// Verifica si es SuperAdmin (acceso total)
     pub fn is_superadmin(&self) -> bool {
         matches!(self.role, UserRole::SuperAdmin)
     }
@@ -187,9 +185,29 @@ impl User {
         matches!(self.role, UserRole::SuperAdmin | UserRole::Admin)
     }
     
-    /// Verifica si es SubAdmin o superior
-    pub fn is_subadmin(&self) -> bool {
-        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::SubAdmin)
+    /// Verifica si es personal de agencia (Admin, Agencia)
+    pub fn is_agencia_staff(&self) -> bool {
+        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencia)
+    }
+    
+    /// Verifica si es empresa de transportes
+    pub fn is_transporte(&self) -> bool {
+        matches!(self.role, UserRole::Transportes)
+    }
+    
+    /// Verifica si es conductor
+    pub fn is_conductor(&self) -> bool {
+        matches!(self.role, UserRole::Conductor)
+    }
+    
+    /// Verifica si es guía
+    pub fn is_guia(&self) -> bool {
+        matches!(self.role, UserRole::Guia)
+    }
+    
+    /// Verifica si es restaurante
+    pub fn is_restaurante(&self) -> bool {
+        matches!(self.role, UserRole::Restaurante)
     }
     
     /// Verifica si puede gestionar usuarios
@@ -197,9 +215,29 @@ impl User {
         self.is_admin()
     }
     
+    /// Verifica si puede gestionar files (tours activos)
+    pub fn can_manage_files(&self) -> bool {
+        self.is_admin()
+    }
+    
+    /// Verifica si puede ver sus asignaciones (conductor/guía)
+    pub fn can_view_assignments(&self) -> bool {
+        matches!(self.role, UserRole::Conductor | UserRole::Guia | UserRole::SuperAdmin | UserRole::Admin)
+    }
+    
+    /// Verifica si puede aceptar/rechazar asignaciones
+    pub fn can_respond_assignments(&self) -> bool {
+        matches!(self.role, UserRole::Conductor | UserRole::Guia)
+    }
+    
     /// Verifica si puede acceder al panel de administración
     pub fn can_access_management(&self) -> bool {
-        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::SubAdmin)
+        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencia)
+    }
+    
+    /// Verifica si puede gestionar vehículos
+    pub fn can_manage_vehicles(&self) -> bool {
+        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Transportes)
     }
     
     /// Verifica si el usuario está activo
@@ -256,7 +294,6 @@ impl User {
     }
 }
 
-/// Información del usuario para respuestas API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
     pub id: i32,

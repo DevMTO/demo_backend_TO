@@ -1,7 +1,3 @@
-//! # Argon2 Password Hasher
-//! 
-//! Implementación del puerto PasswordHasherPort usando Argon2.
-
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2, Params,
@@ -10,7 +6,6 @@ use argon2::{
 use crate::application::ports::PasswordHasherPort;
 use crate::domain::errors::ApplicationError;
 
-/// Implementación de PasswordHasherPort usando Argon2
 pub struct Argon2PasswordHasher {
     argon2: Argon2<'static>,
 }

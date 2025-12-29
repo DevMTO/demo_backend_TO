@@ -1,12 +1,6 @@
-//! # Persona Entity
-//! 
-//! Entidad base para datos personales (usado por usuarios, conductores, guías, etc.)
-
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-/// Tipos de documento de identidad
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TipoDocumento {
     Dni,
@@ -49,13 +43,9 @@ impl Default for TipoDocumento {
     }
 }
 
-/// Entidad Persona
-/// 
-/// Datos personales básicos que pueden ser referenciados por usuarios,
-/// conductores, guías, y otros roles del sistema.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Persona {
-    pub id: Uuid,
+    pub id: i32,
     pub tipo_documento: TipoDocumento,
     pub nro_documento: String,
     pub nombre: String,
@@ -65,10 +55,12 @@ pub struct Persona {
     pub fecha_nacimiento: Option<NaiveDate>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    pub updated_by: Option<i32>,
 }
 
 impl Persona {
-    /// Crear una nueva persona
+    /// Crear una nueva persona (id será asignado por DB)
     pub fn new(
         tipo_documento: TipoDocumento,
         nro_documento: String,
@@ -77,7 +69,7 @@ impl Persona {
     ) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: 0, // Será asignado por la DB (SERIAL)
             tipo_documento,
             nro_documento,
             nombre,
@@ -87,6 +79,8 @@ impl Persona {
             fecha_nacimiento: None,
             created_at: now,
             updated_at: now,
+            created_by: None,
+            updated_by: None,
         }
     }
     

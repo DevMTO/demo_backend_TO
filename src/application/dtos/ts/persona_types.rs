@@ -1,13 +1,8 @@
-//! # Persona Types - TypeScript Exports
-//!
-//! Tipos de persona exportables a TypeScript.
-
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-/// Información de persona
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -29,7 +24,6 @@ pub struct PersonaTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear persona
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -48,7 +42,6 @@ pub struct CreatePersonaRequestTs {
     pub nacionalidad: Option<String>,
 }
 
-/// Request para actualizar persona
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -67,7 +60,6 @@ pub struct UpdatePersonaRequestTs {
     pub nacionalidad: Option<String>,
 }
 
-/// Lista paginada de personas
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

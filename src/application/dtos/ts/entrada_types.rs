@@ -1,13 +1,8 @@
-//! # Entrada Types - TypeScript Exports
-//!
-//! Tipos de entrada (pasajero/cliente en tour) exportables a TypeScript.
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-/// Información de entrada (registro de pasajero en un tour)
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -26,7 +21,6 @@ pub struct EntradaTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear entrada
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -39,7 +33,6 @@ pub struct CreateEntradaRequestTs {
     pub notas: Option<String>,
 }
 
-/// Request para actualizar entrada
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -50,7 +43,6 @@ pub struct UpdateEntradaRequestTs {
     pub is_active: Option<bool>,
 }
 
-/// Lista paginada de entradas
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -63,7 +55,6 @@ pub struct EntradaListResponseTs {
     pub total_pages: i64,
 }
 
-/// Entrada con detalles expandidos
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -78,7 +69,6 @@ pub struct EntradaDetailTs {
     pub saldo_pendiente: f64,
 }
 
-/// Estadísticas de entradas por tour
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

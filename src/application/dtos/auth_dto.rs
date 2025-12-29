@@ -1,12 +1,6 @@
-//! # Auth DTOs
-//! 
-//! Data Transfer Objects para autenticación con cookies de sesión.
-//! NO usamos JWT - solo tokens de sesión opacos con HMAC.
-
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-/// Request para login
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct LoginRequest {
     #[validate(length(min = 1, message = "Identifier is required"))]
@@ -20,7 +14,7 @@ pub struct LoginRequest {
     pub remember_me: bool,
 }
 
-/// Request para registro de usuario
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct RegisterRequest {
     /// ID de la persona ya registrada en el sistema (opcional)
@@ -48,7 +42,6 @@ pub struct RegisterRequest {
     pub nombre_entidad: Option<String>,
 }
 
-/// Response de autenticación exitosa (solo sesión, sin JWT)
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthResponse {
     pub user: AuthUserInfo,
@@ -69,7 +62,6 @@ impl AuthResponse {
     }
 }
 
-/// Información del usuario autenticado (sin datos sensibles)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthUserInfo {
     pub id: i32,
@@ -82,7 +74,6 @@ pub struct AuthUserInfo {
     pub status: String,
 }
 
-/// Request para cambio de contraseña
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct ChangePasswordRequest {
     #[validate(length(min = 1, message = "Current password is required"))]
@@ -95,7 +86,6 @@ pub struct ChangePasswordRequest {
     pub new_password_confirm: String,
 }
 
-/// Request para logout
 #[derive(Debug, Clone, Deserialize)]
 pub struct LogoutRequest {
     /// Cerrar todas las sesiones
@@ -103,7 +93,6 @@ pub struct LogoutRequest {
     pub all_sessions: bool,
 }
 
-/// Response genérica de éxito
 #[derive(Debug, Clone, Serialize)]
 pub struct SuccessResponse {
     pub success: bool,

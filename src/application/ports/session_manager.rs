@@ -1,12 +1,6 @@
-//! # Session Manager Port
-//! 
-//! Puerto de salida para gestión de sesiones ultra-seguras.
-//! Reemplaza JWT con tokens opacos almacenados en BD.
-
 
 use crate::domain::{entities::UserSession, errors::ApplicationError};
 
-/// Token de sesión generado
 #[derive(Debug, Clone)]
 pub struct SessionTokenData {
     /// Token opaco (enviado al cliente en cookie)
@@ -15,7 +9,7 @@ pub struct SessionTokenData {
     pub token_hash: String,
 }
 
-/// Puerto de salida para gestión de sesiones
+#[allow(dead_code)]
 pub trait SessionManagerPort: Send + Sync {
     /// Generar un nuevo token de sesión
     fn generate_token(&self) -> Result<SessionTokenData, ApplicationError>;

@@ -1,7 +1,3 @@
-//! # Auth Middleware
-//! 
-//! Middleware para verificación de autenticación.
-
 
 use axum::{
     extract::{Request, State},
@@ -12,23 +8,20 @@ use axum::{
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 
-/// Middleware para verificar autenticación
 pub async fn require_auth(
     State(state): State<AppState>,
     request: Request,
     next: Next,
 ) -> Result<Response, ApplicationError> {
-    // Intentar obtener token del header Authorization o de la cookie
-    let token = extract_token_from_request(&request);
+    let cookie_name = &state.container.cookie_name;
+    let token = extract_token_from_request(&request, cookie_name);
     
     match token {
         Some(token) => {
-            // Verificar el token
             let _verification = state.container.verify_session_use_case
                 .execute(&token)
                 .await?;
             
-            // Continuar con la siguiente capa
             Ok(next.run(request).await)
         }
         None => {
@@ -37,9 +30,7 @@ pub async fn require_auth(
     }
 }
 
-/// Extraer token del request (header o cookie)
-fn extract_token_from_request(request: &Request) -> Option<String> {
-    // Primero intentar desde el header Authorization
+fn extract_token_from_request(request: &Request, cookie_name: &str) -> Option<String> {
     if let Some(auth_header) = request.headers().get("Authorization") {
         if let Ok(auth_str) = auth_header.to_str() {
             if auth_str.starts_with("Bearer ") {
@@ -48,13 +39,14 @@ fn extract_token_from_request(request: &Request) -> Option<String> {
         }
     }
     
-    // Luego intentar desde las cookies
     if let Some(cookie_header) = request.headers().get("Cookie") {
         if let Ok(cookies_str) = cookie_header.to_str() {
             for cookie in cookies_str.split(';') {
-                let parts: Vec<&str> = cookie.trim().splitn(2, '=').collect();
-                if parts.len() == 2 && parts[0] == "access_token" {
-                    return Some(parts[1].to_string());
+                let cookie = cookie.trim();
+                if let Some((name, value)) = cookie.split_once('=') {
+                    if name == cookie_name {
+                        return Some(value.to_string());
+                    }
                 }
             }
         }

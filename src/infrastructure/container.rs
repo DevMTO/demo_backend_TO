@@ -1,7 +1,3 @@
-//! # Dependency Container
-//! 
-//! Contenedor de inyección de dependencias.
-
 use std::sync::Arc;
 
 use crate::config::AppConfig;
@@ -10,33 +6,124 @@ use crate::application::ports::{
     SessionRepositoryPort,
     PasswordHasherPort,
     SessionManagerPort,
+    PersonaRepositoryPort,
+    AgenciaRepositoryPort,
+    TourRepositoryPort,
+    TransporteRepositoryPort,
+    VehiculoRepositoryPort,
+    ConductorRepositoryPort,
+    GuiaRepositoryPort,
+    RestauranteRepositoryPort,
+    EntradaRepositoryPort,
+    FileRepositoryPort,
+    PagoRepositoryPort,
 };
 use crate::application::use_cases::auth::{
     LoginUseCase,
     LogoutUseCase,
     VerifySessionUseCase,
 };
+use crate::application::use_cases::persona::{
+    CreatePersonaUseCase,
+    UpdatePersonaUseCase,
+    SearchPersonasUseCase,
+};
+use crate::application::use_cases::agencia::{
+    CreateAgenciaUseCase,
+    UpdateAgenciaUseCase,
+    DeactivateAgenciaUseCase,
+    RestoreAgenciaUseCase,
+};
+use crate::application::use_cases::tour::{
+    CreateTourUseCase,
+    UpdateTourUseCase,
+    SearchToursUseCase,
+    DeactivateTourUseCase,
+    RestoreTourUseCase,
+};
+use crate::application::use_cases::file::{
+    CreateFileUseCase,
+    UpdateFileUseCase,
+    SearchFilesUseCase,
+};
+use crate::application::use_cases::pago::{
+    RegisterPagoUseCase,
+    UpdatePagoUseCase,
+};
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::{
     DatabasePool,
-    repositories::{PostgresUserRepository, PostgresSessionRepository},
+    repositories::{
+        PostgresUserRepository, 
+        PostgresSessionRepository,
+        PostgresPersonaRepository,
+        PostgresAgenciaRepository,
+        PostgresTourRepository,
+        PostgresTransporteRepository,
+        PostgresVehiculoRepository,
+        PostgresConductorRepository,
+        PostgresGuiaRepository,
+        PostgresRestauranteRepository,
+        PostgresEntradaRepository,
+        PostgresFileRepository,
+        PostgresPagoRepository,
+    },
 };
 use crate::infrastructure::security::{
     Argon2PasswordHasher,
     SecureSessionManager,
 };
 
-/// Contenedor de dependencias
-/// 
-/// Expone solo los componentes necesarios para la capa de presentación.
+#[allow(dead_code)]
 pub struct DependencyContainer {
     // Use Cases - Auth
     pub login_use_case: Arc<LoginUseCase>,
     pub logout_use_case: Arc<LogoutUseCase>,
     pub verify_session_use_case: Arc<VerifySessionUseCase>,
     
+    // Use Cases - Persona
+    pub create_persona_use_case: Arc<CreatePersonaUseCase>,
+    pub update_persona_use_case: Arc<UpdatePersonaUseCase>,
+    pub search_personas_use_case: Arc<SearchPersonasUseCase>,
+    
+    // Use Cases - Agencia
+    pub create_agencia_use_case: Arc<CreateAgenciaUseCase>,
+    pub update_agencia_use_case: Arc<UpdateAgenciaUseCase>,
+    pub deactivate_agencia_use_case: Arc<DeactivateAgenciaUseCase>,
+    pub restore_agencia_use_case: Arc<RestoreAgenciaUseCase>,
+    
+    // Use Cases - Tour
+    pub create_tour_use_case: Arc<CreateTourUseCase>,
+    pub update_tour_use_case: Arc<UpdateTourUseCase>,
+    pub search_tours_use_case: Arc<SearchToursUseCase>,
+    pub deactivate_tour_use_case: Arc<DeactivateTourUseCase>,
+    pub restore_tour_use_case: Arc<RestoreTourUseCase>,
+    
+    // Use Cases - File
+    pub create_file_use_case: Arc<CreateFileUseCase>,
+    pub update_file_use_case: Arc<UpdateFileUseCase>,
+    pub search_files_use_case: Arc<SearchFilesUseCase>,
+    
+    // Use Cases - Pago
+    pub register_pago_use_case: Arc<RegisterPagoUseCase>,
+    pub update_pago_use_case: Arc<UpdatePagoUseCase>,
+    
     // Session Manager para middleware
     pub session_manager: Arc<dyn SessionManagerPort>,
+    
+    // Entity Repositories (para operaciones simples que no necesitan use case)
+    pub user_repository: Arc<dyn UserRepositoryPort>,
+    pub persona_repository: Arc<dyn PersonaRepositoryPort>,
+    pub agencia_repository: Arc<dyn AgenciaRepositoryPort>,
+    pub tour_repository: Arc<dyn TourRepositoryPort>,
+    pub transporte_repository: Arc<dyn TransporteRepositoryPort>,
+    pub vehiculo_repository: Arc<dyn VehiculoRepositoryPort>,
+    pub conductor_repository: Arc<dyn ConductorRepositoryPort>,
+    pub guia_repository: Arc<dyn GuiaRepositoryPort>,
+    pub restaurante_repository: Arc<dyn RestauranteRepositoryPort>,
+    pub entrada_repository: Arc<dyn EntradaRepositoryPort>,
+    pub file_repository: Arc<dyn FileRepositoryPort>,
+    pub pago_repository: Arc<dyn PagoRepositoryPort>,
     
     // Config
     pub cookie_name: String,
@@ -54,7 +141,7 @@ impl DependencyContainer {
         config.validate_security()
             .map_err(|e| ApplicationError::Configuration(e.to_string()))?;
         
-        // Crear repositorios
+        // Crear repositorios base
         let user_repository: Arc<dyn UserRepositoryPort> = Arc::new(
             PostgresUserRepository::new(db_pool.clone())
         );
@@ -75,7 +162,42 @@ impl DependencyContainer {
             SecureSessionManager::new(&config)?
         );
         
-        // Crear casos de uso
+        // Crear repositorios de entidades
+        let persona_repository: Arc<dyn PersonaRepositoryPort> = Arc::new(
+            PostgresPersonaRepository::new(db_pool.clone())
+        );
+        let agencia_repository: Arc<dyn AgenciaRepositoryPort> = Arc::new(
+            PostgresAgenciaRepository::new(db_pool.clone())
+        );
+        let tour_repository: Arc<dyn TourRepositoryPort> = Arc::new(
+            PostgresTourRepository::new(db_pool.clone())
+        );
+        let transporte_repository: Arc<dyn TransporteRepositoryPort> = Arc::new(
+            PostgresTransporteRepository::new(db_pool.clone())
+        );
+        let vehiculo_repository: Arc<dyn VehiculoRepositoryPort> = Arc::new(
+            PostgresVehiculoRepository::new(db_pool.clone())
+        );
+        let conductor_repository: Arc<dyn ConductorRepositoryPort> = Arc::new(
+            PostgresConductorRepository::new(db_pool.clone())
+        );
+        let guia_repository: Arc<dyn GuiaRepositoryPort> = Arc::new(
+            PostgresGuiaRepository::new(db_pool.clone())
+        );
+        let restaurante_repository: Arc<dyn RestauranteRepositoryPort> = Arc::new(
+            PostgresRestauranteRepository::new(db_pool.clone())
+        );
+        let entrada_repository: Arc<dyn EntradaRepositoryPort> = Arc::new(
+            PostgresEntradaRepository::new(db_pool.clone())
+        );
+        let file_repository: Arc<dyn FileRepositoryPort> = Arc::new(
+            PostgresFileRepository::new(db_pool.clone())
+        );
+        let pago_repository: Arc<dyn PagoRepositoryPort> = Arc::new(
+            PostgresPagoRepository::new(db_pool)
+        );
+        
+        // ========== Crear casos de uso - Auth ==========
         let login_use_case = Arc::new(LoginUseCase::new(
             user_repository.clone(),
             session_repository.clone(),
@@ -88,16 +210,116 @@ impl DependencyContainer {
         ));
         
         let verify_session_use_case = Arc::new(VerifySessionUseCase::new(
-            user_repository,
+            user_repository.clone(),
             session_repository,
             session_manager.clone(),
         ));
         
+        // ========== Crear casos de uso - Persona ==========
+        let create_persona_use_case = Arc::new(CreatePersonaUseCase::new(
+            persona_repository.clone()
+        ));
+        let update_persona_use_case = Arc::new(UpdatePersonaUseCase::new(
+            persona_repository.clone()
+        ));
+        let search_personas_use_case = Arc::new(SearchPersonasUseCase::new(
+            persona_repository.clone()
+        ));
+        
+        // ========== Crear casos de uso - Agencia ==========
+        let create_agencia_use_case = Arc::new(CreateAgenciaUseCase::new(
+            agencia_repository.clone()
+        ));
+        let update_agencia_use_case = Arc::new(UpdateAgenciaUseCase::new(
+            agencia_repository.clone()
+        ));
+        let deactivate_agencia_use_case = Arc::new(DeactivateAgenciaUseCase::new(
+            agencia_repository.clone()
+        ));
+        let restore_agencia_use_case = Arc::new(RestoreAgenciaUseCase::new(
+            agencia_repository.clone()
+        ));
+        
+        // ========== Crear casos de uso - Tour ==========
+        let create_tour_use_case = Arc::new(CreateTourUseCase::new(
+            tour_repository.clone()
+        ));
+        let update_tour_use_case = Arc::new(UpdateTourUseCase::new(
+            tour_repository.clone()
+        ));
+        let search_tours_use_case = Arc::new(SearchToursUseCase::new(
+            tour_repository.clone()
+        ));
+        let deactivate_tour_use_case = Arc::new(DeactivateTourUseCase::new(
+            tour_repository.clone()
+        ));
+        let restore_tour_use_case = Arc::new(RestoreTourUseCase::new(
+            tour_repository.clone()
+        ));
+        
+        // ========== Crear casos de uso - File ==========
+        let create_file_use_case = Arc::new(CreateFileUseCase::new(
+            file_repository.clone()
+        ));
+        let update_file_use_case = Arc::new(UpdateFileUseCase::new(
+            file_repository.clone()
+        ));
+        let search_files_use_case = Arc::new(SearchFilesUseCase::new(
+            file_repository.clone()
+        ));
+        
+        // ========== Crear casos de uso - Pago ==========
+        let register_pago_use_case = Arc::new(RegisterPagoUseCase::new(
+            pago_repository.clone(),
+            file_repository.clone()
+        ));
+        let update_pago_use_case = Arc::new(UpdatePagoUseCase::new(
+            pago_repository.clone()
+        ));
+        
         Ok(Self {
+            // Auth use cases
             login_use_case,
             logout_use_case,
             verify_session_use_case,
+            // Persona use cases
+            create_persona_use_case,
+            update_persona_use_case,
+            search_personas_use_case,
+            // Agencia use cases
+            create_agencia_use_case,
+            update_agencia_use_case,
+            deactivate_agencia_use_case,
+            restore_agencia_use_case,
+            // Tour use cases
+            create_tour_use_case,
+            update_tour_use_case,
+            search_tours_use_case,
+            deactivate_tour_use_case,
+            restore_tour_use_case,
+            // File use cases
+            create_file_use_case,
+            update_file_use_case,
+            search_files_use_case,
+            // Pago use cases
+            register_pago_use_case,
+            update_pago_use_case,
+            // Services
             session_manager,
+            // Repositories
+            user_repository,
+            persona_repository,
+            agencia_repository,
+            tour_repository,
+            transporte_repository,
+            vehiculo_repository,
+            conductor_repository,
+            guia_repository,
+            restaurante_repository,
+            entrada_repository,
+            file_repository,
+            pago_repository,
+            // Cookie config
             cookie_name: config.cookie_name,
             cookie_secure: config.cookie_secure,
             cookie_same_site: config.cookie_same_site,

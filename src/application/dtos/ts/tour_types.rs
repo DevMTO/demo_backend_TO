@@ -1,13 +1,8 @@
-//! # Tour Types - TypeScript Exports
-//!
-//! Tipos de tour exportables a TypeScript.
-
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-/// Información de tour
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -35,7 +30,6 @@ pub struct TourTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear tour
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -58,7 +52,6 @@ pub struct CreateTourRequestTs {
     pub id_restaurante: Option<Uuid>,
 }
 
-/// Request para actualizar tour
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -81,7 +74,6 @@ pub struct UpdateTourRequestTs {
     pub id_restaurante: Option<Uuid>,
 }
 
-/// Lista paginada de tours
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -94,7 +86,6 @@ pub struct TourListResponseTs {
     pub total_pages: i64,
 }
 
-/// Tour con detalles expandidos
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

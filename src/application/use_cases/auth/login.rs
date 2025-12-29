@@ -1,7 +1,3 @@
-//! # Login Use Case
-//! 
-//! Caso de uso para iniciar sesión con cookies de sesión.
-
 use std::sync::Arc;
 use tracing::{info, warn, debug, instrument};
 
@@ -14,7 +10,6 @@ use crate::application::ports::{
 };
 use crate::application::dtos::auth_dto::{LoginRequest, AuthUserInfo};
 
-/// Resultado del login (para cookies de sesión)
 pub struct LoginOutput {
     pub user_info: AuthUserInfo,
     pub session_id: i32,
@@ -22,7 +17,6 @@ pub struct LoginOutput {
     pub expires_in_seconds: i64,
 }
 
-/// Use case para login con sesiones seguras
 pub struct LoginUseCase {
     user_repository: Arc<dyn UserRepositoryPort>,
     session_repository: Arc<dyn SessionRepositoryPort>,

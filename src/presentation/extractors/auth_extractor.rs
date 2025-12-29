@@ -1,7 +1,3 @@
-//! # Auth Extractor
-//! 
-//! Extractor para obtener el usuario autenticado del request via cookie de sesión.
-
 use axum::{
     extract::FromRequestParts,
     http::request::Parts,
@@ -10,7 +6,6 @@ use axum::{
 use crate::domain::{entities::User, errors::ApplicationError};
 use crate::presentation::routes::AppState;
 
-/// Usuario autenticado extraído del request
 #[derive(Debug, Clone)]
 pub struct AuthUser {
     pub user: User,
@@ -43,7 +38,6 @@ impl FromRequestParts<AppState> for AuthUser {
     }
 }
 
-/// Extraer token de sesión de la cookie HttpOnly
 fn extract_session_token(parts: &Parts, cookie_name: &str) -> Option<String> {
     // Obtener el header Cookie
     let cookie_header = parts.headers.get("Cookie")?;

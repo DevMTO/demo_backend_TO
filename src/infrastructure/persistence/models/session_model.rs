@@ -1,7 +1,3 @@
-//! # Session Database Model
-//! 
-//! Modelo de Diesel para la tabla user_sessions (cookies ultra-seguras).
-
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -9,8 +5,6 @@ use serde::{Deserialize, Serialize};
 use crate::domain::entities::UserSession;
 use crate::infrastructure::persistence::schema::user_sessions;
 
-/// Modelo queryable para sesiones
-/// El orden de los campos DEBE coincidir con el orden en schema.rs
 #[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
 #[diesel(table_name = user_sessions)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -32,7 +26,6 @@ pub struct SessionModel {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Modelo insertable para sesiones (sin id, es SERIAL)
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = user_sessions)]
 pub struct NewSessionModel<'a> {
@@ -50,7 +43,6 @@ pub struct NewSessionModel<'a> {
     pub revoked_reason: Option<&'a str>,
 }
 
-/// Modelo actualizable para sesiones
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = user_sessions)]
 pub struct UpdateSessionModel<'a> {

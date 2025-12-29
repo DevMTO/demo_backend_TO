@@ -1,14 +1,9 @@
-//! # Restaurante Entity
-//! 
-//! Entidad para restaurantes.
-
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use uuid::Uuid;
+use bigdecimal::BigDecimal;
 
-/// Horario del restaurante
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct HorarioRestaurante {
     pub apertura: Option<String>,
@@ -16,50 +11,56 @@ pub struct HorarioRestaurante {
     pub dias: Vec<String>,  // ["Lunes", "Martes", ...]
 }
 
-/// Entidad Restaurante
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Restaurante {
-    pub id: Uuid,
+    pub id: i32,
     pub nombre: String,
     pub direccion: String,
     pub telefono: Option<String>,
     pub correo: Option<String>,
-    pub tipo_atencion: JsonValue,  // ["desayuno", "almuerzo", "cena"]
-    pub precio_promedio: f64,
+    pub tipo_atencion: Option<JsonValue>,  // ["desayuno", "almuerzo", "cena"]
+    pub precio_promedio: Option<BigDecimal>,
     pub capacidad: Option<i32>,
-    pub horario: JsonValue,
+    pub horario: Option<JsonValue>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    pub updated_by: Option<i32>,
 }
 
 impl Restaurante {
     pub fn new(nombre: String, direccion: String) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: 0, // Será asignado por la DB (SERIAL)
             nombre,
             direccion,
             telefono: None,
             correo: None,
-            tipo_atencion: serde_json::json!(["almuerzo"]),
-            precio_promedio: 0.0,
+            tipo_atencion: Some(serde_json::json!(["almuerzo"])),
+            precio_promedio: None,
             capacidad: None,
-            horario: serde_json::json!({}),
+            horario: Some(serde_json::json!({})),
             is_active: true,
             created_at: now,
             updated_at: now,
+            created_by: None,
+            updated_by: None,
         }
     }
     
     /// Obtiene los tipos de atención
     pub fn get_tipo_atencion(&self) -> Vec<String> {
-        serde_json::from_value(self.tipo_atencion.clone()).unwrap_or_default()
+        self.tipo_atencion.as_ref()
+            .and_then(|t| serde_json::from_value(t.clone()).ok())
+            .unwrap_or_default()
     }
     
     /// Obtiene el horario tipado
     pub fn get_horario(&self) -> Option<HorarioRestaurante> {
-        serde_json::from_value(self.horario.clone()).ok()
+        self.horario.as_ref()
+            .and_then(|h| serde_json::from_value(h.clone()).ok())
     }
     
     /// Verifica si atiende un tipo específico

@@ -1,7 +1,3 @@
-//! # Verify Session Use Case
-//! 
-//! Caso de uso para verificar sesiones activas usando tokens opacos.
-
 use std::sync::Arc;
 
 use crate::domain::{
@@ -15,7 +11,7 @@ use crate::application::ports::{
 };
 use crate::application::dtos::auth_dto::AuthUserInfo;
 
-/// Resultado de verificación de sesión
+#[allow(dead_code)]
 pub struct SessionVerification {
     pub user: User,
     pub user_info: AuthUserInfo,
@@ -24,7 +20,6 @@ pub struct SessionVerification {
     pub new_token: Option<String>,
 }
 
-/// Use case para verificar sesión con cookies seguras
 pub struct VerifySessionUseCase {
     user_repository: Arc<dyn UserRepositoryPort>,
     session_repository: Arc<dyn SessionRepositoryPort>,

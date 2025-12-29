@@ -1,7 +1,3 @@
-//! # Register Use Case
-//! 
-//! Caso de uso para registro de nuevos usuarios.
-
 use std::sync::Arc;
 
 use crate::domain::{
@@ -15,17 +11,18 @@ use crate::application::ports::{
 use crate::application::dtos::auth_dto::RegisterRequest;
 use crate::application::dtos::user_dto::UserDetailDto;
 
-/// Resultado del registro
+#[allow(dead_code)]
 pub struct RegisterOutput {
     pub user: UserDetailDto,
 }
 
-/// Use case para registro
+#[allow(dead_code)]
 pub struct RegisterUseCase {
     user_repository: Arc<dyn UserRepositoryPort>,
     password_hasher: Arc<dyn PasswordHasherPort>,
 }
 
+#[allow(dead_code)]
 impl RegisterUseCase {
     pub fn new(
         user_repository: Arc<dyn UserRepositoryPort>,

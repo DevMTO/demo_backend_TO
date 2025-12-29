@@ -1,7 +1,3 @@
-//! # Async User Repository Implementation
-//! 
-//! Implementación asíncrona del puerto UserRepositoryPort usando diesel-async.
-
 use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
@@ -15,7 +11,6 @@ use crate::infrastructure::persistence::{
     schema::users,
 };
 
-/// Implementación asíncrona del repositorio de usuarios
 pub struct PostgresUserRepository {
     pool: DatabasePool,
 }
@@ -238,5 +233,56 @@ impl UserRepositoryPort for PostgresUserRepository {
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
         Ok(count)
+    }
+    
+    #[instrument(skip(self))]
+    async fn list_users_with_details(&self, limit: i64, offset: i64) -> Result<(Vec<crate::application::dtos::UserListItemDto>, i64), ApplicationError> {
+        use crate::infrastructure::persistence::schema::personas;
+        
+        debug!("📋 Listando usuarios con detalles (limit: {}, offset: {})", limit, offset);
+        let mut conn = self.pool.get_connection().await?;
+        
+        let total: i64 = users::table
+            .count()
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let results: Vec<(UserModel, Option<(String, String)>)> = users::table
+            .left_join(personas::table.on(users::id_persona.eq(personas::id.nullable())))
+            .select((
+                UserModel::as_select(),
+                (personas::nombre, personas::apellidos).nullable(),
+            ))
+            .order(users::created_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let items: Vec<crate::application::dtos::UserListItemDto> = results
+            .into_iter()
+            .map(|(user, persona_data)| {
+                let nombre_completo = persona_data.map(|(nombre, apellidos)| {
+                    format!("{} {}", nombre, apellidos)
+                });
+                
+                crate::application::dtos::UserListItemDto {
+                    id: user.id,
+                    nombre_completo,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role,
+                    nombre_entidad: user.nombre_entidad,
+                    status: user.status,
+                    created_at: user.created_at,
+                    last_login: user.last_login,
+                }
+            })
+            .collect();
+        
+        info!("✅ Listados {} usuarios de {} total", items.len(), total);
+        Ok((items, total))
     }
 }

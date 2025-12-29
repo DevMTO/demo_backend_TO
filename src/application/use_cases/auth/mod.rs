@@ -1,7 +1,3 @@
-//! # Auth Use Cases
-//! 
-//! Casos de uso de autenticación con sesiones.
-
 pub mod login;
 pub mod register;
 pub mod logout;

@@ -1,14 +1,8 @@
-//! # Guia Entity
-//! 
-//! Entidad para guías turísticos.
-
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use uuid::Uuid;
 
-/// Estado del guía
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StatusGuia {
     Disponible,
@@ -48,42 +42,49 @@ impl Default for StatusGuia {
     }
 }
 
-/// Entidad Guía
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Guia {
-    pub id: Uuid,
-    pub id_persona: Uuid,
+    pub id: i32,
+    pub id_persona: i32,
     pub nro_carnet: String,
-    pub idiomas: JsonValue,        // ["Español", "Inglés"]
-    pub especialidades: JsonValue, // ["City tours", "Aventura"]
+    pub idiomas: Option<JsonValue>,        // ["Español", "Inglés"]
+    pub especialidades: Option<JsonValue>, // ["City tours", "Aventura"]
     pub status: StatusGuia,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    pub updated_by: Option<i32>,
 }
 
 impl Guia {
-    pub fn new(id_persona: Uuid, nro_carnet: String) -> Self {
+    pub fn new(id_persona: i32, nro_carnet: String) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: 0, // Será asignado por la DB (SERIAL)
             id_persona,
             nro_carnet,
-            idiomas: serde_json::json!(["Español"]),
-            especialidades: serde_json::json!([]),
+            idiomas: Some(serde_json::json!(["Español"])),
+            especialidades: Some(serde_json::json!([])),
             status: StatusGuia::Disponible,
             created_at: now,
             updated_at: now,
+            created_by: None,
+            updated_by: None,
         }
     }
     
     /// Obtiene la lista de idiomas
     pub fn get_idiomas(&self) -> Vec<String> {
-        serde_json::from_value(self.idiomas.clone()).unwrap_or_default()
+        self.idiomas.as_ref()
+            .and_then(|i| serde_json::from_value(i.clone()).ok())
+            .unwrap_or_default()
     }
     
     /// Obtiene las especialidades
     pub fn get_especialidades(&self) -> Vec<String> {
-        serde_json::from_value(self.especialidades.clone()).unwrap_or_default()
+        self.especialidades.as_ref()
+            .and_then(|e| serde_json::from_value(e.clone()).ok())
+            .unwrap_or_default()
     }
     
     /// Verifica si está disponible

@@ -1,7 +1,3 @@
-//! # Domain Errors
-//! 
-//! Errores del dominio de negocio.
-
 pub mod domain_error;
 pub mod application_error;
 

@@ -1,9 +1,3 @@
-//! # Main Entry Point
-//! 
-//! Punto de entrada del servidor backend con arquitectura hexagonal.
-//! Autenticación con cookies de sesión ultra-seguras (NO JWT).
-//! Sistema: Tour Operator - Gestión de Pasajeros
-
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -43,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
         .init();
     
     tracing::info!("🚀 Starting Tour Operator Backend - Sistema de Gestión de Pasajeros");
-    tracing::info!("🔒 Authentication: Session-based cookies (NO JWT)");
+    tracing::info!("🔒 Authentication: Session-based cookies");
     
     // Cargar y validar configuración
     let config = AppConfig::from_env()?;

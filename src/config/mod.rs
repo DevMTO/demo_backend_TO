@@ -1,10 +1,6 @@
-//! # Application Configuration
-//! 
-//! Configuración centralizada de la aplicación con sesiones ultra-seguras.
-
 use std::env;
 
-/// Configuración principal de la aplicación
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     // Server
@@ -17,7 +13,7 @@ pub struct AppConfig {
     pub database_min_connections: u32,
     pub database_connection_timeout: u64,
     
-    // Session Configuration (Cookies Ultra-Seguras, SIN JWT)
+    // Session Configuration (Cookies Ultra-Seguras)
     pub session_secret: String,
     pub session_expiration_hours: i64,
     pub session_idle_timeout_minutes: i64,
@@ -182,6 +178,7 @@ impl AppConfig {
     }
     
     /// Verificar si estamos en modo producción
+    #[allow(dead_code)]
     pub fn is_production(&self) -> bool {
         self.cookie_secure
     }

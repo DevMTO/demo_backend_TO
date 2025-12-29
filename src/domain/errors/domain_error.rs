@@ -1,11 +1,6 @@
-//! # Domain Error
-//! 
-//! Errores propios del dominio de negocio.
-
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Errores del dominio de negocio
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DomainError {
     /// Entidad no encontrada

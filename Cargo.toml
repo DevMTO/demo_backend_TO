@@ -21,7 +21,7 @@ tower-cookies = "0.11"
 tokio = { version = "1", features = ["full"] }
 
 # Database - Async con Deadpool
-diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "serde_json"] }
+diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "serde_json", "numeric"] }
 diesel-async = { version = "0.5", features = ["postgres", "deadpool"] }
 deadpool = "0.12"
 diesel_migrations = "2.2"
@@ -37,7 +37,7 @@ time = "0.3"
 # UUID
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
-# Security - Solo cookies de sesión, sin JWT
+# Security - Solo cookies de sesión
 argon2 = "0.5"
 rand = "0.8"
 sha2 = "0.10"
@@ -72,6 +72,7 @@ http = "1.0"
 
 # Type sharing with frontend
 ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl", "serde-compat"] }
+bigdecimal = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

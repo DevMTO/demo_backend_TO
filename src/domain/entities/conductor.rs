@@ -1,13 +1,7 @@
-//! # Conductor Entity
-//! 
-//! Entidad para conductores.
-
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-/// Estado del conductor
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StatusConductor {
     Disponible,
@@ -47,24 +41,25 @@ impl Default for StatusConductor {
     }
 }
 
-/// Entidad Conductor
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conductor {
-    pub id: Uuid,
-    pub id_persona: Uuid,
-    pub id_transporte: Option<Uuid>,
+    pub id: i32,
+    pub id_persona: i32,
+    pub id_transporte: Option<i32>,
     pub nro_brevete: String,
     pub tiene_soat: bool,
     pub status: StatusConductor,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    pub updated_by: Option<i32>,
 }
 
 impl Conductor {
-    pub fn new(id_persona: Uuid, nro_brevete: String) -> Self {
+    pub fn new(id_persona: i32, nro_brevete: String) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: 0, // Será asignado por la DB (SERIAL)
             id_persona,
             id_transporte: None,
             nro_brevete,
@@ -72,6 +67,8 @@ impl Conductor {
             status: StatusConductor::Disponible,
             created_at: now,
             updated_at: now,
+            created_by: None,
+            updated_by: None,
         }
     }
     

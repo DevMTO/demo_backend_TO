@@ -1,14 +1,9 @@
-//! # Auth Types - TypeScript Exports
-//!
-//! Tipos de autenticación exportables a TypeScript.
-
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
 use super::user_types::UserInfoTs;
 
-/// Request para login
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -21,7 +16,6 @@ pub struct LoginRequestTs {
     pub remember_me: bool,
 }
 
-/// Response de autenticación exitosa
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -33,7 +27,6 @@ pub struct AuthResponseTs {
     pub extended_session: bool,
 }
 
-/// Request para cambio de contraseña
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -44,7 +37,6 @@ pub struct ChangePasswordRequestTs {
     pub new_password_confirm: String,
 }
 
-/// Request para logout
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -54,7 +46,6 @@ pub struct LogoutRequestTs {
     pub all_sessions: bool,
 }
 
-/// Response genérica de éxito
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -64,7 +55,6 @@ pub struct SuccessResponseTs {
     pub message: String,
 }
 
-/// Response de error estándar
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

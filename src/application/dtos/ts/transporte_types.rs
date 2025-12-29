@@ -1,7 +1,3 @@
-//! # Transporte Types - TypeScript Exports
-//!
-//! Tipos de transporte, vehículos y conductores exportables a TypeScript.
-
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -9,7 +5,6 @@ use uuid::Uuid;
 
 // ============== Enums ==============
 
-/// Status del vehículo
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -21,7 +16,6 @@ pub enum StatusVehiculoTs {
     Inactivo,
 }
 
-/// Status del conductor
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -35,7 +29,6 @@ pub enum StatusConductorTs {
 
 // ============== Transporte ==============
 
-/// Información de transporte (servicio completo)
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -51,7 +44,6 @@ pub struct TransporteTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear transporte
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -62,7 +54,6 @@ pub struct CreateTransporteRequestTs {
     pub id_conductor: Option<Uuid>,
 }
 
-/// Request para actualizar transporte
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -74,7 +65,6 @@ pub struct UpdateTransporteRequestTs {
     pub is_active: Option<bool>,
 }
 
-/// Lista paginada de transportes
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -89,7 +79,6 @@ pub struct TransporteListResponseTs {
 
 // ============== Vehículo ==============
 
-/// Información de vehículo
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -109,7 +98,6 @@ pub struct VehiculoTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear vehículo
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -125,7 +113,6 @@ pub struct CreateVehiculoRequestTs {
     pub id_agencia: Option<Uuid>,
 }
 
-/// Request para actualizar vehículo
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -141,7 +128,6 @@ pub struct UpdateVehiculoRequestTs {
     pub status: Option<StatusVehiculoTs>,
 }
 
-/// Lista paginada de vehículos
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -156,7 +142,6 @@ pub struct VehiculoListResponseTs {
 
 // ============== Conductor ==============
 
-/// Información de conductor
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -174,7 +159,6 @@ pub struct ConductorTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear conductor
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -187,7 +171,6 @@ pub struct CreateConductorRequestTs {
     pub id_agencia: Option<Uuid>,
 }
 
-/// Request para actualizar conductor
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -199,7 +182,6 @@ pub struct UpdateConductorRequestTs {
     pub status: Option<StatusConductorTs>,
 }
 
-/// Lista paginada de conductores
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -212,7 +194,6 @@ pub struct ConductorListResponseTs {
     pub total_pages: i64,
 }
 
-/// Conductor con datos de persona expandidos
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

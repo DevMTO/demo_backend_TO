@@ -1,10 +1,34 @@
-//! # Application DTOs
-//!
-//! Data Transfer Objects para la capa de aplicación.
-
+// Auth DTOs
 pub mod auth_dto;
 pub mod user_dto;
 pub mod ts;
 
-// Re-exportar solo los DTOs que se usan externamente
+// Business Entity DTOs
+pub mod persona_dto;
+pub mod agencia_dto;
+pub mod tour_dto;
+pub mod transporte_dto;
+pub mod vehiculo_dto;
+pub mod conductor_dto;
+pub mod guia_dto;
+pub mod restaurante_dto;
+pub mod entrada_dto;
+pub mod file_dto;
+pub mod pago_dto;
 
+// Re-exports - Auth
+// auth_dto y user_dto se usan internamente
+
+// Re-exports - Business entities
+pub use persona_dto::*;
+pub use agencia_dto::*;
+pub use tour_dto::*;
+pub use transporte_dto::*;
+pub use vehiculo_dto::*;
+pub use conductor_dto::*;
+pub use guia_dto::*;
+pub use restaurante_dto::*;
+pub use entrada_dto::*;
+pub use file_dto::*;
+pub use pago_dto::*;
+pub use user_dto::UserListItemDto;

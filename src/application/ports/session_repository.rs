@@ -1,12 +1,8 @@
-//! # Session Repository Port
-//! 
-//! Puerto de salida para persistencia de sesiones.
-
 
 use async_trait::async_trait;
 use crate::domain::{entities::UserSession, errors::ApplicationError};
 
-/// Puerto de salida para repositorio de sesiones
+#[allow(dead_code)]
 #[async_trait]
 pub trait SessionRepositoryPort: Send + Sync {
     /// Crear una nueva sesión

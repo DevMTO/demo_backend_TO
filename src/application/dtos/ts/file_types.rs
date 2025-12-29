@@ -1,13 +1,8 @@
-//! # File Types - TypeScript Exports
-//!
-//! Tipos de archivos (documentos, imágenes) exportables a TypeScript.
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-/// Status del archivo
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -19,7 +14,6 @@ pub enum StatusFileTs {
     Error,
 }
 
-/// Información de archivo
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -43,7 +37,6 @@ pub struct FileTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear/subir archivo
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -58,7 +51,6 @@ pub struct CreateFileRequestTs {
     pub entidad_id: Option<Uuid>,
 }
 
-/// Request para actualizar archivo
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -69,7 +61,6 @@ pub struct UpdateFileRequestTs {
     pub is_active: Option<bool>,
 }
 
-/// Lista paginada de archivos
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -82,7 +73,6 @@ pub struct FileListResponseTs {
     pub total_pages: i64,
 }
 
-/// Respuesta de upload exitoso
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -92,7 +82,6 @@ pub struct FileUploadResponseTs {
     pub upload_url: String,
 }
 
-/// URL firmada para descarga
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

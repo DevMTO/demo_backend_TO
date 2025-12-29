@@ -1,14 +1,9 @@
-//! # Logout Use Case
-//! 
-//! Caso de uso para cerrar sesión.
-
 use std::sync::Arc;
 
 use crate::domain::errors::ApplicationError;
 use crate::application::ports::SessionRepositoryPort;
 use crate::application::dtos::auth_dto::LogoutRequest;
 
-/// Use case para logout
 pub struct LogoutUseCase {
     session_repository: Arc<dyn SessionRepositoryPort>,
 }

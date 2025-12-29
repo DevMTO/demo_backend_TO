@@ -1,7 +1,3 @@
-//! # Auth Handlers
-//! 
-//! Handlers para endpoints de autenticación con cookies de sesión.
-
 use axum::{
     extract::State,
     http::StatusCode,
@@ -20,7 +16,6 @@ use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 
-/// Login handler - crea sesión y establece cookie segura
 #[instrument(skip(state, cookies, request), fields(identifier = %request.identifier))]
 pub async fn login_handler(
     State(state): State<AppState>,
@@ -84,7 +79,6 @@ pub async fn login_handler(
     Ok((StatusCode::OK, Json(auth_response)))
 }
 
-/// Logout handler - invalida sesión y limpia cookies
 #[instrument(skip(state, cookies, auth_user, request))]
 pub async fn logout_handler(
     State(state): State<AppState>,
@@ -110,7 +104,6 @@ pub async fn logout_handler(
     ))
 }
 
-/// Verify session handler - verifica que la sesión sea válida
 #[instrument(skip(state, cookies, auth_user))]
 pub async fn verify_session_handler(
     State(state): State<AppState>,
@@ -146,12 +139,10 @@ pub async fn verify_session_handler(
     Ok((StatusCode::OK, Json(user_info)))
 }
 
-/// Health check endpoint
 pub async fn health_check() -> &'static str {
     "OK"
 }
 
-/// Helper para crear cookies de sesión
 fn create_session_cookie(
     token: &str,
     max_age_secs: i64,
@@ -172,7 +163,6 @@ fn create_session_cookie(
         .build()
 }
 
-/// Helper para eliminar cookie de sesión
 fn remove_session_cookie(
     cookies: &Cookies,
     container: &crate::infrastructure::container::DependencyContainer,

@@ -1,10 +1,6 @@
-//! # Password Hasher Port
-//! 
-//! Puerto de salida para hashing de contraseñas.
-
 use crate::domain::errors::ApplicationError;
 
-/// Puerto de salida para hashing de contraseñas
+#[allow(dead_code)]
 pub trait PasswordHasherPort: Send + Sync {
     /// Hashear una contraseña
     fn hash(&self, password: &str) -> Result<String, ApplicationError>;

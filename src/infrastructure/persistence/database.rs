@@ -1,7 +1,3 @@
-//! # Async Database Connection Pool
-//! 
-//! Pool de conexiones asíncronas a PostgreSQL usando diesel-async y deadpool.
-
 
 use diesel_async::pooled_connection::deadpool::Pool;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
@@ -13,13 +9,10 @@ use diesel::Connection;
 use crate::config::AppConfig;
 use crate::domain::errors::ApplicationError;
 
-/// Migraciones embebidas
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
-/// Tipo del pool asíncrono
 pub type DbPool = Pool<AsyncPgConnection>;
 
-/// Pool de conexiones asíncronas a la base de datos
 #[derive(Clone)]
 pub struct DatabasePool {
     pool: DbPool,
@@ -55,6 +48,7 @@ impl DatabasePool {
     }
     
     /// Obtener el pool interno
+    #[allow(dead_code)]
     pub fn pool(&self) -> &DbPool {
         &self.pool
     }

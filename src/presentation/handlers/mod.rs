@@ -1,8 +1,16 @@
-//! # HTTP Handlers
-//! 
-//! Handlers para las rutas HTTP.
-
+pub mod common;
 pub mod auth_handlers;
+pub mod user_handlers;
+pub mod persona_handlers;
+pub mod agencia_handlers;
+pub mod tour_handlers;
+pub mod transporte_handlers;
+pub mod vehiculo_handlers;
+pub mod conductor_handlers;
+pub mod guia_handlers;
+pub mod restaurante_handlers;
+pub mod entrada_handlers;
+pub mod file_handlers;
+pub mod pago_handlers;
 
 pub use auth_handlers::{login_handler, logout_handler, verify_session_handler, health_check};
-

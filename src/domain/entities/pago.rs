@@ -1,14 +1,9 @@
-//! # Pago Entity
-//! 
-//! Entidad para pagos y movimientos financieros.
-
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use uuid::Uuid;
+use bigdecimal::BigDecimal;
 
-/// Tipo de movimiento
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TipoMovimiento {
     Ingreso,
@@ -51,7 +46,6 @@ impl Default for TipoMovimiento {
     }
 }
 
-/// Evidencia de pago
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EvidenciaPago {
     pub comprobante_url: Option<String>,
@@ -59,71 +53,65 @@ pub struct EvidenciaPago {
     pub numero: Option<String>,
 }
 
-/// Entidad Pago
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Pago {
-    pub id: Uuid,
-    pub id_file: Uuid,
-    pub tipo_movimiento: TipoMovimiento,
+    pub id: i32,
+    pub id_file: i32,
+    pub tipo_movimiento: String, // Stored as varchar in DB
     pub concepto: String,
-    pub monto: f64,
+    pub monto: BigDecimal,
     pub metodo_pago: Option<String>,
     pub referencia: Option<String>,
-    pub evidencia: JsonValue,
+    pub evidencia: Option<JsonValue>,
     pub fecha_pago: DateTime<Utc>,
     pub notas: Option<String>,
-    pub registrado_por: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    pub updated_by: Option<i32>,
 }
 
 impl Pago {
-    pub fn new(id_file: Uuid, tipo_movimiento: TipoMovimiento, concepto: String, monto: f64) -> Self {
+    pub fn new(id_file: i32, tipo_movimiento: TipoMovimiento, concepto: String, monto: BigDecimal) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: 0, // Será asignado por la DB (SERIAL)
             id_file,
-            tipo_movimiento,
+            tipo_movimiento: tipo_movimiento.to_string(),
             concepto,
             monto,
             metodo_pago: None,
             referencia: None,
-            evidencia: serde_json::json!({}),
+            evidencia: Some(serde_json::json!({})),
             fecha_pago: now,
             notas: None,
-            registrado_por: None,
             created_at: now,
             updated_at: now,
+            created_by: None,
+            updated_by: None,
         }
+    }
+    
+    /// Obtiene el tipo como enum
+    pub fn get_tipo_movimiento(&self) -> TipoMovimiento {
+        self.tipo_movimiento.parse().unwrap_or_default()
     }
     
     /// Obtiene la evidencia tipada
     pub fn get_evidencia(&self) -> Option<EvidenciaPago> {
-        serde_json::from_value(self.evidencia.clone()).ok()
+        self.evidencia.as_ref()
+            .and_then(|e| serde_json::from_value(e.clone()).ok())
     }
     
     /// Verifica si es un ingreso
     pub fn es_ingreso(&self) -> bool {
-        matches!(self.tipo_movimiento, TipoMovimiento::Ingreso | TipoMovimiento::Adelanto)
+        let tipo = self.get_tipo_movimiento();
+        matches!(tipo, TipoMovimiento::Ingreso | TipoMovimiento::Adelanto)
     }
     
     /// Verifica si es un egreso
     pub fn es_egreso(&self) -> bool {
-        matches!(self.tipo_movimiento, TipoMovimiento::Egreso | TipoMovimiento::Reembolso)
-    }
-    
-    /// Monto con signo (positivo ingreso, negativo egreso)
-    pub fn monto_con_signo(&self) -> f64 {
-        if self.es_egreso() {
-            -self.monto
-        } else {
-            self.monto
-        }
-    }
-    
-    /// Monto formateado
-    pub fn monto_formateado(&self) -> String {
-        let signo = if self.es_egreso() { "-" } else { "+" };
-        format!("{} S/ {:.2}", signo, self.monto)
+        let tipo = self.get_tipo_movimiento();
+        matches!(tipo, TipoMovimiento::Egreso | TipoMovimiento::Reembolso)
     }
 }

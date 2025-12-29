@@ -1,13 +1,8 @@
-//! # Pago Types - TypeScript Exports
-//!
-//! Tipos de pagos exportables a TypeScript.
-
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-/// Tipo de movimiento de pago
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -18,7 +13,6 @@ pub enum TipoMovimientoTs {
     Ajuste,
 }
 
-/// Información de pago
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -39,7 +33,6 @@ pub struct PagoTs {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request para crear pago
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -54,7 +47,6 @@ pub struct CreatePagoRequestTs {
     pub notas: Option<String>,
 }
 
-/// Request para actualizar pago
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -69,7 +61,6 @@ pub struct UpdatePagoRequestTs {
     pub is_active: Option<bool>,
 }
 
-/// Lista paginada de pagos
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -82,7 +73,6 @@ pub struct PagoListResponseTs {
     pub total_pages: i64,
 }
 
-/// Pago con detalles expandidos
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -95,7 +85,6 @@ pub struct PagoDetailTs {
     pub usuario_registro_nombre: Option<String>,
 }
 
-/// Resumen de pagos por entrada
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -112,7 +101,6 @@ pub struct PagoResumenEntradaTs {
     pub cantidad_pagos: i64,
 }
 
-/// Resumen de pagos por tour
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -127,7 +115,6 @@ pub struct PagoResumenTourTs {
     pub porcentaje_recaudacion: f64,
 }
 
-/// Filtros para búsqueda de pagos
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

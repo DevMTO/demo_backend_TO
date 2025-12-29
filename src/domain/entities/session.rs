@@ -1,14 +1,6 @@
-//! # Session Entity
-//! 
-//! Entidad de sesión de usuario para autenticación segura con cookies.
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Entidad de Sesión de Usuario
-/// 
-/// Representa una sesión activa de un usuario en el sistema.
-/// Utilizada con tokens opacos almacenados en BD (no JWT).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSession {
     /// ID único de la sesión (SERIAL en DB)

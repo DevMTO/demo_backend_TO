@@ -1,13 +1,8 @@
-//! # User Types - TypeScript Exports
-//!
-//! Tipos de usuario exportables a TypeScript.
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-/// Roles del sistema
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -20,7 +15,6 @@ pub enum UserRoleTs {
     Viewer,
 }
 
-/// Información del usuario (pública)
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -39,7 +33,6 @@ pub struct UserInfoTs {
     pub nombre_entidad: Option<String>,
 }
 
-/// Información detallada del usuario (admin)
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -64,7 +57,6 @@ pub struct UserDetailTs {
     pub last_login: Option<DateTime<Utc>>,
 }
 
-/// Request para crear usuario
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -81,7 +73,6 @@ pub struct CreateUserRequestTs {
     pub tipo_entidad: Option<String>,
 }
 
-/// Request para actualizar usuario
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -93,7 +84,6 @@ pub struct UpdateUserRequestTs {
     pub is_active: Option<bool>,
 }
 
-/// Lista paginada de usuarios
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -106,7 +96,6 @@ pub struct UserListResponseTs {
     pub total_pages: i64,
 }
 
-/// Parámetros de paginación
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -116,7 +105,6 @@ pub struct PaginationParamsTs {
     pub per_page: i64,
 }
 
-/// Información de sesión activa
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -132,7 +120,6 @@ pub struct SessionInfoTs {
     pub is_active: bool,
 }
 
-/// Lista de sesiones del usuario
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

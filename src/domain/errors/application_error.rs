@@ -1,7 +1,3 @@
-//! # Application Error
-//! 
-//! Errores de la capa de aplicación (casos de uso).
-
 use super::DomainError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -9,7 +5,6 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Errores de la capa de aplicación
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ApplicationError {
     /// Error del dominio
@@ -102,7 +97,6 @@ impl From<DomainError> for ApplicationError {
     }
 }
 
-/// Respuesta de error para la API
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ErrorResponse {
     pub error: String,

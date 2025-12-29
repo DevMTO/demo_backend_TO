@@ -1,13 +1,8 @@
-//! # Entrada Entity
-//! 
-//! Entidad para entradas/tickets a lugares turísticos.
-
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+use bigdecimal::BigDecimal;
 
-/// Tipo de entrada
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TipoEntrada {
     General,
@@ -53,25 +48,26 @@ impl Default for TipoEntrada {
     }
 }
 
-/// Entidad Entrada
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Entrada {
-    pub id: Uuid,
+    pub id: i32,
     pub nombre: String,
-    pub precio: f64,
+    pub precio: BigDecimal,
     pub ruta: Option<String>,  // Lugar/ruta del ticket
-    pub tipo: TipoEntrada,
+    pub tipo: String, // Stored as varchar in DB
     pub descripcion: Option<String>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    pub updated_by: Option<i32>,
 }
 
 impl Entrada {
-    pub fn new(nombre: String, precio: f64, tipo: TipoEntrada) -> Self {
+    pub fn new(nombre: String, precio: BigDecimal, tipo: String) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: 0, // Será asignado por la DB (SERIAL)
             nombre,
             precio,
             ruta: None,
@@ -80,11 +76,8 @@ impl Entrada {
             is_active: true,
             created_at: now,
             updated_at: now,
+            created_by: None,
+            updated_by: None,
         }
-    }
-    
-    /// Precio formateado
-    pub fn precio_formateado(&self) -> String {
-        format!("S/ {:.2}", self.precio)
     }
 }

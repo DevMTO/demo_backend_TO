@@ -1,7 +1,3 @@
-//! # Async Session Repository Implementation
-//! 
-//! Implementación asíncrona del puerto SessionRepositoryPort usando diesel-async.
-
 use async_trait::async_trait;
 use chrono::Utc;
 use diesel::prelude::*;
@@ -15,7 +11,6 @@ use crate::infrastructure::persistence::{
     schema::user_sessions,
 };
 
-/// Implementación asíncrona del repositorio de sesiones
 pub struct PostgresSessionRepository {
     pool: DatabasePool,
 }
