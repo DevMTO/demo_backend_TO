@@ -152,4 +152,59 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
     async fn exists_by_ruc(&self, ruc: &str) -> Result<bool, ApplicationError> {
         Ok(self.find_by_ruc(ruc).await?.is_some())
     }
+    
+    #[instrument(skip(self))]
+    async fn list_with_encargado(&self, limit: i64, offset: i64) -> Result<(Vec<crate::application::dtos::AgenciaListItemDto>, i64), ApplicationError> {
+        use crate::infrastructure::persistence::schema::personas;
+        
+        debug!("📋 Listando agencias con encargado (limit: {}, offset: {})", limit, offset);
+        let mut conn = self.pool.get_connection().await?;
+        
+        let total: i64 = agencias::table
+            .count()
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let results: Vec<(AgenciaModel, Option<(String, String)>)> = agencias::table
+            .left_join(personas::table.on(agencias::encargado.eq(personas::id.nullable())))
+            .select((
+                AgenciaModel::as_select(),
+                (personas::nombre, personas::apellidos).nullable(),
+            ))
+            .order(agencias::created_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let items: Vec<crate::application::dtos::AgenciaListItemDto> = results
+            .into_iter()
+            .map(|(agencia, persona_data)| {
+                let encargado_nombre = persona_data.map(|(nombre, apellidos)| {
+                    format!("{} {}", nombre, apellidos)
+                });
+                
+                crate::application::dtos::AgenciaListItemDto {
+                    id: agencia.id,
+                    nombre: agencia.nombre,
+                    ruc: agencia.ruc,
+                    telefono: agencia.telefono,
+                    correo: agencia.correo,
+                    direccion: agencia.direccion,
+                    paleta_colores: agencia.paleta_colores,
+                    media: agencia.media,
+                    encargado: agencia.encargado,
+                    encargado_nombre,
+                    is_active: agencia.is_active,
+                    created_at: agencia.created_at,
+                    updated_at: agencia.updated_at,
+                }
+            })
+            .collect();
+        
+        info!("✅ Listadas {} agencias de {} total", items.len(), total);
+        Ok((items, total))
+    }
 }

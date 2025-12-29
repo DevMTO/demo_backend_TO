@@ -7,7 +7,7 @@ use tracing::instrument;
 use validator::Validate;
 
 use crate::application::dtos::{
-    CreateAgenciaRequest, UpdateAgenciaRequest, AgenciaResponse,
+    CreateAgenciaRequest, UpdateAgenciaRequest, AgenciaResponse, AgenciaListItemDto,
 };
 
 use crate::domain::errors::ApplicationError;
@@ -24,20 +24,22 @@ pub async fn list_agencias(
     _auth: AuthUser,
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let options = params.to_options();
-    let result = state.container.agencia_repository
-        .list_paginated(options)
+    let page = params.page;
+    let page_size = params.page_size;
+    let offset = (page - 1) * page_size;
+    let limit = page_size;
+    
+    let (items, total) = state.container.agencia_repository
+        .list_with_encargado(limit, offset)
         .await?;
     
-    let page = result.current_page();
-    let page_size = result.limit;
-    let total_pages = result.pages();
-    let response: PaginatedResponse<AgenciaResponse> = PaginatedResponse {
-        items: result.data.into_iter().map(Into::into).collect(),
+    let total_pages = ((total as f64) / (page_size as f64)).ceil() as i64;
+    let response: PaginatedResponse<AgenciaListItemDto> = PaginatedResponse {
+        items,
         pagination: PaginationInfo {
             page,
             page_size,
-            total: result.total,
+            total,
             total_pages,
         },
     };

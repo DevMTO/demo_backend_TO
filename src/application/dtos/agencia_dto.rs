@@ -40,6 +40,23 @@ impl From<Agencia> for AgenciaResponse {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct AgenciaListItemDto {
+    pub id: i32,
+    pub nombre: String,
+    pub ruc: String,
+    pub telefono: Option<String>,
+    pub correo: Option<String>,
+    pub direccion: Option<String>,
+    pub paleta_colores: Option<JsonValue>,
+    pub media: Option<JsonValue>,
+    pub encargado: Option<i32>,
+    pub encargado_nombre: Option<String>,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct CreateAgenciaRequest {
     #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
