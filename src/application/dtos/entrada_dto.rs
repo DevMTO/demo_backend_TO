@@ -12,6 +12,7 @@ use crate::domain::entities::Entrada;
 pub struct EntradaResponse {
     pub id: i32,
     pub nombre: String,
+    #[ts(type = "string")]
     pub precio: BigDecimal,
     pub ruta: Option<String>,
     pub tipo: String,

@@ -19,8 +19,11 @@ pub struct FileResponse {
     pub hora_recojo: Option<NaiveTime>,
     pub notas: Option<String>,
     pub status: String,
+    #[ts(type = "string")]
     pub monto_total: BigDecimal,
+    #[ts(type = "string")]
     pub monto_pagado: BigDecimal,
+    #[ts(type = "string")]
     pub saldo_pendiente: BigDecimal,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

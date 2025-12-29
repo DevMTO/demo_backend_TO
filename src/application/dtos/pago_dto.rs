@@ -15,6 +15,7 @@ pub struct PagoResponse {
     pub id_file: i32,
     pub tipo_movimiento: String,
     pub concepto: String,
+    #[ts(type = "string")]
     pub monto: BigDecimal,
     pub metodo_pago: Option<String>,
     pub referencia: Option<String>,

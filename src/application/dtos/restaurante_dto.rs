@@ -18,6 +18,7 @@ pub struct RestauranteResponse {
     pub correo: Option<String>,
     #[ts(type = "object | null")]
     pub tipo_atencion: Option<JsonValue>,
+    #[ts(type = "string | null")]
     pub precio_promedio: Option<BigDecimal>,
     pub capacidad: Option<i32>,
     #[ts(type = "object | null")]

@@ -21,6 +21,7 @@ pub struct TourResponse {
     pub detalles: Option<JsonValue>,
     #[ts(type = "object | null")]
     pub itinerario: Option<JsonValue>,
+    #[ts(type = "string")]
     pub precio_base: BigDecimal,
     pub duracion_dias: Option<i32>,
     pub max_personas: Option<i32>,
