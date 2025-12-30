@@ -225,6 +225,7 @@ diesel::table! {
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+        encargado -> Nullable<Int4>,
     }
 }
 
@@ -367,6 +368,7 @@ diesel::joinable!(files -> agencias (id_agencia));
 diesel::joinable!(files -> tours (id_tour));
 diesel::joinable!(guias -> personas (id_persona));
 diesel::joinable!(pagos -> files (id_file));
+diesel::joinable!(restaurantes -> personas (encargado));
 diesel::joinable!(transportes -> personas (encargado));
 diesel::joinable!(user_sessions -> users (user_id));
 diesel::joinable!(vehiculos -> transportes (id_transporte));

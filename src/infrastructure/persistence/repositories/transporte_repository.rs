@@ -4,11 +4,12 @@ use diesel_async::RunQueryDsl;
 use tracing::{info, instrument};
 
 use crate::application::ports::{TransporteRepositoryPort, PaginationOptions, PaginatedResult};
+use crate::application::dtos::TransporteListItemDto;
 use crate::domain::{entities::Transporte, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
     models::{TransporteModel, NewTransporteModel, UpdateTransporteModel},
-    schema::transportes,
+    schema::{transportes, personas},
 };
 
 pub struct PostgresTransporteRepository { pool: DatabasePool }
@@ -112,5 +113,51 @@ impl TransporteRepositoryPort for PostgresTransporteRepository {
     async fn find_with_available_vehicles(&self) -> Result<Vec<Transporte>, ApplicationError> {
         // Simplificado - retorna todos los transportes activos
         self.list(100, 0).await
+    }
+    
+    async fn list_with_encargado(&self, limit: i64, offset: i64) -> Result<(Vec<TransporteListItemDto>, i64), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        // Contar total
+        let total: i64 = transportes::table
+            .filter(transportes::is_active.eq(true))
+            .count()
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        // Query con LEFT JOIN a personas para obtener nombre del encargado
+        let results: Vec<(TransporteModel, Option<(String, String)>)> = transportes::table
+            .left_join(personas::table.on(transportes::encargado.eq(personas::id.nullable())))
+            .select((
+                TransporteModel::as_select(),
+                (personas::nombre, personas::apellidos).nullable()
+            ))
+            .filter(transportes::is_active.eq(true))
+            .order(transportes::nombre.asc())
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let items: Vec<TransporteListItemDto> = results.into_iter().map(|(transporte, encargado_data)| {
+            let encargado_nombre = encargado_data.map(|(nombre, apellidos)| format!("{} {}", nombre, apellidos));
+            TransporteListItemDto {
+                id: transporte.id,
+                nombre: transporte.nombre,
+                ruc: transporte.ruc,
+                telefono: transporte.telefono,
+                correo: transporte.correo,
+                direccion: transporte.direccion,
+                encargado: transporte.encargado,
+                encargado_nombre,
+                is_active: transporte.is_active,
+                created_at: transporte.created_at,
+                updated_at: transporte.updated_at,
+            }
+        }).collect();
+        
+        Ok((items, total))
     }
 }

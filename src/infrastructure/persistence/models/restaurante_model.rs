@@ -25,6 +25,7 @@ pub struct RestauranteModel {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub encargado: Option<i32>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -41,6 +42,7 @@ pub struct NewRestauranteModel<'a> {
     pub is_active: bool,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub encargado: Option<i32>,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -56,6 +58,7 @@ pub struct UpdateRestauranteModel<'a> {
     pub horario: Option<Option<JsonValue>>,
     pub is_active: Option<bool>,
     pub updated_by: Option<i32>,
+    pub encargado: Option<Option<i32>>,
 }
 
 impl From<RestauranteModel> for Restaurante {
@@ -75,6 +78,7 @@ impl From<RestauranteModel> for Restaurante {
             updated_at: model.updated_at,
             created_by: model.created_by,
             updated_by: model.updated_by,
+            encargado: model.encargado,
         }
     }
 }
@@ -93,6 +97,7 @@ impl<'a> From<&'a Restaurante> for NewRestauranteModel<'a> {
             is_active: r.is_active,
             created_by: r.created_by,
             updated_by: r.updated_by,
+            encargado: r.encargado,
         }
     }
 }

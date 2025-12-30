@@ -27,6 +27,7 @@ pub struct Restaurante {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub encargado: Option<i32>,
 }
 
 impl Restaurante {
@@ -47,6 +48,7 @@ impl Restaurante {
             updated_at: now,
             created_by: None,
             updated_by: None,
+            encargado: None,
         }
     }
     

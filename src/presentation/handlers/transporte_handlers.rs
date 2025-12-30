@@ -19,13 +19,13 @@ pub async fn list_transportes(
     _auth: AuthUser,
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let result = state.container.transporte_repository.list_paginated(params.to_options()).await?;
-    let page = result.current_page();
-    let page_size = result.limit;
-    let total_pages = result.pages();
+    let limit = params.page_size.min(100);
+    let offset = (params.page - 1).max(0) * limit;
+    let (items, total) = state.container.transporte_repository.list_with_encargado(limit, offset).await?;
+    let total_pages = ((total as f64) / (limit as f64)).ceil() as i64;
     Ok(json_ok(PaginatedResponse {
-        items: result.data.into_iter().map(TransporteResponse::from).collect(),
-        pagination: PaginationInfo { page, page_size, total: result.total, total_pages },
+        items,
+        pagination: PaginationInfo { page: params.page, page_size: limit, total, total_pages },
     }))
 }
 

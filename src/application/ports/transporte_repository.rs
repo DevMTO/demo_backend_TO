@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::Transporte;
+use crate::application::dtos::TransporteListItemDto;
 use super::{PaginationOptions, PaginatedResult};
 
 #[allow(dead_code)]
@@ -14,6 +15,9 @@ pub trait TransporteRepositoryPort: Send + Sync {
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Transporte>, ApplicationError>;
     async fn count(&self) -> Result<i64, ApplicationError>;
     async fn list_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Transporte>, ApplicationError>;
+    
+    // List con encargado
+    async fn list_with_encargado(&self, limit: i64, offset: i64) -> Result<(Vec<TransporteListItemDto>, i64), ApplicationError>;
     
     // Soft delete
     async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;

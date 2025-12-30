@@ -3,12 +3,13 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tracing::{info, instrument};
 
+use crate::application::dtos::RestauranteListItemDto;
 use crate::application::ports::{RestauranteRepositoryPort, PaginationOptions, PaginatedResult};
 use crate::domain::{entities::Restaurante, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
     models::{RestauranteModel, NewRestauranteModel, UpdateRestauranteModel},
-    schema::restaurantes,
+    schema::{restaurantes, personas},
 };
 
 pub struct PostgresRestauranteRepository { pool: DatabasePool }
@@ -51,6 +52,7 @@ impl RestauranteRepositoryPort for PostgresRestauranteRepository {
             horario: Some(restaurante.horario.clone()),
             is_active: Some(restaurante.is_active),
             updated_by: restaurante.updated_by,
+            encargado: Some(restaurante.encargado),
         };
         let result = diesel::update(restaurantes::table.filter(restaurantes::id.eq(restaurante.id)))
             .set(&changes).get_result::<RestauranteModel>(&mut conn).await
@@ -132,5 +134,57 @@ impl RestauranteRepositoryPort for PostgresRestauranteRepository {
             .load::<RestauranteModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         Ok(results.into_iter().map(Into::into).collect())
+    }
+    
+    async fn list_with_encargado(&self, limit: i64, offset: i64) -> Result<(Vec<RestauranteListItemDto>, i64), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        // Count total
+        let total = restaurantes::table
+            .filter(restaurantes::is_active.eq(true))
+            .count()
+            .get_result::<i64>(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        // LEFT JOIN with personas to get encargado_nombre
+        let results: Vec<(RestauranteModel, Option<(String, String)>)> = restaurantes::table
+            .left_join(personas::table.on(restaurantes::encargado.eq(personas::id.nullable())))
+            .select((
+                RestauranteModel::as_select(),
+                (personas::nombre, personas::apellidos).nullable()
+            ))
+            .filter(restaurantes::is_active.eq(true))
+            .order(restaurantes::nombre.asc())
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let items: Vec<RestauranteListItemDto> = results
+            .into_iter()
+            .map(|(model, persona_data)| {
+                let encargado_nombre = persona_data.map(|(nombre, apellidos)| format!("{} {}", nombre, apellidos));
+                RestauranteListItemDto {
+                    id: model.id,
+                    nombre: model.nombre,
+                    direccion: model.direccion,
+                    telefono: model.telefono,
+                    correo: model.correo,
+                    tipo_atencion: model.tipo_atencion,
+                    precio_promedio: model.precio_promedio,
+                    capacidad: model.capacidad,
+                    horario: model.horario,
+                    encargado: model.encargado,
+                    encargado_nombre,
+                    is_active: model.is_active,
+                    created_at: model.created_at,
+                    updated_at: model.updated_at,
+                }
+            })
+            .collect();
+        
+        Ok((items, total))
     }
 }

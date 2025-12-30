@@ -38,6 +38,24 @@ impl From<Transporte> for TransporteResponse {
     }
 }
 
+/// DTO para listar transportes con el nombre del encargado
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct TransporteListItemDto {
+    pub id: i32,
+    pub nombre: String,
+    pub ruc: String,
+    pub telefono: Option<String>,
+    pub correo: Option<String>,
+    pub direccion: Option<String>,
+    pub encargado: Option<i32>,
+    pub encargado_nombre: Option<String>,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

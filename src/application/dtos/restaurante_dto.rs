@@ -23,6 +23,7 @@ pub struct RestauranteResponse {
     pub capacidad: Option<i32>,
     #[ts(type = "object | null")]
     pub horario: Option<JsonValue>,
+    pub encargado: Option<i32>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -40,11 +41,36 @@ impl From<Restaurante> for RestauranteResponse {
             precio_promedio: r.precio_promedio,
             capacidad: r.capacidad,
             horario: r.horario,
+            encargado: r.encargado,
             is_active: r.is_active,
             created_at: r.created_at,
             updated_at: r.updated_at,
         }
     }
+}
+
+/// DTO para listado con nombre del encargado
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct RestauranteListItemDto {
+    pub id: i32,
+    pub nombre: String,
+    pub direccion: String,
+    pub telefono: Option<String>,
+    pub correo: Option<String>,
+    #[ts(type = "object | null")]
+    pub tipo_atencion: Option<JsonValue>,
+    #[ts(type = "string | null")]
+    pub precio_promedio: Option<BigDecimal>,
+    pub capacidad: Option<i32>,
+    #[ts(type = "object | null")]
+    pub horario: Option<JsonValue>,
+    pub encargado: Option<i32>,
+    pub encargado_nombre: Option<String>,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
@@ -75,6 +101,8 @@ pub struct CreateRestauranteRequest {
     /// {"lunes": "8:00-22:00", "martes": "8:00-22:00", ...}
     #[ts(type = "object | null")]
     pub horario: Option<JsonValue>,
+    
+    pub encargado: Option<i32>,
 }
 
 impl CreateRestauranteRequest {
@@ -90,6 +118,7 @@ impl CreateRestauranteRequest {
             precio_promedio: self.precio_promedio.map(|p| BigDecimal::try_from(p).unwrap_or_default()),
             capacidad: self.capacidad,
             horario: self.horario,
+            encargado: self.encargado,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -126,6 +155,8 @@ pub struct UpdateRestauranteRequest {
     #[ts(type = "object | null")]
     pub horario: Option<JsonValue>,
     
+    pub encargado: Option<i32>,
+    
     pub is_active: Option<bool>,
 }
 
@@ -154,6 +185,9 @@ impl UpdateRestauranteRequest {
         }
         if let Some(horario) = self.horario {
             restaurante.horario = Some(horario);
+        }
+        if let Some(encargado) = self.encargado {
+            restaurante.encargado = Some(encargado);
         }
         if let Some(is_active) = self.is_active {
             restaurante.is_active = is_active;
