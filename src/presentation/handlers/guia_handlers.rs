@@ -10,13 +10,16 @@ use super::common::{PaginationParams, PaginatedResponse, PaginationInfo, json_ok
 
 #[instrument(skip(state, _auth))]
 pub async fn list_guias(State(state): State<AppState>, _auth: AuthUser, Query(params): Query<PaginationParams>) -> Result<impl IntoResponse, ApplicationError> {
-    let result = state.container.guia_repository.list_paginated(params.to_options()).await?;
-    let page = result.current_page();
-    let page_size = result.limit;
-    let total_pages = result.pages();
+    let page = params.page;
+    let page_size = params.page_size;
+    let offset = (page - 1) * page_size;
+    
+    let (items, total) = state.container.guia_repository.list_with_persona(page_size, offset).await?;
+    let total_pages = (total + page_size - 1) / page_size;
+    
     Ok(json_ok(PaginatedResponse {
-        items: result.data.into_iter().map(GuiaResponse::from).collect(),
-        pagination: PaginationInfo { page, page_size, total: result.total, total_pages },
+        items,
+        pagination: PaginationInfo { page, page_size, total, total_pages },
     }))
 }
 

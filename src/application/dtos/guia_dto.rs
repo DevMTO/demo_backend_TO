@@ -122,3 +122,26 @@ pub struct GuiaListResponse {
     pub page_size: i64,
     pub total_pages: i64,
 }
+
+/// DTO para listado de guías con información de la persona asociada
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct GuiaListItemDto {
+    pub id: i32,
+    pub id_persona: i32,
+    pub nro_carnet: String,
+    #[ts(type = "object | null")]
+    pub idiomas: Option<JsonValue>,
+    #[ts(type = "object | null")]
+    pub especialidades: Option<JsonValue>,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    // Datos de la persona asociada
+    pub persona_nombre: Option<String>,
+    pub persona_apellidos: Option<String>,
+    pub persona_nro_documento: Option<String>,
+    pub persona_telefono: Option<String>,
+    pub persona_correo: Option<String>,
+}

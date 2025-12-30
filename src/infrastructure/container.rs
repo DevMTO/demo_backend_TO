@@ -111,6 +111,9 @@ pub struct DependencyContainer {
     // Session Manager para middleware
     pub session_manager: Arc<dyn SessionManagerPort>,
     
+    // Password Hasher para crear/actualizar usuarios
+    pub password_hasher: Arc<dyn PasswordHasherPort>,
+    
     // Entity Repositories (para operaciones simples que no necesitan use case)
     pub user_repository: Arc<dyn UserRepositoryPort>,
     pub persona_repository: Arc<dyn PersonaRepositoryPort>,
@@ -306,6 +309,7 @@ impl DependencyContainer {
             update_pago_use_case,
             // Services
             session_manager,
+            password_hasher,
             // Repositories
             user_repository,
             persona_repository,

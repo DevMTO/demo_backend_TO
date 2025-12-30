@@ -3,12 +3,13 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tracing::{info, instrument};
 
+use crate::application::dtos::GuiaListItemDto;
 use crate::application::ports::{GuiaRepositoryPort, PaginationOptions, PaginatedResult};
 use crate::domain::{entities::Guia, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
     models::{GuiaModel, NewGuiaModel, UpdateGuiaModel},
-    schema::guias,
+    schema::{guias, personas},
 };
 
 pub struct PostgresGuiaRepository { pool: DatabasePool }
@@ -110,5 +111,53 @@ impl GuiaRepositoryPort for PostgresGuiaRepository {
     async fn find_by_especialidad(&self, _especialidad: &str) -> Result<Vec<Guia>, ApplicationError> {
         // TODO: Implement JSONB search for especialidades
         self.list(100, 0).await
+    }
+    
+    async fn list_with_persona(&self, limit: i64, offset: i64) -> Result<(Vec<GuiaListItemDto>, i64), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        // Count total
+        let total = guias::table
+            .count()
+            .get_result::<i64>(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        // INNER JOIN with personas to get persona info
+        let results: Vec<(GuiaModel, (String, String, String, Option<String>, Option<String>))> = guias::table
+            .inner_join(personas::table.on(guias::id_persona.eq(personas::id)))
+            .select((
+                GuiaModel::as_select(),
+                (personas::nombre, personas::apellidos, personas::nro_documento, personas::telefono, personas::correo)
+            ))
+            .order(guias::nro_carnet.asc())
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let items: Vec<GuiaListItemDto> = results
+            .into_iter()
+            .map(|(model, (nombre, apellidos, nro_documento, telefono, correo))| {
+                GuiaListItemDto {
+                    id: model.id,
+                    id_persona: model.id_persona,
+                    nro_carnet: model.nro_carnet,
+                    idiomas: model.idiomas,
+                    especialidades: model.especialidades,
+                    status: model.status,
+                    created_at: model.created_at,
+                    updated_at: model.updated_at,
+                    persona_nombre: Some(nombre),
+                    persona_apellidos: Some(apellidos),
+                    persona_nro_documento: Some(nro_documento),
+                    persona_telefono: telefono,
+                    persona_correo: correo,
+                }
+            })
+            .collect();
+        
+        Ok((items, total))
     }
 }

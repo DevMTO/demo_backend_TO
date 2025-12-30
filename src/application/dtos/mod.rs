@@ -30,4 +30,9 @@ pub use restaurante_dto::*;
 pub use entrada_dto::*;
 pub use file_dto::*;
 pub use pago_dto::*;
-pub use user_dto::UserListItemDto;
+pub use user_dto::{
+    UserListItemDto, 
+    UserDetailDto, 
+    CreateUserRequest, 
+    UpdateUserRequest,
+};

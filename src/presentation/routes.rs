@@ -128,7 +128,8 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
         .route("/{id}", get(pago_handlers::get_pago).put(pago_handlers::update_pago).delete(pago_handlers::delete_pago));
 
     let user_routes = Router::new()
-        .route("/", get(user_handlers::list_users));
+        .route("/", get(user_handlers::list_users).post(user_handlers::create_user))
+        .route("/{id}", get(user_handlers::get_user).put(user_handlers::update_user).delete(user_handlers::delete_user));
 
     // ========== RUTAS PROTEGIDAS ==========
     // Todas las rutas CRUD requieren autenticación vía cookie de sesión

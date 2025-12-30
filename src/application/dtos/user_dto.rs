@@ -40,13 +40,39 @@ impl From<User> for UserDetailDto {
     }
 }
 
-#[allow(dead_code)]
+/// Datos de persona para crear junto con el usuario (opcional)
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct CreatePersonaForUserRequest {
+    #[validate(length(min = 1, max = 30))]
+    pub tipo_documento: String,
+    
+    #[validate(length(min = 6, max = 20))]
+    pub nro_documento: String,
+    
+    #[validate(length(min = 1, max = 100))]
+    pub nombre: String,
+    
+    #[validate(length(min = 1, max = 100))]
+    pub apellidos: String,
+    
+    #[validate(length(max = 20))]
+    pub telefono: Option<String>,
+    
+    pub fecha_nacimiento: Option<chrono::NaiveDate>,
+}
+
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateUserRequest {
-    /// ID de la persona ya registrada en el sistema (opcional)
+    /// ID de la persona ya registrada en el sistema (si se proporciona, no se crea persona nueva)
     pub id_persona: Option<i32>,
+    
+    /// Datos para crear una nueva persona (solo si id_persona es None)
+    #[validate(nested)]
+    pub nueva_persona: Option<CreatePersonaForUserRequest>,
     
     #[validate(length(min = 3, max = 50, message = "Username must be between 3 and 50 characters"))]
     pub username: String,
@@ -67,7 +93,6 @@ pub struct CreateUserRequest {
     pub nombre_entidad: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -82,6 +107,35 @@ pub struct UpdateUserRequest {
     pub id_entidad: Option<i32>,
     
     pub nombre_entidad: Option<String>,
+}
+
+impl UpdateUserRequest {
+    pub fn apply_to(self, mut user: crate::domain::entities::User, updated_by: Option<i32>) -> crate::domain::entities::User {
+        use crate::domain::entities::{UserRole, UserStatus};
+        
+        if let Some(email) = self.email {
+            user.email = email.to_lowercase();
+        }
+        if let Some(role) = self.role {
+            if let Ok(r) = role.parse::<UserRole>() {
+                user.role = r;
+            }
+        }
+        if let Some(status) = self.status {
+            if let Ok(s) = status.parse::<UserStatus>() {
+                user.status = s;
+            }
+        }
+        if let Some(id_entidad) = self.id_entidad {
+            user.id_entidad = Some(id_entidad);
+        }
+        if let Some(nombre_entidad) = self.nombre_entidad {
+            user.nombre_entidad = Some(nombre_entidad);
+        }
+        user.updated_by = updated_by;
+        user.updated_at = Utc::now();
+        user
+    }
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
