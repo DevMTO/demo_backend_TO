@@ -55,6 +55,11 @@ dotenvy = "0.15"
 # Async traits
 async-trait = "0.1"
 
+# Async Streams (para SSE)
+futures = "0.3"
+async-stream = "0.3"
+tokio-stream = "0.1"
+
 # Error handling
 thiserror = "2.0"
 anyhow = "1.0"

@@ -2,6 +2,10 @@
 pub mod user;
 pub mod session;
 
+// System Entities
+pub mod activity_log;
+pub mod notification;
+
 // Tour Operator Business Entities
 pub mod persona;
 pub mod agencia;
@@ -18,6 +22,17 @@ pub mod pago;
 // Re-exports - Auth core
 pub use user::{User, UserRole, UserStatus};
 pub use session::UserSession;
+
+// Re-exports - System entities
+pub use activity_log::{
+    ActivityLog, ActivityLogBuilder, NewActivityLog,
+    ActionType, Action, LogStatus, EntityType,
+};
+pub use notification::{
+    Notification, NotificationBuilder, NewNotification,
+    NotificationUser, NewNotificationUser, NotificationWithReadStatus,
+    NotificationType, NotificationCategory, NotificationPriority,
+};
 
 // Re-exports - Business entities
 pub use persona::{Persona, TipoDocumento};

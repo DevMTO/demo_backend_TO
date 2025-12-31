@@ -2,6 +2,10 @@
 pub mod auth_dto;
 pub mod user_dto;
 
+// System DTOs
+pub mod activity_log_dto;
+pub mod notification_dto;
+
 // Business Entity DTOs
 pub mod persona_dto;
 pub mod agencia_dto;
@@ -17,6 +21,10 @@ pub mod pago_dto;
 
 // Re-exports - Auth
 // auth_dto y user_dto se usan internamente
+
+// Re-exports - System
+pub use activity_log_dto::*;
+pub use notification_dto::*;
 
 // Re-exports - Business entities
 pub use persona_dto::*;

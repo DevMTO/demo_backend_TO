@@ -2,6 +2,10 @@
 pub mod user_repository;
 pub mod session_repository;
 
+// System repositories
+pub mod activity_log_repository;
+pub mod notification_repository;
+
 // Business entity repositories
 pub mod persona_repository;
 pub mod agencia_repository;
@@ -18,6 +22,10 @@ pub mod pago_repository;
 // Re-exports - Auth
 pub use user_repository::*;
 pub use session_repository::*;
+
+// Re-exports - System
+pub use activity_log_repository::*;
+pub use notification_repository::*;
 
 // Re-exports - Business entities
 pub use persona_repository::*;

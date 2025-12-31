@@ -95,6 +95,23 @@ impl Default for UserRole {
     }
 }
 
+impl UserRole {
+    /// Verifica si es SuperAdmin
+    pub fn is_super_admin(&self) -> bool {
+        matches!(self, UserRole::SuperAdmin)
+    }
+    
+    /// Verifica si es Admin o superior
+    pub fn is_admin(&self) -> bool {
+        matches!(self, UserRole::SuperAdmin | UserRole::Admin)
+    }
+    
+    /// Verifica si es Agencia o superior
+    pub fn is_agencia(&self) -> bool {
+        matches!(self, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencia)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     /// ID único del usuario (SERIAL en DB)

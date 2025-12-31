@@ -1,6 +1,33 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    activity_logs (id) {
+        id -> Int4,
+        user_id -> Nullable<Int4>,
+        #[max_length = 50]
+        username -> Nullable<Varchar>,
+        #[max_length = 30]
+        action_type -> Varchar,
+        #[max_length = 50]
+        action -> Varchar,
+        #[max_length = 50]
+        entity_type -> Varchar,
+        entity_id -> Nullable<Int4>,
+        description -> Nullable<Text>,
+        old_values -> Nullable<Jsonb>,
+        new_values -> Nullable<Jsonb>,
+        changed_fields -> Nullable<Jsonb>,
+        #[max_length = 45]
+        ip_address -> Nullable<Varchar>,
+        user_agent -> Nullable<Text>,
+        #[max_length = 20]
+        status -> Varchar,
+        error_message -> Nullable<Text>,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     agencias (id) {
         id -> Int4,
         #[max_length = 200]
@@ -157,6 +184,43 @@ diesel::table! {
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
+    notification_users (id) {
+        id -> Int4,
+        notification_id -> Int4,
+        user_id -> Int4,
+        is_read -> Bool,
+        read_at -> Nullable<Timestamptz>,
+        is_dismissed -> Bool,
+        dismissed_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    notifications (id) {
+        id -> Int4,
+        #[max_length = 50]
+        notification_type -> Varchar,
+        #[max_length = 50]
+        category -> Varchar,
+        #[max_length = 200]
+        title -> Varchar,
+        message -> Text,
+        #[max_length = 50]
+        entity_type -> Nullable<Varchar>,
+        entity_id -> Nullable<Int4>,
+        metadata -> Nullable<Jsonb>,
+        #[max_length = 20]
+        priority -> Varchar,
+        target_roles -> Nullable<Jsonb>,
+        target_user_id -> Nullable<Int4>,
+        expires_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
     }
 }
 
@@ -345,6 +409,7 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(activity_logs -> users (user_id));
 diesel::joinable!(agencias -> personas (encargado));
 diesel::joinable!(conductores -> personas (id_persona));
 diesel::joinable!(conductores -> transportes (id_transporte));
@@ -367,6 +432,8 @@ diesel::joinable!(file_vehiculos -> vehiculos (id_vehiculo));
 diesel::joinable!(files -> agencias (id_agencia));
 diesel::joinable!(files -> tours (id_tour));
 diesel::joinable!(guias -> personas (id_persona));
+diesel::joinable!(notification_users -> notifications (notification_id));
+diesel::joinable!(notification_users -> users (user_id));
 diesel::joinable!(pagos -> files (id_file));
 diesel::joinable!(restaurantes -> personas (encargado));
 diesel::joinable!(transportes -> personas (encargado));
@@ -374,6 +441,7 @@ diesel::joinable!(user_sessions -> users (user_id));
 diesel::joinable!(vehiculos -> transportes (id_transporte));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    activity_logs,
     agencias,
     conductores,
     entradas,
@@ -384,6 +452,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     file_vehiculos,
     files,
     guias,
+    notification_users,
+    notifications,
     pagos,
     personas,
     restaurantes,

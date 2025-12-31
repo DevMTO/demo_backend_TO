@@ -16,6 +16,7 @@ use tower_cookies::CookieManagerLayer;
 
 use crate::config::AppConfig;
 use crate::infrastructure::container::DependencyContainer;
+use crate::infrastructure::sse::NotificationBroadcaster;
 use super::handlers::{
     login_handler,
     logout_handler,
@@ -33,16 +34,20 @@ use super::handlers::{
     entrada_handlers,
     file_handlers,
     pago_handlers,
+    activity_log_handlers,
+    notification_handlers,
 };
 use super::middleware::require_auth;
 
 #[derive(Clone)]
 pub struct AppState {
     pub container: Arc<DependencyContainer>,
+    pub broadcaster: Arc<NotificationBroadcaster>,
 }
 
 pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) -> Router {
-    let state = AppState { container };
+    let broadcaster = Arc::new(NotificationBroadcaster::new());
+    let state = AppState { container, broadcaster };
     
     // Configurar CORS
     let cors = create_cors_layer(config);
@@ -129,7 +134,32 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
 
     let user_routes = Router::new()
         .route("/", get(user_handlers::list_users).post(user_handlers::create_user))
-        .route("/{id}", get(user_handlers::get_user).put(user_handlers::update_user).delete(user_handlers::delete_user));
+        .route("/{id}", get(user_handlers::get_user).put(user_handlers::update_user).delete(user_handlers::delete_user))
+        .route("/{id}/activate", post(user_handlers::activate_user))
+        .route("/{id}/deactivate", post(user_handlers::deactivate_user));
+
+    // === System Routes (Logs & Notifications) ===
+    
+    let activity_log_routes = Router::new()
+        .route("/", get(activity_log_handlers::list_logs))
+        .route("/summary", get(activity_log_handlers::get_logs_summary))
+        .route("/errors", get(activity_log_handlers::get_recent_errors))
+        .route("/cleanup", post(activity_log_handlers::cleanup_old_logs));
+    
+    let notification_routes = Router::new()
+        // SSE para notificaciones en tiempo real
+        .route("/sse", get(notification_handlers::notifications_sse))
+        // User notifications (mis notificaciones)
+        .route("/me", get(notification_handlers::get_my_notifications))
+        .route("/me/unread-count", get(notification_handlers::get_unread_count))
+        .route("/me/read-all", post(notification_handlers::mark_all_as_read))
+        .route("/me/dismiss-all", post(notification_handlers::dismiss_all_notifications))
+        .route("/me/{id}/read", post(notification_handlers::mark_as_read))
+        .route("/me/{id}/dismiss", post(notification_handlers::dismiss_notification))
+        // Admin notifications (crear, listar todas, eliminar)
+        .route("/", get(notification_handlers::list_all_notifications).post(notification_handlers::create_notification))
+        .route("/cleanup", post(notification_handlers::cleanup_notifications))
+        .route("/{id}", axum::routing::delete(notification_handlers::delete_notification));
 
     // ========== RUTAS PROTEGIDAS ==========
     // Todas las rutas CRUD requieren autenticación vía cookie de sesión
@@ -146,6 +176,8 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
         .nest("/entradas", entrada_routes)
         .nest("/files", file_routes)
         .nest("/pagos", pago_routes)
+        .nest("/logs", activity_log_routes)
+        .nest("/notifications", notification_routes)
         .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
     // Router principal

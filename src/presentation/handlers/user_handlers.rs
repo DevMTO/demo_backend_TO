@@ -4,10 +4,13 @@ use axum::{
     Json,
 };
 use serde::Deserialize;
-use tracing::{info, instrument};
+use tracing::{info, warn, instrument};
 use validator::Validate;
 
-use crate::domain::entities::{User, UserRole, UserStatus, Persona, TipoDocumento};
+use crate::domain::entities::{
+    User, UserRole, UserStatus, Persona, TipoDocumento, EntityType,
+    NotificationType, NotificationCategory, NotificationPriority,
+};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::handlers::common::{json_ok, json_created, json_deleted, create_paginated_response};
@@ -155,6 +158,32 @@ pub async fn create_user(
     let created = state.container.user_repository.create(&new_user).await?;
     info!("✅ Usuario creado: {} (ID: {})", created.username, created.id);
     
+    // Logging del evento
+    if let Err(e) = state.container.logging_service.log_create::<User>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::User,
+        created.id,
+        &created.username,
+        Some(&created),
+        None,
+    ).await {
+        warn!("⚠️ Error al registrar log de creación de usuario: {}", e);
+    }
+    
+    // Notificación a admins
+    if let Err(e) = state.container.notification_service.notify_roles(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Nuevo usuario creado",
+        &format!("Se ha creado el usuario '{}' con rol {}", created.username, created.role),
+        NotificationType::Info,
+        NotificationCategory::Crud,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación de usuario creado: {}", e);
+    }
+    
     Ok(json_created(UserDetailDto::from(created)))
 }
 
@@ -185,18 +214,62 @@ pub async fn update_user(
     }
     
     // Aplicar cambios
+    let old_user = user.clone();
     let updated = request.apply_to(user, Some(auth.user.id));
     let result = state.container.user_repository.update(&updated).await?;
     
     info!("✅ Usuario actualizado: {} (ID: {})", result.username, result.id);
+    
+    // Detectar campos cambiados
+    let mut changed_fields = Vec::new();
+    if old_user.email != result.email { changed_fields.push("email".to_string()); }
+    if old_user.role != result.role { changed_fields.push("role".to_string()); }
+    if old_user.status != result.status { changed_fields.push("status".to_string()); }
+    if old_user.id_entidad != result.id_entidad { changed_fields.push("id_entidad".to_string()); }
+    
+    // Logging del evento
+    if let Err(e) = state.container.logging_service.log_update::<User>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::User,
+        result.id,
+        Some(&old_user),
+        Some(&result),
+        if changed_fields.is_empty() { None } else { Some(changed_fields.clone()) },
+        None,
+    ).await {
+        warn!("⚠️ Error al registrar log de actualización de usuario: {}", e);
+    }
+    
+    // Notificación al usuario afectado si fue actualizado por otro
+    if result.id != auth.user.id {
+        let notification_msg = if changed_fields.is_empty() {
+            "Tu cuenta ha sido actualizada".to_string()
+        } else {
+            format!("Se actualizaron los siguientes campos de tu cuenta: {}", changed_fields.join(", "))
+        };
+        
+        if let Err(e) = state.container.notification_service.notify_user(
+            result.id,
+            "Cuenta actualizada",
+            &notification_msg,
+            NotificationType::Info,
+            NotificationCategory::Crud,
+            NotificationPriority::Normal,
+            Some(auth.user.id),
+        ).await {
+            warn!("⚠️ Error al enviar notificación de actualización: {}", e);
+        }
+    }
+    
     Ok(json_ok(UserDetailDto::from(result)))
 }
 
 /// Eliminar (desactivar) un usuario
-#[instrument(skip(state, _auth))]
+#[instrument(skip(state, auth))]
 pub async fn delete_user(
     State(state): State<AppState>,
-    _auth: AuthUser,
+    auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     // Verificar que existe
@@ -206,13 +279,195 @@ pub async fn delete_user(
         .ok_or_else(|| ApplicationError::NotFound(format!("Usuario {} no encontrado", id)))?;
     
     // No permitir eliminar el propio usuario
-    // (Comentado porque puede ser válido en algunos casos)
-    // if user.id == auth.user.id {
-    //     return Err(ApplicationError::Forbidden("No puedes eliminar tu propio usuario".to_string()));
-    // }
+    if user.id == auth.user.id {
+        return Err(ApplicationError::Forbidden("No puedes desactivar tu propio usuario".to_string()));
+    }
     
     state.container.user_repository.delete(id).await?;
     
     info!("🗑️ Usuario desactivado: {} (ID: {})", user.username, id);
+    
+    // Logging del evento
+    if let Err(e) = state.container.logging_service.log_delete::<User>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::User,
+        id,
+        Some(&user),
+        None,
+    ).await {
+        warn!("⚠️ Error al registrar log de desactivación de usuario: {}", e);
+    }
+    
+    // Notificación al usuario desactivado
+    if let Err(e) = state.container.notification_service.notify_user(
+        id,
+        "Cuenta desactivada",
+        "Tu cuenta ha sido desactivada por un administrador. Contacta con soporte si crees que es un error.",
+        NotificationType::Warning,
+        NotificationCategory::Auth,
+        NotificationPriority::High,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación de desactivación: {}", e);
+    }
+    
+    // Notificación a admins
+    if let Err(e) = state.container.notification_service.notify_roles(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Usuario desactivado",
+        &format!("El usuario '{}' ha sido desactivado por {}", user.username, auth.user.username),
+        NotificationType::Warning,
+        NotificationCategory::Auth,
+        NotificationPriority::Normal,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación a admins: {}", e);
+    }
+    
     Ok(json_deleted())
+}
+/// Activar un usuario
+#[instrument(skip(state, auth))]
+pub async fn activate_user(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que existe
+    let mut user = state.container.user_repository
+        .find_by_id(id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Usuario {} no encontrado", id)))?;
+    
+    // Verificar que no está ya activo
+    if user.status == UserStatus::Activo {
+        return Err(ApplicationError::Conflict("El usuario ya está activo".to_string()));
+    }
+    
+    let old_status = user.status.clone();
+    user.status = UserStatus::Activo;
+    user.updated_at = chrono::Utc::now();
+    user.updated_by = Some(auth.user.id);
+    
+    let result = state.container.user_repository.update(&user).await?;
+    
+    info!("✅ Usuario activado: {} (ID: {})", result.username, id);
+    
+    // Logging del evento
+    if let Err(e) = state.container.logging_service.log_update::<User>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::User,
+        id,
+        None::<&User>,
+        None::<&User>,
+        Some(vec!["status".to_string()]),
+        None,
+    ).await {
+        warn!("⚠️ Error al registrar log de activación de usuario: {}", e);
+    }
+    
+    // Notificación al usuario activado
+    if let Err(e) = state.container.notification_service.notify_user(
+        id,
+        "Cuenta activada",
+        "Tu cuenta ha sido activada nuevamente. Ya puedes iniciar sesión.",
+        NotificationType::Success,
+        NotificationCategory::Auth,
+        NotificationPriority::High,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación de activación: {}", e);
+    }
+    
+    // Notificación a admins
+    if let Err(e) = state.container.notification_service.notify_roles(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Usuario activado",
+        &format!("El usuario '{}' ha sido activado por {} (estado anterior: {:?})", result.username, auth.user.username, old_status),
+        NotificationType::Info,
+        NotificationCategory::Auth,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación a admins: {}", e);
+    }
+    
+    Ok(json_ok(UserDetailDto::from(result)))
+}
+
+/// Desactivar un usuario
+#[instrument(skip(state, auth))]
+pub async fn deactivate_user(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que existe
+    let mut user = state.container.user_repository
+        .find_by_id(id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Usuario {} no encontrado", id)))?;
+    
+    // No permitir desactivar el propio usuario
+    if user.id == auth.user.id {
+        return Err(ApplicationError::Forbidden("No puedes desactivar tu propio usuario".to_string()));
+    }
+    
+    // Verificar que no está ya inactivo
+    if user.status == UserStatus::Inactivo {
+        return Err(ApplicationError::Conflict("El usuario ya está desactivado".to_string()));
+    }
+    
+    let old_status = user.status.clone();
+    user.status = UserStatus::Inactivo;
+    user.updated_at = chrono::Utc::now();
+    user.updated_by = Some(auth.user.id);
+    
+    let result = state.container.user_repository.update(&user).await?;
+    
+    info!("🔒 Usuario desactivado manualmente: {} (ID: {})", result.username, id);
+    
+    // Logging del evento
+    if let Err(e) = state.container.logging_service.log_update::<User>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::User,
+        id,
+        None::<&User>,
+        None::<&User>,
+        Some(vec!["status".to_string()]),
+        None,
+    ).await {
+        warn!("⚠️ Error al registrar log de desactivación de usuario: {}", e);
+    }
+    
+    // Notificación al usuario desactivado
+    if let Err(e) = state.container.notification_service.notify_user(
+        id,
+        "Cuenta desactivada",
+        "Tu cuenta ha sido desactivada por un administrador. Contacta con soporte si crees que es un error.",
+        NotificationType::Warning,
+        NotificationCategory::Auth,
+        NotificationPriority::High,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación de desactivación: {}", e);
+    }
+    
+    // Notificación a admins
+    if let Err(e) = state.container.notification_service.notify_roles(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Usuario desactivado manualmente",
+        &format!("El usuario '{}' ha sido desactivado manualmente por {} (estado anterior: {:?})", result.username, auth.user.username, old_status),
+        NotificationType::Warning,
+        NotificationCategory::Auth,
+        NotificationPriority::Normal,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación a admins: {}", e);
+    }
+    
+    Ok(json_ok(UserDetailDto::from(result)))
 }

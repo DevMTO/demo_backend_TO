@@ -17,6 +17,12 @@ use crate::application::ports::{
     EntradaRepositoryPort,
     FileRepositoryPort,
     PagoRepositoryPort,
+    ActivityLogRepositoryPort,
+    NotificationRepositoryPort,
+};
+use crate::application::services::{
+    LoggingService,
+    NotificationService,
 };
 use crate::application::use_cases::auth::{
     LoginUseCase,
@@ -67,6 +73,8 @@ use crate::infrastructure::persistence::{
         PostgresEntradaRepository,
         PostgresFileRepository,
         PostgresPagoRepository,
+        PostgresActivityLogRepository,
+        PostgresNotificationRepository,
     },
 };
 use crate::infrastructure::security::{
@@ -114,6 +122,10 @@ pub struct DependencyContainer {
     // Password Hasher para crear/actualizar usuarios
     pub password_hasher: Arc<dyn PasswordHasherPort>,
     
+    // System Services (Logging & Notifications)
+    pub logging_service: Arc<LoggingService>,
+    pub notification_service: Arc<NotificationService>,
+    
     // Entity Repositories (para operaciones simples que no necesitan use case)
     pub user_repository: Arc<dyn UserRepositoryPort>,
     pub persona_repository: Arc<dyn PersonaRepositoryPort>,
@@ -127,6 +139,8 @@ pub struct DependencyContainer {
     pub entrada_repository: Arc<dyn EntradaRepositoryPort>,
     pub file_repository: Arc<dyn FileRepositoryPort>,
     pub pago_repository: Arc<dyn PagoRepositoryPort>,
+    pub activity_log_repository: Arc<dyn ActivityLogRepositoryPort>,
+    pub notification_repository: Arc<dyn NotificationRepositoryPort>,
     
     // Config
     pub cookie_name: String,
@@ -197,8 +211,24 @@ impl DependencyContainer {
             PostgresFileRepository::new(db_pool.clone())
         );
         let pago_repository: Arc<dyn PagoRepositoryPort> = Arc::new(
-            PostgresPagoRepository::new(db_pool)
+            PostgresPagoRepository::new(db_pool.clone())
         );
+        
+        // Crear repositorios de sistema (logging y notificaciones)
+        let activity_log_repository: Arc<dyn ActivityLogRepositoryPort> = Arc::new(
+            PostgresActivityLogRepository::new(db_pool.clone())
+        );
+        let notification_repository: Arc<dyn NotificationRepositoryPort> = Arc::new(
+            PostgresNotificationRepository::new(db_pool)
+        );
+        
+        // Crear servicios de sistema
+        let logging_service = Arc::new(LoggingService::new(
+            activity_log_repository.clone()
+        ));
+        let notification_service = Arc::new(NotificationService::new(
+            notification_repository.clone()
+        ));
         
         // ========== Crear casos de uso - Auth ==========
         let login_use_case = Arc::new(LoginUseCase::new(
@@ -310,6 +340,8 @@ impl DependencyContainer {
             // Services
             session_manager,
             password_hasher,
+            logging_service,
+            notification_service,
             // Repositories
             user_repository,
             persona_repository,
@@ -323,6 +355,8 @@ impl DependencyContainer {
             entrada_repository,
             file_repository,
             pago_repository,
+            activity_log_repository,
+            notification_repository,
             // Cookie config
             cookie_name: config.cookie_name,
             cookie_secure: config.cookie_secure,

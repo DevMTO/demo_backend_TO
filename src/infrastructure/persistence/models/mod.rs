@@ -2,6 +2,10 @@
 pub mod user_model;
 pub mod session_model;
 
+// System models
+pub mod activity_log_model;
+pub mod notification_model;
+
 // Business entity models
 pub mod persona_model;
 pub mod agencia_model;
@@ -18,6 +22,10 @@ pub mod pago_model;
 // Re-exports - Auth
 pub use user_model::*;
 pub use session_model::*;
+
+// Re-exports - System
+pub use activity_log_model::*;
+pub use notification_model::*;
 
 // Re-exports - Business entities
 pub use persona_model::*;

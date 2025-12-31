@@ -12,6 +12,9 @@ use crate::application::dtos::auth_dto::{
     LoginRequest, LogoutRequest, AuthResponse,
     SuccessResponse, AuthUserInfo,
 };
+use crate::domain::entities::{
+    NotificationType, NotificationCategory, NotificationPriority, UserRole,
+};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
@@ -31,14 +34,58 @@ pub async fn login_handler(
     // Ejecutar caso de uso
     debug!("Ejecutando LoginUseCase...");
     let output = match state.container.login_use_case
-        .execute(request.clone(), ip_address, user_agent)
+        .execute(request.clone(), ip_address.clone(), user_agent.clone())
         .await {
             Ok(output) => {
                 info!("✅ Login exitoso para usuario: {} (id: {})", output.user_info.username, output.user_info.id);
+                
+                // Logging del login exitoso
+                if let Err(e) = state.container.logging_service.log_login(
+                    output.user_info.id,
+                    &output.user_info.username,
+                    ip_address.clone(),
+                    user_agent.clone(),
+                ).await {
+                    warn!("⚠️ Error al registrar log de login: {}", e);
+                }
+                
                 output
             },
             Err(e) => {
                 warn!("❌ Login fallido para {}: {:?}", request.identifier, e);
+                
+                // Logging del login fallido
+                if let Err(log_err) = state.container.logging_service.log_login_failed(
+                    &request.identifier,
+                    &e.to_string(),
+                    ip_address,
+                    user_agent,
+                ).await {
+                    warn!("⚠️ Error al registrar log de login fallido: {}", log_err);
+                }
+                
+                // Si el error es por cuenta bloqueada, notificar a admins
+                if matches!(e, ApplicationError::Authentication(_)) && e.to_string().contains("bloqueada") {
+                    // Intentar obtener el user_id del identifier para notificar
+                    if let Ok(Some(blocked_user)) = state.container.user_repository
+                        .find_by_username(&request.identifier)
+                        .await 
+                    {
+                        // Notificar a admins sobre cuenta bloqueada
+                        if let Err(notif_err) = state.container.notification_service.notify_roles(
+                            vec![UserRole::SuperAdmin, UserRole::Admin],
+                            "Cuenta bloqueada por intentos fallidos",
+                            &format!("El usuario '{}' ha sido bloqueado por superar el máximo de intentos de login", blocked_user.username),
+                            NotificationType::Warning,
+                            NotificationCategory::Auth,
+                            NotificationPriority::High,
+                            None,
+                        ).await {
+                            warn!("⚠️ Error al notificar bloqueo de cuenta: {}", notif_err);
+                        }
+                    }
+                }
+                
                 return Err(e);
             }
         };
@@ -97,6 +144,15 @@ pub async fn logout_handler(
     remove_session_cookie(&cookies, &state.container);
     
     info!("✅ Logout completado: {} sesión(es) cerrada(s)", count);
+    
+    // Logging del logout
+    if let Err(e) = state.container.logging_service.log_logout(
+        auth_user.user.id,
+        &auth_user.user.username,
+        None,
+    ).await {
+        warn!("⚠️ Error al registrar log de logout: {}", e);
+    }
     
     Ok((
         StatusCode::OK,
