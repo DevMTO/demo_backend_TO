@@ -3,7 +3,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use tracing::instrument;
+use tracing::{info, warn, instrument};
 use validator::Validate;
 use bigdecimal::BigDecimal;
 
@@ -11,6 +11,10 @@ use crate::application::dtos::{
     CreateTourRequest, UpdateTourRequest, TourResponse,
 };
 
+use crate::domain::entities::{
+    Tour, EntityType, UserRole,
+    NotificationType, NotificationCategory, NotificationPriority,
+};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
@@ -74,6 +78,32 @@ pub async fn create_tour(
         .execute(request, auth.user.id)
         .await?;
     
+    // Logging del evento
+    if let Err(e) = state.container.logging_service.log_create::<Tour>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Tour,
+        response.id,
+        &response.nombre,
+        None::<&Tour>,
+        None,
+    ).await {
+        warn!("⚠️ Error al registrar log de creación de tour: {}", e);
+    }
+    
+    // Notificación a admins via SSE broadcast
+    if let Err(e) = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Nuevo tour creado",
+        &format!("Se ha creado el tour '{}' (Duración: {} días)", response.nombre, response.duracion_dias.unwrap_or(0)),
+        NotificationType::Info,
+        NotificationCategory::Crud,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación de tour creado: {}", e);
+    }
+    
     Ok(json_created(response))
 }
 
@@ -91,6 +121,35 @@ pub async fn update_tour(
         .execute(id, request, auth.user.id)
         .await?;
     
+    // Logging del evento
+    if let Err(e) = state.container.logging_service.log_update::<Tour>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Tour,
+        response.id,
+        None::<&Tour>,
+        None::<&Tour>,
+        None,
+        None,
+    ).await {
+        warn!("⚠️ Error al registrar log de actualización de tour: {}", e);
+    }
+    
+    // Notificación a admins via SSE broadcast
+    if let Err(e) = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Tour actualizado",
+        &format!("El tour '{}' ha sido actualizado por {}", response.nombre, auth.user.username),
+        NotificationType::Info,
+        NotificationCategory::Crud,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación de tour actualizado: {}", e);
+    }
+    
+    info!("✅ Tour actualizado: {} (ID: {})", response.nombre, response.id);
+    
     Ok(json_ok(response))
 }
 
@@ -100,10 +159,43 @@ pub async fn delete_tour(
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
+    // Obtener tour antes de desactivar
+    let tour = state.container.tour_repository
+        .find_by_id(id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Tour {} no encontrado", id)))?;
+    
     // Usar el caso de uso para desactivar
     state.container.deactivate_tour_use_case
         .execute(id, auth.user.id)
         .await?;
+    
+    // Logging del evento
+    if let Err(e) = state.container.logging_service.log_delete::<Tour>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Tour,
+        id,
+        Some(&tour),
+        None,
+    ).await {
+        warn!("⚠️ Error al registrar log de desactivación de tour: {}", e);
+    }
+    
+    // Notificación a admins via SSE broadcast
+    if let Err(e) = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Tour desactivado",
+        &format!("El tour '{}' ha sido desactivado por {}", tour.nombre, auth.user.username),
+        NotificationType::Warning,
+        NotificationCategory::Crud,
+        NotificationPriority::Normal,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación de tour desactivado: {}", e);
+    }
+    
+    info!("🗑️ Tour desactivado: {} (ID: {})", tour.nombre, id);
     
     Ok(json_message("Tour desactivado correctamente"))
 }
@@ -118,6 +210,41 @@ pub async fn restore_tour(
     state.container.restore_tour_use_case
         .execute(id, auth.user.id)
         .await?;
+    
+    // Obtener tour restaurado
+    let tour = state.container.tour_repository
+        .find_by_id(id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Tour {} no encontrado", id)))?;
+    
+    // Logging del evento
+    if let Err(e) = state.container.logging_service.log_update::<Tour>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Tour,
+        id,
+        None::<&Tour>,
+        None::<&Tour>,
+        Some(vec!["is_active".to_string()]),
+        None,
+    ).await {
+        warn!("⚠️ Error al registrar log de restauración de tour: {}", e);
+    }
+    
+    // Notificación a admins via SSE broadcast
+    if let Err(e) = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Tour restaurado",
+        &format!("El tour '{}' ha sido restaurado por {}", tour.nombre, auth.user.username),
+        NotificationType::Success,
+        NotificationCategory::Crud,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación de tour restaurado: {}", e);
+    }
+    
+    info!("✅ Tour restaurado: {} (ID: {})", tour.nombre, id);
     
     Ok(json_message("Tour restaurado correctamente"))
 }

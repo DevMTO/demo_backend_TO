@@ -12,6 +12,8 @@ pub struct ActivityLogDto {
     pub id: i32,
     pub user_id: Option<i32>,
     pub username: Option<String>,
+    /// Nombre completo de la persona que realizó la acción (si existe)
+    pub user_full_name: Option<String>,
     pub action_type: String,
     pub action: String,
     pub entity_type: String,
@@ -36,6 +38,7 @@ impl From<ActivityLog> for ActivityLogDto {
             id: log.id,
             user_id: log.user_id,
             username: log.username,
+            user_full_name: None,
             action_type: log.action_type,
             action: log.action,
             entity_type: log.entity_type,
@@ -48,6 +51,36 @@ impl From<ActivityLog> for ActivityLogDto {
             status: log.status,
             error_message: log.error_message,
             created_at: log.created_at,
+        }
+    }
+}
+
+/// DTO para log con información de usuario enriquecida
+#[derive(Debug, Clone)]
+pub struct ActivityLogWithUser {
+    pub log: ActivityLog,
+    pub user_full_name: Option<String>,
+}
+
+impl From<ActivityLogWithUser> for ActivityLogDto {
+    fn from(data: ActivityLogWithUser) -> Self {
+        Self {
+            id: data.log.id,
+            user_id: data.log.user_id,
+            username: data.log.username,
+            user_full_name: data.user_full_name,
+            action_type: data.log.action_type,
+            action: data.log.action,
+            entity_type: data.log.entity_type,
+            entity_id: data.log.entity_id,
+            description: data.log.description,
+            old_values: data.log.old_values,
+            new_values: data.log.new_values,
+            changed_fields: data.log.changed_fields,
+            ip_address: data.log.ip_address,
+            status: data.log.status,
+            error_message: data.log.error_message,
+            created_at: data.log.created_at,
         }
     }
 }

@@ -171,8 +171,8 @@ pub async fn create_user(
         warn!("⚠️ Error al registrar log de creación de usuario: {}", e);
     }
     
-    // Notificación a admins
-    if let Err(e) = state.container.notification_service.notify_roles(
+    // Notificación a admins con SSE
+    if let Err(e) = state.notify_roles_with_broadcast(
         vec![UserRole::SuperAdmin, UserRole::Admin],
         "Nuevo usuario creado",
         &format!("Se ha creado el usuario '{}' con rol {}", created.username, created.role),
@@ -249,7 +249,7 @@ pub async fn update_user(
             format!("Se actualizaron los siguientes campos de tu cuenta: {}", changed_fields.join(", "))
         };
         
-        if let Err(e) = state.container.notification_service.notify_user(
+        if let Err(e) = state.notify_user_with_broadcast(
             result.id,
             "Cuenta actualizada",
             &notification_msg,
@@ -299,8 +299,8 @@ pub async fn delete_user(
         warn!("⚠️ Error al registrar log de desactivación de usuario: {}", e);
     }
     
-    // Notificación al usuario desactivado
-    if let Err(e) = state.container.notification_service.notify_user(
+    // Notificación al usuario desactivado con SSE
+    if let Err(e) = state.notify_user_with_broadcast(
         id,
         "Cuenta desactivada",
         "Tu cuenta ha sido desactivada por un administrador. Contacta con soporte si crees que es un error.",
@@ -312,8 +312,8 @@ pub async fn delete_user(
         warn!("⚠️ Error al enviar notificación de desactivación: {}", e);
     }
     
-    // Notificación a admins
-    if let Err(e) = state.container.notification_service.notify_roles(
+    // Notificación a admins con SSE
+    if let Err(e) = state.notify_roles_with_broadcast(
         vec![UserRole::SuperAdmin, UserRole::Admin],
         "Usuario desactivado",
         &format!("El usuario '{}' ha sido desactivado por {}", user.username, auth.user.username),
@@ -368,8 +368,8 @@ pub async fn activate_user(
         warn!("⚠️ Error al registrar log de activación de usuario: {}", e);
     }
     
-    // Notificación al usuario activado
-    if let Err(e) = state.container.notification_service.notify_user(
+    // Notificación al usuario activado con SSE
+    if let Err(e) = state.notify_user_with_broadcast(
         id,
         "Cuenta activada",
         "Tu cuenta ha sido activada nuevamente. Ya puedes iniciar sesión.",
@@ -381,8 +381,8 @@ pub async fn activate_user(
         warn!("⚠️ Error al enviar notificación de activación: {}", e);
     }
     
-    // Notificación a admins
-    if let Err(e) = state.container.notification_service.notify_roles(
+    // Notificación a admins con SSE
+    if let Err(e) = state.notify_roles_with_broadcast(
         vec![UserRole::SuperAdmin, UserRole::Admin],
         "Usuario activado",
         &format!("El usuario '{}' ha sido activado por {} (estado anterior: {:?})", result.username, auth.user.username, old_status),
@@ -443,8 +443,8 @@ pub async fn deactivate_user(
         warn!("⚠️ Error al registrar log de desactivación de usuario: {}", e);
     }
     
-    // Notificación al usuario desactivado
-    if let Err(e) = state.container.notification_service.notify_user(
+    // Notificación al usuario desactivado con SSE
+    if let Err(e) = state.notify_user_with_broadcast(
         id,
         "Cuenta desactivada",
         "Tu cuenta ha sido desactivada por un administrador. Contacta con soporte si crees que es un error.",
@@ -456,8 +456,8 @@ pub async fn deactivate_user(
         warn!("⚠️ Error al enviar notificación de desactivación: {}", e);
     }
     
-    // Notificación a admins
-    if let Err(e) = state.container.notification_service.notify_roles(
+    // Notificación a admins con SSE
+    if let Err(e) = state.notify_roles_with_broadcast(
         vec![UserRole::SuperAdmin, UserRole::Admin],
         "Usuario desactivado manualmente",
         &format!("El usuario '{}' ha sido desactivado manualmente por {} (estado anterior: {:?})", result.username, auth.user.username, old_status),

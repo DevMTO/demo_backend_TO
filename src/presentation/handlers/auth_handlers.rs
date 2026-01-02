@@ -71,8 +71,8 @@ pub async fn login_handler(
                         .find_by_username(&request.identifier)
                         .await 
                     {
-                        // Notificar a admins sobre cuenta bloqueada
-                        if let Err(notif_err) = state.container.notification_service.notify_roles(
+                        // Notificar a admins sobre cuenta bloqueada via SSE broadcast
+                        if let Err(notif_err) = state.notify_roles_with_broadcast(
                             vec![UserRole::SuperAdmin, UserRole::Admin],
                             "Cuenta bloqueada por intentos fallidos",
                             &format!("El usuario '{}' ha sido bloqueado por superar el máximo de intentos de login", blocked_user.username),
@@ -204,19 +204,50 @@ fn create_session_cookie(
     max_age_secs: i64,
     container: &crate::infrastructure::container::DependencyContainer,
 ) -> Cookie<'static> {
+    // Para desarrollo local (HTTP) con cross-origin (frontend en 3000, backend en 8080):
+    // - SameSite=Lax permite que las cookies se envíen en navegación top-level
+    // - SameSite=None requiere Secure=true (solo HTTPS)
+    // 
+    // En producción (HTTPS):
+    // - Usar SameSite=Strict o SameSite=None con Secure=true
     let same_site = match container.cookie_same_site.to_lowercase().as_str() {
         "lax" => SameSite::Lax,
         "none" => SameSite::None,
         _ => SameSite::Strict,
     };
     
-    Cookie::build((container.cookie_name.clone(), token.to_string()))
+    // Construir cookie con todos los atributos de seguridad
+    let mut cookie_builder = Cookie::build((container.cookie_name.clone(), token.to_string()))
         .path(container.cookie_path.clone())
         .http_only(container.cookie_http_only)
-        .secure(container.cookie_secure)
         .same_site(same_site)
-        .max_age(time::Duration::seconds(max_age_secs))
-        .build()
+        .max_age(time::Duration::seconds(max_age_secs));
+    
+    // Solo agregar Secure si está habilitado (producción con HTTPS)
+    // En desarrollo con HTTP, no se debe agregar Secure porque el navegador rechazaría la cookie
+    if container.cookie_secure {
+        cookie_builder = cookie_builder.secure(true);
+    }
+    
+    // Agregar domain si está configurado y no es localhost (en desarrollo no se necesita)
+    if !container.cookie_domain.is_empty() 
+        && container.cookie_domain != "localhost" 
+        && container.cookie_domain != "127.0.0.1" 
+    {
+        cookie_builder = cookie_builder.domain(container.cookie_domain.clone());
+    }
+    
+    debug!("🍪 Cookie settings: name={}, path={}, http_only={}, secure={}, same_site={:?}, max_age={}s, domain={}",
+        container.cookie_name,
+        container.cookie_path,
+        container.cookie_http_only,
+        container.cookie_secure,
+        same_site,
+        max_age_secs,
+        container.cookie_domain
+    );
+    
+    cookie_builder.build()
 }
 
 fn remove_session_cookie(
@@ -229,13 +260,22 @@ fn remove_session_cookie(
         _ => SameSite::Strict,
     };
     
-    let removal_cookie = Cookie::build((container.cookie_name.clone(), "".to_string()))
+    let mut cookie_builder = Cookie::build((container.cookie_name.clone(), "".to_string()))
         .path(container.cookie_path.clone())
         .http_only(container.cookie_http_only)
-        .secure(container.cookie_secure)
         .same_site(same_site)
-        .max_age(time::Duration::ZERO)
-        .build();
+        .max_age(time::Duration::ZERO);
     
-    cookies.add(removal_cookie);
+    if container.cookie_secure {
+        cookie_builder = cookie_builder.secure(true);
+    }
+    
+    if !container.cookie_domain.is_empty() 
+        && container.cookie_domain != "localhost" 
+        && container.cookie_domain != "127.0.0.1" 
+    {
+        cookie_builder = cookie_builder.domain(container.cookie_domain.clone());
+    }
+    
+    cookies.add(cookie_builder.build());
 }

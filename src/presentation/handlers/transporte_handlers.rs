@@ -7,6 +7,7 @@ use tracing::{info, instrument};
 use validator::Validate;
 
 use crate::application::dtos::{CreateTransporteRequest, UpdateTransporteRequest, TransporteResponse};
+use crate::domain::entities::{EntityType, UserRole, NotificationType, NotificationCategory, NotificationPriority};
 
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
@@ -51,6 +52,29 @@ pub async fn create_transporte(
     }
     let created = state.container.transporte_repository.create(&request.into_entity(Some(auth.user.id))).await?;
     info!("✅ Transporte creado: {} (ID: {})", created.nombre, created.id);
+
+    // Log activity
+    let _ = state.container.logging_service.log_create::<crate::domain::entities::Transporte>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Transporte,
+        created.id,
+        &created.nombre,
+        Some(&created),
+        None,
+    ).await;
+
+    // Notify admins with SSE broadcast
+    let _ = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Nuevo transporte creado",
+        &format!("{} ha creado el transporte '{}'", auth.user.username, created.nombre),
+        NotificationType::Info,
+        NotificationCategory::Crud,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await;
+
     Ok(json_created(TransporteResponse::from(created)))
 }
 
@@ -62,8 +86,32 @@ pub async fn update_transporte(
     Json(request): Json<UpdateTransporteRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
-    let t = state.container.transporte_repository.find_by_id(id).await?.ok_or_else(|| ApplicationError::NotFound(format!("Transporte {} no encontrado", id)))?;
-    let result = state.container.transporte_repository.update(&request.apply_to(t, Some(auth.user.id))).await?;
+    let old_t = state.container.transporte_repository.find_by_id(id).await?.ok_or_else(|| ApplicationError::NotFound(format!("Transporte {} no encontrado", id)))?;
+    let result = state.container.transporte_repository.update(&request.apply_to(old_t.clone(), Some(auth.user.id))).await?;
+
+    // Log activity
+    let _ = state.container.logging_service.log_update::<crate::domain::entities::Transporte>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Transporte,
+        result.id,
+        Some(&old_t),
+        Some(&result),
+        None,
+        None,
+    ).await;
+
+    // Notify admins via SSE broadcast
+    let _ = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Transporte actualizado",
+        &format!("{} ha actualizado el transporte '{}'", auth.user.username, result.nombre),
+        NotificationType::Info,
+        NotificationCategory::Crud,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await;
+
     Ok(json_ok(TransporteResponse::from(result)))
 }
 
@@ -73,9 +121,35 @@ pub async fn delete_transporte(
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
+    // Get transporte info before deleting
+    let transporte = state.container.transporte_repository.find_by_id(id).await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Transporte {} no encontrado", id)))?;
+
     if !state.container.transporte_repository.soft_delete(id, auth.user.id).await? {
         return Err(ApplicationError::NotFound(format!("Transporte {} no encontrado", id)));
     }
+
+    // Log activity
+    let _ = state.container.logging_service.log_delete::<crate::domain::entities::Transporte>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Transporte,
+        id,
+        Some(&transporte),
+        None,
+    ).await;
+
+    // Notify admins with SSE broadcast
+    let _ = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Transporte eliminado",
+        &format!("{} ha eliminado el transporte '{}'", auth.user.username, transporte.nombre),
+        NotificationType::Warning,
+        NotificationCategory::Crud,
+        NotificationPriority::Normal,
+        Some(auth.user.id),
+    ).await;
+
     Ok(json_message("Transporte desactivado"))
 }
 
@@ -88,6 +162,34 @@ pub async fn restore_transporte(
     if !state.container.transporte_repository.restore(id, auth.user.id).await? {
         return Err(ApplicationError::NotFound(format!("Transporte {} no encontrado", id)));
     }
+
+    // Get transporte info after restore
+    let transporte = state.container.transporte_repository.find_by_id(id).await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Transporte {} no encontrado", id)))?;
+
+    // Log activity
+    let _ = state.container.logging_service.log_update::<crate::domain::entities::Transporte>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Transporte,
+        id,
+        None,
+        Some(&transporte),
+        Some(vec!["is_active".to_string()]),
+        None,
+    ).await;
+
+    // Notify admins with SSE broadcast
+    let _ = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Transporte restaurado",
+        &format!("{} ha restaurado el transporte '{}'", auth.user.username, transporte.nombre),
+        NotificationType::Success,
+        NotificationCategory::Crud,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await;
+
     Ok(json_message("Transporte restaurado"))
 }
 

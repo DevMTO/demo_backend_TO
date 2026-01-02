@@ -3,6 +3,7 @@ use tracing::{info, instrument};
 use validator::Validate;
 
 use crate::application::dtos::{CreateRestauranteRequest, UpdateRestauranteRequest, RestauranteResponse};
+use crate::domain::entities::{EntityType, UserRole, NotificationType, NotificationCategory, NotificationPriority};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
@@ -31,14 +32,61 @@ pub async fn create_restaurante(State(state): State<AppState>, auth: AuthUser, J
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     let created = state.container.restaurante_repository.create(&request.into_entity(Some(auth.user.id))).await?;
     info!("✅ Restaurante creado: {} (ID: {})", created.nombre, created.id);
+
+    // Log activity
+    let _ = state.container.logging_service.log_create::<crate::domain::entities::Restaurante>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Restaurante,
+        created.id,
+        &created.nombre,
+        Some(&created),
+        None,
+    ).await;
+
+    // Notify admins via SSE broadcast
+    let _ = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Nuevo restaurante creado",
+        &format!("{} ha creado el restaurante '{}'", auth.user.username, created.nombre),
+        NotificationType::Info,
+        NotificationCategory::Crud,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await;
+
     Ok(json_created(RestauranteResponse::from(created)))
 }
 
 #[instrument(skip(state, auth, request))]
 pub async fn update_restaurante(State(state): State<AppState>, auth: AuthUser, Path(id): Path<i32>, Json(request): Json<UpdateRestauranteRequest>) -> Result<impl IntoResponse, ApplicationError> {
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
-    let r = state.container.restaurante_repository.find_by_id(id).await?.ok_or_else(|| ApplicationError::NotFound(format!("Restaurante {} no encontrado", id)))?;
-    let result = state.container.restaurante_repository.update(&request.apply_to(r, Some(auth.user.id))).await?;
+    let old_r = state.container.restaurante_repository.find_by_id(id).await?.ok_or_else(|| ApplicationError::NotFound(format!("Restaurante {} no encontrado", id)))?;
+    let result = state.container.restaurante_repository.update(&request.apply_to(old_r.clone(), Some(auth.user.id))).await?;
+
+    // Log activity
+    let _ = state.container.logging_service.log_update::<crate::domain::entities::Restaurante>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Restaurante,
+        result.id,
+        Some(&old_r),
+        Some(&result),
+        None,
+        None,
+    ).await;
+
+    // Notify admins via SSE broadcast
+    let _ = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Restaurante actualizado",
+        &format!("{} ha actualizado el restaurante '{}'", auth.user.username, result.nombre),
+        NotificationType::Info,
+        NotificationCategory::Crud,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await;
+
     Ok(json_ok(RestauranteResponse::from(result)))
 }
 
@@ -50,6 +98,28 @@ pub async fn delete_restaurante(State(state): State<AppState>, auth: AuthUser, P
     updated.updated_by = Some(auth.user.id);
     updated.updated_at = chrono::Utc::now();
     state.container.restaurante_repository.update(&updated).await?;
+
+    // Log activity
+    let _ = state.container.logging_service.log_delete::<crate::domain::entities::Restaurante>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Restaurante,
+        id,
+        Some(&r),
+        None,
+    ).await;
+
+    // Notify admins via SSE broadcast
+    let _ = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Restaurante eliminado",
+        &format!("{} ha eliminado el restaurante '{}'", auth.user.username, r.nombre),
+        NotificationType::Warning,
+        NotificationCategory::Crud,
+        NotificationPriority::Normal,
+        Some(auth.user.id),
+    ).await;
+
     Ok(json_message("Restaurante desactivado correctamente"))
 }
 
@@ -60,7 +130,31 @@ pub async fn restore_restaurante(State(state): State<AppState>, auth: AuthUser, 
     updated.is_active = true;
     updated.updated_by = Some(auth.user.id);
     updated.updated_at = chrono::Utc::now();
-    state.container.restaurante_repository.update(&updated).await?;
+    let restored = state.container.restaurante_repository.update(&updated).await?;
+
+    // Log activity
+    let _ = state.container.logging_service.log_update::<crate::domain::entities::Restaurante>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Restaurante,
+        id,
+        Some(&r),
+        Some(&restored),
+        Some(vec!["is_active".to_string()]),
+        None,
+    ).await;
+
+    // Notify admins via SSE broadcast
+    let _ = state.notify_roles_with_broadcast(
+        vec![UserRole::SuperAdmin, UserRole::Admin],
+        "Restaurante restaurado",
+        &format!("{} ha restaurado el restaurante '{}'", auth.user.username, r.nombre),
+        NotificationType::Success,
+        NotificationCategory::Crud,
+        NotificationPriority::Low,
+        Some(auth.user.id),
+    ).await;
+
     Ok(json_message("Restaurante restaurado correctamente"))
 }
 

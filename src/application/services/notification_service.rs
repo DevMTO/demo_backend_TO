@@ -120,10 +120,15 @@ impl NotificationService {
 
         let notification = self.repository.create(builder.build()).await?;
         
-        // Distribuir a usuarios con esos roles
+        // Distribuir a usuarios con esos roles, excluyendo al creador
         let user_ids = self.repository.get_users_by_roles(roles_str).await?;
-        if !user_ids.is_empty() {
-            self.repository.create_user_notifications_batch(notification.id, user_ids).await?;
+        let filtered_user_ids: Vec<i32> = user_ids
+            .into_iter()
+            .filter(|&uid| Some(uid) != created_by)
+            .collect();
+        
+        if !filtered_user_ids.is_empty() {
+            self.repository.create_user_notifications_batch(notification.id, filtered_user_ids).await?;
         }
 
         Ok(notification)
