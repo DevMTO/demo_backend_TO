@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StatusVehiculo {
@@ -50,7 +49,7 @@ pub struct Vehiculo {
     pub placa: String,
     pub capacidad: i32,
     pub status: StatusVehiculo,
-    pub media: Option<JsonValue>,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
@@ -68,7 +67,7 @@ impl Vehiculo {
             placa,
             capacidad,
             status: StatusVehiculo::Disponible,
-            media: Some(serde_json::json!({})),
+            is_active: true,
             created_at: now,
             updated_at: now,
             created_by: None,

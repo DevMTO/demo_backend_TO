@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 use ts_rs::TS;
 use validator::Validate;
 
@@ -17,8 +16,7 @@ pub struct VehiculoResponse {
     pub placa: String,
     pub capacidad: i32,
     pub status: String,
-    #[ts(type = "object | null")]
-    pub media: Option<JsonValue>,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -33,7 +31,7 @@ impl From<Vehiculo> for VehiculoResponse {
             placa: v.placa,
             capacidad: v.capacidad,
             status: v.status.to_string(), // Enum → String
-            media: v.media,
+            is_active: v.is_active,
             created_at: v.created_at,
             updated_at: v.updated_at,
         }
@@ -70,7 +68,7 @@ impl CreateVehiculoRequest {
             placa: self.placa.to_uppercase(),
             capacidad: self.capacidad,
             status: StatusVehiculo::Disponible,
-            media: Some(serde_json::json!({})),
+            is_active: true,
             created_at: now,
             updated_at: now,
             created_by,
@@ -100,8 +98,7 @@ pub struct UpdateVehiculoRequest {
     #[validate(length(max = 20))]
     pub status: Option<String>,
     
-    #[ts(type = "object | null")]
-    pub media: Option<JsonValue>,
+    pub is_active: Option<bool>,
 }
 
 impl UpdateVehiculoRequest {
@@ -127,8 +124,8 @@ impl UpdateVehiculoRequest {
                 vehiculo.status = status_enum;
             }
         }
-        if let Some(media) = self.media {
-            vehiculo.media = Some(media);
+        if let Some(is_active) = self.is_active {
+            vehiculo.is_active = is_active;
         }
         vehiculo.updated_by = updated_by;
         vehiculo.updated_at = Utc::now();

@@ -46,6 +46,7 @@ impl ConductorRepositoryPort for PostgresConductorRepository {
             nro_brevete: Some(&conductor.nro_brevete),
             tiene_soat: Some(conductor.tiene_soat),
             status: Some(&status_str),
+            is_active: Some(conductor.is_active),
             updated_by: conductor.updated_by,
         };
         let result = diesel::update(conductores::table.filter(conductores::id.eq(conductor.id)))

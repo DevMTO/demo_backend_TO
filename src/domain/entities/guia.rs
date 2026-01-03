@@ -50,6 +50,7 @@ pub struct Guia {
     pub idiomas: Option<JsonValue>,        // ["Español", "Inglés"]
     pub especialidades: Option<JsonValue>, // ["City tours", "Aventura"]
     pub status: StatusGuia,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
@@ -66,6 +67,7 @@ impl Guia {
             idiomas: Some(serde_json::json!(["Español"])),
             especialidades: Some(serde_json::json!([])),
             status: StatusGuia::Disponible,
+            is_active: true,
             created_at: now,
             updated_at: now,
             created_by: None,

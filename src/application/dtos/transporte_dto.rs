@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use ts_rs::TS;
 use validator::Validate;
 
@@ -16,6 +17,8 @@ pub struct TransporteResponse {
     pub correo: Option<String>,
     pub direccion: Option<String>,
     pub encargado: Option<i32>,
+    #[ts(type = "object | null")]
+    pub media: Option<JsonValue>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -31,6 +34,7 @@ impl From<Transporte> for TransporteResponse {
             correo: t.correo,
             direccion: t.direccion,
             encargado: t.encargado,
+            media: t.media,
             is_active: t.is_active,
             created_at: t.created_at,
             updated_at: t.updated_at,
@@ -51,6 +55,8 @@ pub struct TransporteListItemDto {
     pub direccion: Option<String>,
     pub encargado: Option<i32>,
     pub encargado_nombre: Option<String>,
+    #[ts(type = "object | null")]
+    pub media: Option<JsonValue>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -75,6 +81,9 @@ pub struct CreateTransporteRequest {
     pub direccion: Option<String>,
     
     pub encargado: Option<i32>,
+    
+    #[ts(type = "object | null | undefined")]
+    pub media: Option<JsonValue>,
 }
 
 impl CreateTransporteRequest {
@@ -88,6 +97,7 @@ impl CreateTransporteRequest {
             correo: self.correo,
             direccion: self.direccion,
             encargado: self.encargado,
+            media: self.media,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -117,6 +127,9 @@ pub struct UpdateTransporteRequest {
     
     pub encargado: Option<i32>,
     
+    #[ts(type = "object | null | undefined")]
+    pub media: Option<JsonValue>,
+    
     pub is_active: Option<bool>,
 }
 
@@ -139,6 +152,9 @@ impl UpdateTransporteRequest {
         }
         if let Some(encargado) = self.encargado {
             transporte.encargado = Some(encargado);
+        }
+        if let Some(media) = self.media {
+            transporte.media = Some(media);
         }
         if let Some(is_active) = self.is_active {
             transporte.is_active = is_active;

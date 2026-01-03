@@ -64,6 +64,7 @@ diesel::table! {
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+        is_active -> Bool,
     }
 }
 
@@ -167,6 +168,7 @@ diesel::table! {
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+        is_active -> Bool,
     }
 }
 
@@ -184,6 +186,7 @@ diesel::table! {
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+        is_active -> Bool,
     }
 }
 
@@ -336,6 +339,7 @@ diesel::table! {
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+        media -> Nullable<Jsonb>,
     }
 }
 
@@ -401,11 +405,11 @@ diesel::table! {
         capacidad -> Int4,
         #[max_length = 20]
         status -> Varchar,
-        media -> Nullable<Jsonb>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+        is_active -> Bool,
     }
 }
 

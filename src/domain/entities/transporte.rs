@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transporte {
@@ -10,6 +11,7 @@ pub struct Transporte {
     pub correo: Option<String>,
     pub direccion: Option<String>,
     pub encargado: Option<i32>,  // FK a personas
+    pub media: Option<JsonValue>,  // logo, banner, etc.
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -28,6 +30,7 @@ impl Transporte {
             correo: None,
             direccion: None,
             encargado: None,
+            media: None,
             is_active: true,
             created_at: now,
             updated_at: now,

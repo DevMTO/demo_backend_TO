@@ -47,7 +47,7 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
             placa: Some(&vehiculo.placa),
             capacidad: Some(vehiculo.capacidad),
             status: Some(&status_str),
-            media: Some(vehiculo.media.clone()),
+            is_active: Some(vehiculo.is_active),
             updated_by: vehiculo.updated_by,
         };
         let result = diesel::update(vehiculos::table.filter(vehiculos::id.eq(vehiculo.id)))

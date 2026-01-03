@@ -18,6 +18,7 @@ pub struct GuiaResponse {
     #[ts(type = "object | null")]
     pub especialidades: Option<JsonValue>,
     pub status: String,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -31,6 +32,7 @@ impl From<Guia> for GuiaResponse {
             idiomas: g.idiomas,
             especialidades: g.especialidades,
             status: g.status.to_string(), // Enum → String
+            is_active: g.is_active,
             created_at: g.created_at,
             updated_at: g.updated_at,
         }
@@ -63,6 +65,7 @@ impl CreateGuiaRequest {
             idiomas: self.idiomas.map(|i| serde_json::json!(i)),
             especialidades: self.especialidades.map(|e| serde_json::json!(e)),
             status: StatusGuia::Disponible,
+            is_active: true,
             created_at: now,
             updated_at: now,
             created_by,
@@ -86,6 +89,8 @@ pub struct UpdateGuiaRequest {
     
     #[validate(length(max = 20))]
     pub status: Option<String>,
+    
+    pub is_active: Option<bool>,
 }
 
 impl UpdateGuiaRequest {
@@ -107,6 +112,9 @@ impl UpdateGuiaRequest {
             if let Ok(status_enum) = status.parse::<StatusGuia>() {
                 guia.status = status_enum;
             }
+        }
+        if let Some(is_active) = self.is_active {
+            guia.is_active = is_active;
         }
         guia.updated_by = updated_by;
         guia.updated_at = Utc::now();
@@ -136,6 +144,7 @@ pub struct GuiaListItemDto {
     #[ts(type = "object | null")]
     pub especialidades: Option<JsonValue>,
     pub status: String,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     // Datos de la persona asociada

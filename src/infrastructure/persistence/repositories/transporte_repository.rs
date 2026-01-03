@@ -45,6 +45,7 @@ impl TransporteRepositoryPort for PostgresTransporteRepository {
             nombre: Some(&transporte.nombre), ruc: Some(&transporte.ruc),
             telefono: Some(transporte.telefono.as_deref()), correo: Some(transporte.correo.as_deref()),
             direccion: Some(transporte.direccion.as_deref()), encargado: Some(transporte.encargado),
+            media: Some(transporte.media.clone()),
             is_active: Some(transporte.is_active), updated_by: transporte.updated_by,
         };
         let result = diesel::update(transportes::table.filter(transportes::id.eq(transporte.id)))
@@ -152,6 +153,7 @@ impl TransporteRepositoryPort for PostgresTransporteRepository {
                 direccion: transporte.direccion,
                 encargado: transporte.encargado,
                 encargado_nombre,
+                media: transporte.media,
                 is_active: transporte.is_active,
                 created_at: transporte.created_at,
                 updated_at: transporte.updated_at,

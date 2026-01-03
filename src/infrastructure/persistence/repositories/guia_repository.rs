@@ -47,6 +47,7 @@ impl GuiaRepositoryPort for PostgresGuiaRepository {
             idiomas: Some(guia.idiomas.clone()),
             especialidades: Some(guia.especialidades.clone()),
             status: Some(&status_str),
+            is_active: Some(guia.is_active),
             updated_by: guia.updated_by,
         };
         let result = diesel::update(guias::table.filter(guias::id.eq(guia.id)))
@@ -147,6 +148,7 @@ impl GuiaRepositoryPort for PostgresGuiaRepository {
                     idiomas: model.idiomas,
                     especialidades: model.especialidades,
                     status: model.status,
+                    is_active: model.is_active,
                     created_at: model.created_at,
                     updated_at: model.updated_at,
                     persona_nombre: Some(nombre),

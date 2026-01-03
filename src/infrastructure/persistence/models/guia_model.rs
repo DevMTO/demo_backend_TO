@@ -20,6 +20,7 @@ pub struct GuiaModel {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub is_active: bool,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -32,6 +33,7 @@ pub struct NewGuiaModel<'a> {
     pub status: &'a str,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub is_active: bool,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -42,6 +44,7 @@ pub struct UpdateGuiaModel<'a> {
     pub especialidades: Option<Option<JsonValue>>,
     pub status: Option<&'a str>,
     pub updated_by: Option<i32>,
+    pub is_active: Option<bool>,
 }
 
 impl From<GuiaModel> for Guia {
@@ -53,6 +56,7 @@ impl From<GuiaModel> for Guia {
             idiomas: model.idiomas,
             especialidades: model.especialidades,
             status: model.status.parse().unwrap_or_default(),
+            is_active: model.is_active,
             created_at: model.created_at,
             updated_at: model.updated_at,
             created_by: model.created_by,
@@ -76,6 +80,7 @@ impl<'a> From<&'a Guia> for NewGuiaModel<'a> {
             },
             created_by: g.created_by,
             updated_by: g.updated_by,
+            is_active: g.is_active,
         }
     }
 }

@@ -25,6 +25,7 @@ pub struct FileResponse {
     pub monto_pagado: BigDecimal,
     #[ts(type = "string")]
     pub saldo_pendiente: BigDecimal,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -45,6 +46,7 @@ impl From<File> for FileResponse {
             monto_total: f.monto_total,
             monto_pagado: f.monto_pagado,
             saldo_pendiente: saldo,
+            is_active: f.is_active,
             created_at: f.created_at,
             updated_at: f.updated_at,
         }
@@ -89,6 +91,7 @@ impl CreateFileRequest {
             status: "pendiente".to_string(),
             monto_total: BigDecimal::try_from(self.monto_total).unwrap_or_default(),
             monto_pagado: BigDecimal::from(0),
+            is_active: true,
             created_at: now,
             updated_at: now,
             created_by,
@@ -124,6 +127,8 @@ pub struct UpdateFileRequest {
     
     #[validate(range(min = 0.0))]
     pub monto_pagado: Option<f64>,
+    
+    pub is_active: Option<bool>,
 }
 
 impl UpdateFileRequest {
@@ -157,6 +162,9 @@ impl UpdateFileRequest {
         }
         if let Some(monto_pagado) = self.monto_pagado {
             file.monto_pagado = BigDecimal::try_from(monto_pagado).unwrap_or_default();
+        }
+        if let Some(is_active) = self.is_active {
+            file.is_active = is_active;
         }
         file.updated_by = updated_by;
         file.updated_at = Utc::now();

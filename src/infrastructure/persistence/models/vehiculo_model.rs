@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 
 use crate::domain::entities::{Vehiculo, StatusVehiculo};
 use crate::infrastructure::persistence::schema::vehiculos;
@@ -17,11 +16,11 @@ pub struct VehiculoModel {
     pub placa: String,
     pub capacidad: i32,
     pub status: String,
-    pub media: Option<JsonValue>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub is_active: bool,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -33,9 +32,9 @@ pub struct NewVehiculoModel<'a> {
     pub placa: &'a str,
     pub capacidad: i32,
     pub status: &'a str,
-    pub media: Option<JsonValue>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub is_active: bool,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -46,8 +45,8 @@ pub struct UpdateVehiculoModel<'a> {
     pub placa: Option<&'a str>,
     pub capacidad: Option<i32>,
     pub status: Option<&'a str>,
-    pub media: Option<Option<JsonValue>>,
     pub updated_by: Option<i32>,
+    pub is_active: Option<bool>,
 }
 
 impl From<VehiculoModel> for Vehiculo {
@@ -60,7 +59,7 @@ impl From<VehiculoModel> for Vehiculo {
             placa: model.placa,
             capacidad: model.capacidad,
             status: model.status.parse().unwrap_or_default(),
-            media: model.media,
+            is_active: model.is_active,
             created_at: model.created_at,
             updated_at: model.updated_at,
             created_by: model.created_by,
@@ -83,9 +82,9 @@ impl<'a> From<&'a Vehiculo> for NewVehiculoModel<'a> {
                 StatusVehiculo::Mantenimiento => "mantenimiento",
                 StatusVehiculo::FueraServicio => "fuera_servicio",
             },
-            media: v.media.clone(),
             created_by: v.created_by,
             updated_by: v.updated_by,
+            is_active: v.is_active,
         }
     }
 }

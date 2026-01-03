@@ -19,6 +19,7 @@ pub struct ConductorModel {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub is_active: bool,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -31,6 +32,7 @@ pub struct NewConductorModel<'a> {
     pub status: &'a str,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub is_active: bool,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -41,6 +43,7 @@ pub struct UpdateConductorModel<'a> {
     pub tiene_soat: Option<bool>,
     pub status: Option<&'a str>,
     pub updated_by: Option<i32>,
+    pub is_active: Option<bool>,
 }
 
 impl From<ConductorModel> for Conductor {
@@ -52,6 +55,7 @@ impl From<ConductorModel> for Conductor {
             nro_brevete: model.nro_brevete,
             tiene_soat: model.tiene_soat,
             status: model.status.parse().unwrap_or_default(),
+            is_active: model.is_active,
             created_at: model.created_at,
             updated_at: model.updated_at,
             created_by: model.created_by,
@@ -75,6 +79,7 @@ impl<'a> From<&'a Conductor> for NewConductorModel<'a> {
             },
             created_by: c.created_by,
             updated_by: c.updated_by,
+            is_active: c.is_active,
         }
     }
 }

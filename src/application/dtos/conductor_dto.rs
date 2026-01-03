@@ -15,6 +15,7 @@ pub struct ConductorResponse {
     pub nro_brevete: String,
     pub tiene_soat: bool,
     pub status: String,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -28,6 +29,7 @@ impl From<Conductor> for ConductorResponse {
             nro_brevete: c.nro_brevete,
             tiene_soat: c.tiene_soat,
             status: c.status.to_string(), // Enum → String
+            is_active: c.is_active,
             created_at: c.created_at,
             updated_at: c.updated_at,
         }
@@ -58,6 +60,7 @@ impl CreateConductorRequest {
             nro_brevete: self.nro_brevete,
             tiene_soat: self.tiene_soat,
             status: StatusConductor::Disponible,
+            is_active: true,
             created_at: now,
             updated_at: now,
             created_by,
@@ -81,6 +84,8 @@ pub struct UpdateConductorRequest {
     
     #[validate(length(max = 20))]
     pub status: Option<String>,
+    
+    pub is_active: Option<bool>,
 }
 
 impl UpdateConductorRequest {
@@ -102,6 +107,9 @@ impl UpdateConductorRequest {
             if let Ok(status_enum) = status.parse::<StatusConductor>() {
                 conductor.status = status_enum;
             }
+        }
+        if let Some(is_active) = self.is_active {
+            conductor.is_active = is_active;
         }
         conductor.updated_by = updated_by;
         conductor.updated_at = Utc::now();
