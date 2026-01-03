@@ -11,7 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Web Framework
-axum = { version = "0.8", features = ["macros"] }
+axum = { version = "0.8", features = ["macros", "multipart"] }
 axum-extra = { version = "0.9", features = ["typed-header", "cookie"] }
 tower = { version = "0.5", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors", "trace", "timeout", "limit", "compression-gzip", "request-id", "set-header"] }
@@ -78,6 +78,12 @@ http = "1.0"
 # Type sharing with frontend
 ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl", "serde-compat"] }
 bigdecimal = { version = "0.4", features = ["serde"] }
+
+# S3-Compatible Object Storage (Tigris)
+rust-s3 = { version = "0.35", default-features = false, features = ["tokio-rustls-tls"] }
+
+# HTTP Client (para proxy de imágenes)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

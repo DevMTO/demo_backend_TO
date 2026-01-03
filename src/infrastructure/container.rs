@@ -126,6 +126,9 @@ pub struct DependencyContainer {
     pub logging_service: Arc<LoggingService>,
     pub notification_service: Arc<NotificationService>,
     
+    // Object Storage (Tigris) - Opcional, puede ser None si no está configurado
+    pub tigris_storage: Option<Arc<crate::infrastructure::storage::TigrisStorage>>,
+    
     // Entity Repositories (para operaciones simples que no necesitan use case)
     pub user_repository: Arc<dyn UserRepositoryPort>,
     pub persona_repository: Arc<dyn PersonaRepositoryPort>,
@@ -365,6 +368,32 @@ impl DependencyContainer {
             cookie_path: config.cookie_path,
             cookie_http_only: config.cookie_http_only,
             cookie_max_age_hours: config.cookie_max_age_hours,
+            // Storage se inicializa después (async)
+            tigris_storage: None,
         })
+    }
+    
+    /// Inicializa el storage de Tigris (async)
+    /// Llamar después de crear el contenedor
+    pub async fn init_storage(&mut self) {
+        use crate::infrastructure::storage::{TigrisConfig, TigrisStorage};
+        use tracing::{info, warn};
+        
+        match TigrisConfig::from_env() {
+            Ok(config) => {
+                match TigrisStorage::new(config).await {
+                    Ok(storage) => {
+                        self.tigris_storage = Some(Arc::new(storage));
+                        info!("✅ Tigris Storage inicializado correctamente");
+                    }
+                    Err(e) => {
+                        warn!("⚠️ No se pudo inicializar Tigris Storage: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("⚠️ Tigris Storage no configurado: {}", e);
+            }
+        }
     }
 }

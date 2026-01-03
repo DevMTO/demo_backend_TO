@@ -66,6 +66,62 @@ pub async fn get_agencia(
     Ok(json_ok(response))
 }
 
+/// Obtener la agencia del usuario actual
+/// 
+/// Busca primero por id_entidad si el usuario es de una agencia,
+/// o por encargado si el usuario es el responsable de una agencia.
+#[instrument(skip(state, auth))]
+pub async fn get_mi_agencia(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> Result<impl IntoResponse, ApplicationError> {
+    info!("🏢 Buscando agencia para usuario '{}' (id_persona: {:?}, id_entidad: {:?}, nombre_entidad: {:?})", 
+        auth.user.username, auth.user.id_persona, auth.user.id_entidad, auth.user.nombre_entidad);
+    
+    let mut agencia: Option<Agencia> = None;
+    
+    // Verificar si el nombre_entidad contiene "agencia" (puede ser "agencias" o el nombre de la agencia)
+    let is_agencia_user = auth.user.nombre_entidad
+        .as_ref()
+        .map(|n| n.to_lowercase().contains("agencia"))
+        .unwrap_or(false);
+    
+    // Primero intentar por id_entidad si el usuario está relacionado con una agencia
+    if is_agencia_user {
+        if let Some(id_entidad) = auth.user.id_entidad {
+            agencia = state.container.agencia_repository
+                .find_by_id(id_entidad)
+                .await?;
+            if agencia.is_some() {
+                info!("✅ Agencia encontrada por id_entidad: {}", id_entidad);
+            }
+        }
+    }
+    
+    // Si no se encontró, buscar por encargado (id_persona)
+    if agencia.is_none() {
+        if let Some(persona_id) = auth.user.id_persona {
+            agencia = state.container.agencia_repository
+                .find_by_encargado(persona_id)
+                .await?;
+            if agencia.is_some() {
+                info!("✅ Agencia encontrada por encargado (persona_id: {})", persona_id);
+            }
+        }
+    }
+    
+    match agencia {
+        Some(a) => {
+            let response: AgenciaResponse = a.into();
+            Ok(json_ok(response))
+        }
+        None => {
+            info!("ℹ️ Usuario '{}' no tiene agencia asociada", auth.user.username);
+            Err(ApplicationError::NotFound("No tienes una agencia asociada".to_string()))
+        }
+    }
+}
+
 #[instrument(skip(state, auth, request))]
 pub async fn create_agencia(
     State(state): State<AppState>,

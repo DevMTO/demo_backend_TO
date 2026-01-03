@@ -9,6 +9,7 @@ use super::{PaginationOptions, PaginatedResult};
 pub trait AgenciaRepositoryPort: Send + Sync {
     async fn create(&self, agencia: &Agencia) -> Result<Agencia, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<Agencia>, ApplicationError>;
+    async fn find_by_encargado(&self, persona_id: i32) -> Result<Option<Agencia>, ApplicationError>;
     async fn update(&self, agencia: &Agencia) -> Result<Agencia, ApplicationError>;
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Agencia>, ApplicationError>;

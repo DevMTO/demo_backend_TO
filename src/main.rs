@@ -53,7 +53,12 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("✅ Database migrations completed");
     
     // Crear contenedor de dependencias
-    let container = Arc::new(DependencyContainer::new(db_pool, config.clone())?);
+    let mut container = DependencyContainer::new(db_pool, config.clone())?;
+    
+    // Inicializar storage de Tigris (async, opcional)
+    container.init_storage().await;
+    
+    let container = Arc::new(container);
     tracing::info!("✅ Dependency container initialized");
     
     // Crear router con todas las rutas

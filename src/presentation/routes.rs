@@ -36,6 +36,7 @@ use super::handlers::{
     pago_handlers,
     activity_log_handlers,
     notification_handlers,
+    storage_handlers,
 };
 use super::middleware::require_auth;
 
@@ -179,6 +180,7 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
 
     let agencia_routes = Router::new()
         .route("/", get(agencia_handlers::list_agencias).post(agencia_handlers::create_agencia))
+        .route("/mi-agencia", get(agencia_handlers::get_mi_agencia))
         .route("/ruc/{ruc}", get(agencia_handlers::get_agencia_by_ruc))
         .route("/{id}", get(agencia_handlers::get_agencia).put(agencia_handlers::update_agencia).delete(agencia_handlers::delete_agencia))
         .route("/{id}/restore", post(agencia_handlers::restore_agencia));
@@ -268,6 +270,13 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
         .route("/cleanup", post(notification_handlers::cleanup_notifications))
         .route("/{id}", axum::routing::delete(notification_handlers::delete_notification));
 
+    // === Storage Routes (Tigris) ===
+    // Rutas de subida y proxy (todas protegidas)
+    let storage_routes = Router::new()
+        .route("/agencia/{agencia_id}/logo", post(storage_handlers::upload_agencia_logo))
+        .route("/agencia/{agencia_id}/banner", post(storage_handlers::upload_agencia_banner))
+        .route("/proxy/{*file_path}", get(storage_handlers::proxy_file));
+
     // ========== RUTAS PROTEGIDAS ==========
     // Todas las rutas CRUD requieren autenticación vía cookie de sesión
     let protected_routes = Router::new()
@@ -285,6 +294,7 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
         .nest("/pagos", pago_routes)
         .nest("/logs", activity_log_routes)
         .nest("/notifications", notification_routes)
+        .nest("/storage", storage_routes)
         .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
     // Router principal

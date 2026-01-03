@@ -54,6 +54,27 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
         Ok(result.map(Into::into))
     }
     
+    #[instrument(skip(self))]
+    async fn find_by_encargado(&self, persona_id: i32) -> Result<Option<Agencia>, ApplicationError> {
+        debug!("🔍 Buscando agencia por encargado (persona_id: {})", persona_id);
+        let mut conn = self.pool.get_connection().await?;
+        let result = agencias::table
+            .filter(agencias::encargado.eq(Some(persona_id)))
+            .filter(agencias::is_active.eq(true))
+            .first::<AgenciaModel>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        if let Some(ref agencia) = result {
+            info!("✅ Encontrada agencia '{}' (id: {}) para encargado {}", agencia.nombre, agencia.id, persona_id);
+        } else {
+            debug!("ℹ️ No se encontró agencia para encargado {}", persona_id);
+        }
+        
+        Ok(result.map(Into::into))
+    }
+    
     #[instrument(skip(self, agencia))]
     async fn update(&self, agencia: &Agencia) -> Result<Agencia, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
