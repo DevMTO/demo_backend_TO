@@ -49,7 +49,7 @@ pub enum UserRole {
     /// Personal de agencia - acceso a consultas y reportes
     Agencia,
     /// Empresa de transporte - gestiona vehículos y conductores
-    Transportes,
+    Transporte,
     /// Conductor - ve sus asignaciones y puede aceptar/rechazar
     Conductor,
     /// Guía turístico - ve itinerarios asignados
@@ -64,7 +64,7 @@ impl std::fmt::Display for UserRole {
             UserRole::SuperAdmin => write!(f, "superadmin"),
             UserRole::Admin => write!(f, "admin"),
             UserRole::Agencia => write!(f, "agencia"),
-            UserRole::Transportes => write!(f, "transportes"),
+            UserRole::Transporte => write!(f, "transporte"),
             UserRole::Conductor => write!(f, "conductor"),
             UserRole::Guia => write!(f, "guia"),
             UserRole::Restaurante => write!(f, "restaurante"),
@@ -80,7 +80,7 @@ impl std::str::FromStr for UserRole {
             "superadmin" => Ok(UserRole::SuperAdmin),
             "admin" => Ok(UserRole::Admin),
             "agencia" => Ok(UserRole::Agencia),
-            "transportes" | "transporte" => Ok(UserRole::Transportes),
+            "transporte" | "transportes" => Ok(UserRole::Transporte),
             "conductor" => Ok(UserRole::Conductor),
             "guia" | "guide" => Ok(UserRole::Guia),
             "restaurante" | "restaurant" => Ok(UserRole::Restaurante),
@@ -209,7 +209,7 @@ impl User {
     
     /// Verifica si es empresa de transportes
     pub fn is_transporte(&self) -> bool {
-        matches!(self.role, UserRole::Transportes)
+        matches!(self.role, UserRole::Transporte)
     }
     
     /// Verifica si es conductor
@@ -254,7 +254,7 @@ impl User {
     
     /// Verifica si puede gestionar vehículos
     pub fn can_manage_vehicles(&self) -> bool {
-        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Transportes)
+        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Transporte)
     }
     
     /// Verifica si el usuario está activo
