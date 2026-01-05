@@ -7,7 +7,8 @@ use tracing::{info, warn, instrument};
 use validator::Validate;
 
 use crate::application::dtos::{
-    CreateAgenciaRequest, UpdateAgenciaRequest, AgenciaResponse, AgenciaListItemDto,
+    CreateAgenciaRequest, UpdateAgenciaRequest, UpdateAgenciaInterfazRequest, 
+    AgenciaResponse, AgenciaListItemDto,
 };
 
 use crate::domain::entities::{
@@ -85,16 +86,13 @@ pub async fn get_mi_agencia(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("🏢 Buscando agencia para usuario '{}' (id_persona: {:?}, id_entidad: {:?}, nombre_entidad: {:?})", 
-        auth.user.username, auth.user.id_persona, auth.user.id_entidad, auth.user.nombre_entidad);
+    info!("🏢 Buscando agencia para usuario '{}' (id_persona: {:?}, id_entidad: {:?}, role: {:?})", 
+        auth.user.username, auth.user.id_persona, auth.user.id_entidad, auth.user.role);
     
     let mut agencia: Option<Agencia> = None;
     
-    // Verificar si el nombre_entidad contiene "agencia" (puede ser "agencias" o el nombre de la agencia)
-    let is_agencia_user = auth.user.nombre_entidad
-        .as_ref()
-        .map(|n| n.to_lowercase().contains("agencia"))
-        .unwrap_or(false);
+    // Verificar si el usuario tiene rol de agencia
+    let is_agencia_user = auth.user.role == UserRole::Agencias;
     
     // Primero intentar por id_entidad si el usuario está relacionado con una agencia
     if is_agencia_user {
@@ -148,11 +146,8 @@ pub async fn update_mi_agencia(
     // Buscar la agencia del usuario
     let mut agencia: Option<Agencia> = None;
     
-    // Verificar si el nombre_entidad contiene "agencia"
-    let is_agencia_user = auth.user.nombre_entidad
-        .as_ref()
-        .map(|n| n.to_lowercase().contains("agencia"))
-        .unwrap_or(false);
+    // Verificar si el usuario tiene rol de agencia
+    let is_agencia_user = auth.user.role == UserRole::Agencias;
     
     // Intentar por id_entidad si el usuario está relacionado con una agencia
     if is_agencia_user {
@@ -213,6 +208,66 @@ pub async fn update_mi_agencia(
     info!("✅ Agencia '{}' actualizada por su encargado/usuario {}", response.nombre, auth.user.username);
     
     Ok(json_ok(response))
+}
+
+/// Actualizar solo la interfaz de mi agencia (logo y paleta de colores)
+/// 
+/// Endpoint PATCH que permite actualizar solo logo y paleta_colores.
+#[instrument(skip(state, auth, request))]
+pub async fn patch_mi_agencia_interfaz(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(request): Json<UpdateAgenciaInterfazRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    info!("🎨 Usuario '{}' actualiza interfaz de su agencia", auth.user.username);
+    
+    // Buscar la agencia del usuario
+    let mut agencia: Option<Agencia> = None;
+    
+    // Verificar si el usuario tiene rol de agencia
+    let is_agencia_user = auth.user.role == UserRole::Agencias;
+    
+    if is_agencia_user {
+        if let Some(id_entidad) = auth.user.id_entidad {
+            agencia = state.container.agencia_repository
+                .find_by_id(id_entidad)
+                .await?;
+        }
+    }
+    
+    if agencia.is_none() {
+        if let Some(persona_id) = auth.user.id_persona {
+            agencia = state.container.agencia_repository
+                .find_by_encargado(persona_id)
+                .await?;
+        }
+    }
+    
+    let old_agencia = agencia.ok_or_else(|| {
+        ApplicationError::NotFound("No tienes una agencia asociada".to_string())
+    })?;
+    
+    let agencia_id = old_agencia.id;
+    
+    // Aplicar cambios solo de interfaz
+    let updated = request.apply_to(old_agencia.clone(), Some(auth.user.id));
+    let result = state.container.agencia_repository.update(&updated).await?;
+    
+    // Logging
+    let _ = state.container.logging_service.log_update::<Agencia>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Agencia,
+        agencia_id,
+        Some(&old_agencia),
+        Some(&result),
+        Some(vec!["paleta_colores".to_string(), "media".to_string()]),
+        None,
+    ).await;
+    
+    info!("✅ Interfaz de agencia '{}' actualizada", result.nombre);
+    
+    Ok(json_ok(AgenciaResponse::from(result)))
 }
 
 #[instrument(skip(state, auth, request))]

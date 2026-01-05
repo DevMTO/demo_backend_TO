@@ -188,8 +188,7 @@ pub async fn verify_session_handler(
         email: auth_user.user.email.clone(),
         role: auth_user.user.role.to_string(),
         id_entidad: auth_user.user.id_entidad,
-        nombre_entidad: auth_user.user.nombre_entidad.clone(),
-        status: auth_user.user.status.to_string(),
+        is_active: auth_user.user.is_active,
     };
     
     info!("✅ Sesión válida para: {}", auth_user.user.username);
@@ -216,8 +215,7 @@ pub async fn get_profile_handler(
         email: auth_user.user.email.clone(),
         role: auth_user.user.role.to_string(),
         id_entidad: auth_user.user.id_entidad,
-        nombre_entidad: auth_user.user.nombre_entidad.clone(),
-        status: auth_user.user.status.to_string(),
+        is_active: auth_user.user.is_active,
     };
     
     // Obtener la persona asociada si existe
@@ -312,8 +310,7 @@ pub async fn update_profile_handler(
         email: auth_user.user.email.clone(),
         role: auth_user.user.role.to_string(),
         id_entidad: auth_user.user.id_entidad,
-        nombre_entidad: auth_user.user.nombre_entidad.clone(),
-        status: auth_user.user.status.to_string(),
+        is_active: auth_user.user.is_active,
     };
     
     let persona_info = PersonaProfileInfo {

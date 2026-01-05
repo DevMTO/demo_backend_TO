@@ -26,6 +26,8 @@ pub struct FileModel {
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
     pub is_active: bool,
+    pub nro_pasajeros: i32,
+    pub file_code: Option<String>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -44,6 +46,8 @@ pub struct NewFileModel<'a> {
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
     pub is_active: bool,
+    pub nro_pasajeros: i32,
+    pub file_code: Option<&'a str>,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -61,6 +65,8 @@ pub struct UpdateFileModel<'a> {
     pub monto_pagado: Option<BigDecimal>,
     pub updated_by: Option<i32>,
     pub is_active: Option<bool>,
+    pub nro_pasajeros: Option<i32>,
+    pub file_code: Option<Option<&'a str>>,
 }
 
 impl From<FileModel> for File {
@@ -78,6 +84,8 @@ impl From<FileModel> for File {
             monto_total: model.monto_total,
             monto_pagado: model.monto_pagado,
             is_active: model.is_active,
+            nro_pasajeros: model.nro_pasajeros,
+            file_code: model.file_code,
             created_at: model.created_at,
             updated_at: model.updated_at,
             created_by: model.created_by,
@@ -102,6 +110,8 @@ impl<'a> From<&'a File> for NewFileModel<'a> {
             created_by: f.created_by,
             updated_by: f.updated_by,
             is_active: f.is_active,
+            nro_pasajeros: f.nro_pasajeros,
+            file_code: f.file_code.as_deref(),
         }
     }
 }

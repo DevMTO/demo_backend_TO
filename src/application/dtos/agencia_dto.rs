@@ -189,3 +189,29 @@ pub struct AgenciaListResponse {
     pub page_size: i64,
     pub total_pages: i64,
 }
+
+/// Request para actualizar solo la interfaz de la agencia (logo y paleta de colores)
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateAgenciaInterfazRequest {
+    #[ts(type = "object | null | undefined")]
+    pub paleta_colores: Option<JsonValue>,
+    
+    #[ts(type = "object | null | undefined")]
+    pub media: Option<JsonValue>,
+}
+
+impl UpdateAgenciaInterfazRequest {
+    pub fn apply_to(self, mut agencia: Agencia, updated_by: Option<i32>) -> Agencia {
+        if let Some(paleta) = self.paleta_colores {
+            agencia.paleta_colores = Some(paleta);
+        }
+        if let Some(media) = self.media {
+            agencia.media = Some(media);
+        }
+        agencia.updated_by = updated_by;
+        agencia.updated_at = Utc::now();
+        agencia
+    }
+}

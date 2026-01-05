@@ -1,44 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum UserStatus {
-    Activo,
-    Inactivo,
-    Suspendido,
-    PendienteVerificacion,
-}
-
-impl std::fmt::Display for UserStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UserStatus::Activo => write!(f, "activo"),
-            UserStatus::Inactivo => write!(f, "inactivo"),
-            UserStatus::Suspendido => write!(f, "suspendido"),
-            UserStatus::PendienteVerificacion => write!(f, "pendiente_verificacion"),
-        }
-    }
-}
-
-impl std::str::FromStr for UserStatus {
-    type Err = String;
-    
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "activo" => Ok(UserStatus::Activo),
-            "inactivo" => Ok(UserStatus::Inactivo),
-            "suspendido" => Ok(UserStatus::Suspendido),
-            "pendiente_verificacion" => Ok(UserStatus::PendienteVerificacion),
-            _ => Err(format!("Invalid status: {s}")),
-        }
-    }
-}
-
-impl Default for UserStatus {
-    fn default() -> Self {
-        UserStatus::PendienteVerificacion
-    }
-}
+// UserStatus eliminado - ahora usamos is_active booleano
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum UserRole {
@@ -46,16 +9,16 @@ pub enum UserRole {
     SuperAdmin,
     /// Administrador de agencia - gestiona files, tours, personal
     Admin,
-    /// Personal de agencia - acceso a consultas y reportes
-    Agencia,
+    /// Personal de agencias - acceso a consultas y reportes
+    Agencias,
     /// Empresa de transporte - gestiona vehículos y conductores
-    Transporte,
+    Transportes,
     /// Conductor - ve sus asignaciones y puede aceptar/rechazar
-    Conductor,
+    Conductores,
     /// Guía turístico - ve itinerarios asignados
-    Guia,
+    Guias,
     /// Restaurante - ve reservas de grupos
-    Restaurante,
+    Restaurantes,
 }
 
 impl std::fmt::Display for UserRole {
@@ -63,11 +26,11 @@ impl std::fmt::Display for UserRole {
         match self {
             UserRole::SuperAdmin => write!(f, "superadmin"),
             UserRole::Admin => write!(f, "admin"),
-            UserRole::Agencia => write!(f, "agencia"),
-            UserRole::Transporte => write!(f, "transporte"),
-            UserRole::Conductor => write!(f, "conductor"),
-            UserRole::Guia => write!(f, "guia"),
-            UserRole::Restaurante => write!(f, "restaurante"),
+            UserRole::Agencias => write!(f, "agencias"),
+            UserRole::Transportes => write!(f, "transportes"),
+            UserRole::Conductores => write!(f, "conductores"),
+            UserRole::Guias => write!(f, "guias"),
+            UserRole::Restaurantes => write!(f, "restaurantes"),
         }
     }
 }
@@ -79,11 +42,11 @@ impl std::str::FromStr for UserRole {
         match s.to_lowercase().as_str() {
             "superadmin" => Ok(UserRole::SuperAdmin),
             "admin" => Ok(UserRole::Admin),
-            "agencia" => Ok(UserRole::Agencia),
-            "transporte" | "transportes" => Ok(UserRole::Transporte),
-            "conductor" => Ok(UserRole::Conductor),
-            "guia" | "guide" => Ok(UserRole::Guia),
-            "restaurante" | "restaurant" => Ok(UserRole::Restaurante),
+            "agencias" | "agencia" => Ok(UserRole::Agencias),
+            "transportes" | "transporte" => Ok(UserRole::Transportes),
+            "conductores" | "conductor" => Ok(UserRole::Conductores),
+            "guias" | "guia" | "guide" => Ok(UserRole::Guias),
+            "restaurantes" | "restaurante" | "restaurant" => Ok(UserRole::Restaurantes),
             _ => Err(format!("Invalid role: {s}")),
         }
     }
@@ -91,7 +54,7 @@ impl std::str::FromStr for UserRole {
 
 impl Default for UserRole {
     fn default() -> Self {
-        UserRole::Agencia // Rol más común por defecto
+        UserRole::Agencias // Rol más común por defecto
     }
 }
 
@@ -106,9 +69,9 @@ impl UserRole {
         matches!(self, UserRole::SuperAdmin | UserRole::Admin)
     }
     
-    /// Verifica si es Agencia o superior
-    pub fn is_agencia(&self) -> bool {
-        matches!(self, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencia)
+    /// Verifica si es Agencias o superior
+    pub fn is_agencias(&self) -> bool {
+        matches!(self, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias)
     }
 }
 
@@ -128,10 +91,8 @@ pub struct User {
     pub role: UserRole,
     /// ID de la entidad a la que pertenece (agencia, transporte, etc.)
     pub id_entidad: Option<i32>,
-    /// Nombre de la entidad (tipo: agencia, transporte, etc.)
-    pub nombre_entidad: Option<String>,
-    /// Status del usuario
-    pub status: UserStatus,
+    /// Si el usuario está activo
+    pub is_active: bool,
     /// Fecha del último login
     pub last_login: Option<DateTime<Utc>>,
     /// Fecha de creación
@@ -162,8 +123,7 @@ impl User {
             password_hash,
             role,
             id_entidad: None,
-            nombre_entidad: None,
-            status: UserStatus::PendienteVerificacion,
+            is_active: true,
             last_login: None,
             created_at: now,
             updated_at: now,
@@ -180,11 +140,9 @@ impl User {
         password_hash: String,
         role: UserRole,
         id_entidad: i32,
-        nombre_entidad: String,
     ) -> Self {
         let mut user = Self::new(id_persona, username, email, password_hash, role);
         user.id_entidad = Some(id_entidad);
-        user.nombre_entidad = Some(nombre_entidad);
         user
     }
     
@@ -202,29 +160,29 @@ impl User {
         matches!(self.role, UserRole::SuperAdmin | UserRole::Admin)
     }
     
-    /// Verifica si es personal de agencia (Admin, Agencia)
+    /// Verifica si es personal de agencias (Admin, Agencias)
     pub fn is_agencia_staff(&self) -> bool {
-        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencia)
+        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias)
     }
     
     /// Verifica si es empresa de transportes
     pub fn is_transporte(&self) -> bool {
-        matches!(self.role, UserRole::Transporte)
+        matches!(self.role, UserRole::Transportes)
     }
     
     /// Verifica si es conductor
     pub fn is_conductor(&self) -> bool {
-        matches!(self.role, UserRole::Conductor)
+        matches!(self.role, UserRole::Conductores)
     }
     
     /// Verifica si es guía
     pub fn is_guia(&self) -> bool {
-        matches!(self.role, UserRole::Guia)
+        matches!(self.role, UserRole::Guias)
     }
     
     /// Verifica si es restaurante
     pub fn is_restaurante(&self) -> bool {
-        matches!(self.role, UserRole::Restaurante)
+        matches!(self.role, UserRole::Restaurantes)
     }
     
     /// Verifica si puede gestionar usuarios
@@ -239,27 +197,22 @@ impl User {
     
     /// Verifica si puede ver sus asignaciones (conductor/guía)
     pub fn can_view_assignments(&self) -> bool {
-        matches!(self.role, UserRole::Conductor | UserRole::Guia | UserRole::SuperAdmin | UserRole::Admin)
+        matches!(self.role, UserRole::Conductores | UserRole::Guias | UserRole::SuperAdmin | UserRole::Admin)
     }
     
     /// Verifica si puede aceptar/rechazar asignaciones
     pub fn can_respond_assignments(&self) -> bool {
-        matches!(self.role, UserRole::Conductor | UserRole::Guia)
+        matches!(self.role, UserRole::Conductores | UserRole::Guias)
     }
     
     /// Verifica si puede acceder al panel de administración
     pub fn can_access_management(&self) -> bool {
-        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencia)
+        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias)
     }
     
     /// Verifica si puede gestionar vehículos
     pub fn can_manage_vehicles(&self) -> bool {
-        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Transporte)
-    }
-    
-    /// Verifica si el usuario está activo
-    pub fn is_active(&self) -> bool {
-        matches!(self.status, UserStatus::Activo)
+        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Transportes)
     }
     
     // ========================================
@@ -274,19 +227,13 @@ impl User {
     
     /// Activa el usuario
     pub fn activate(&mut self) {
-        self.status = UserStatus::Activo;
+        self.is_active = true;
         self.updated_at = Utc::now();
     }
     
     /// Desactiva el usuario
     pub fn deactivate(&mut self) {
-        self.status = UserStatus::Inactivo;
-        self.updated_at = Utc::now();
-    }
-    
-    /// Suspende el usuario
-    pub fn suspend(&mut self) {
-        self.status = UserStatus::Suspendido;
+        self.is_active = false;
         self.updated_at = Utc::now();
     }
     
@@ -297,16 +244,14 @@ impl User {
     }
     
     /// Actualiza la entidad asociada
-    pub fn set_entidad(&mut self, id_entidad: i32, nombre_entidad: String) {
+    pub fn set_entidad(&mut self, id_entidad: i32) {
         self.id_entidad = Some(id_entidad);
-        self.nombre_entidad = Some(nombre_entidad);
         self.updated_at = Utc::now();
     }
     
     /// Remueve la entidad asociada
     pub fn clear_entidad(&mut self) {
         self.id_entidad = None;
-        self.nombre_entidad = None;
         self.updated_at = Utc::now();
     }
 }
@@ -319,8 +264,7 @@ pub struct UserInfo {
     pub email: String,
     pub role: String,
     pub id_entidad: Option<i32>,
-    pub nombre_entidad: Option<String>,
-    pub status: String,
+    pub is_active: bool,
 }
 
 impl From<&User> for UserInfo {
@@ -332,8 +276,7 @@ impl From<&User> for UserInfo {
             email: user.email.clone(),
             role: user.role.to_string(),
             id_entidad: user.id_entidad,
-            nombre_entidad: user.nombre_entidad.clone(),
-            status: user.status.to_string(),
+            is_active: user.is_active,
         }
     }
 }

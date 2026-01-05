@@ -62,11 +62,8 @@ pub async fn upload_agencia_logo(
             }))
         })?;
     
-    // Verificar si el usuario está relacionado con agencias (nombre contiene "agencia")
-    let is_agencia_user = auth_user.user.nombre_entidad
-        .as_ref()
-        .map(|n| n.to_lowercase().contains("agencia"))
-        .unwrap_or(false);
+    // Verificar si el usuario tiene rol de agencia
+    let is_agencia_user = auth_user.user.role == UserRole::Agencias;
     
     // Verificar permisos: SuperAdmin, Admin, o encargado de la agencia
     let mut can_upload = auth_user.user.role == UserRole::SuperAdmin 
@@ -191,11 +188,8 @@ pub async fn upload_agencia_banner(
             }))
         })?;
     
-    // Verificar si el usuario está relacionado con agencias (nombre contiene "agencia")
-    let is_agencia_user = auth_user.user.nombre_entidad
-        .as_ref()
-        .map(|n| n.to_lowercase().contains("agencia"))
-        .unwrap_or(false);
+    // Verificar si el usuario tiene rol de agencia
+    let is_agencia_user = auth_user.user.role == UserRole::Agencias;
     
     // Verificar permisos
     let mut can_upload = auth_user.user.role == UserRole::SuperAdmin 
@@ -300,10 +294,7 @@ pub async fn delete_agencia_logo(
         })?;
     
     // Verificar permisos
-    let is_agencia_user = auth_user.user.nombre_entidad
-        .as_ref()
-        .map(|n| n.to_lowercase().contains("agencia"))
-        .unwrap_or(false);
+    let is_agencia_user = auth_user.user.role == UserRole::Agencias;
     
     let mut can_delete = auth_user.user.role == UserRole::SuperAdmin 
         || auth_user.user.role == UserRole::Admin
@@ -385,10 +376,7 @@ pub async fn delete_agencia_banner(
         })?;
     
     // Verificar permisos
-    let is_agencia_user = auth_user.user.nombre_entidad
-        .as_ref()
-        .map(|n| n.to_lowercase().contains("agencia"))
-        .unwrap_or(false);
+    let is_agencia_user = auth_user.user.role == UserRole::Agencias;
     
     let mut can_delete = auth_user.user.role == UserRole::SuperAdmin 
         || auth_user.user.role == UserRole::Admin
@@ -598,11 +586,8 @@ pub async fn upload_transporte_logo(
             }))
         })?;
     
-    // Verificar si el usuario está relacionado con transportes
-    let is_transporte_user = auth_user.user.nombre_entidad
-        .as_ref()
-        .map(|n| n.to_lowercase().contains("transporte"))
-        .unwrap_or(false);
+    // Verificar si el usuario tiene rol de transporte
+    let is_transporte_user = auth_user.user.role == UserRole::Transportes;
     
     // Verificar permisos: SuperAdmin, Admin, o encargado del transporte
     let mut can_upload = auth_user.user.role == UserRole::SuperAdmin 

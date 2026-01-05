@@ -25,6 +25,8 @@ pub struct FileResponse {
     pub monto_pagado: BigDecimal,
     #[ts(type = "string")]
     pub saldo_pendiente: BigDecimal,
+    pub nro_pasajeros: i32,
+    pub file_code: Option<String>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -46,6 +48,8 @@ impl From<File> for FileResponse {
             monto_total: f.monto_total,
             monto_pagado: f.monto_pagado,
             saldo_pendiente: saldo,
+            nro_pasajeros: f.nro_pasajeros,
+            file_code: f.file_code,
             is_active: f.is_active,
             created_at: f.created_at,
             updated_at: f.updated_at,
@@ -74,6 +78,12 @@ pub struct CreateFileRequest {
     
     #[validate(range(min = 0.0, message = "Monto debe ser positivo"))]
     pub monto_total: f64,
+    
+    #[validate(range(min = 0, message = "Número de pasajeros debe ser positivo"))]
+    pub nro_pasajeros: Option<i32>,
+    
+    #[validate(length(max = 50))]
+    pub file_code: Option<String>,
 }
 
 impl CreateFileRequest {
@@ -91,6 +101,8 @@ impl CreateFileRequest {
             status: "pendiente".to_string(),
             monto_total: BigDecimal::try_from(self.monto_total).unwrap_or_default(),
             monto_pagado: BigDecimal::from(0),
+            nro_pasajeros: self.nro_pasajeros.unwrap_or(0),
+            file_code: self.file_code,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -128,6 +140,12 @@ pub struct UpdateFileRequest {
     #[validate(range(min = 0.0))]
     pub monto_pagado: Option<f64>,
     
+    #[validate(range(min = 0))]
+    pub nro_pasajeros: Option<i32>,
+    
+    #[validate(length(max = 50))]
+    pub file_code: Option<String>,
+    
     pub is_active: Option<bool>,
 }
 
@@ -162,6 +180,12 @@ impl UpdateFileRequest {
         }
         if let Some(monto_pagado) = self.monto_pagado {
             file.monto_pagado = BigDecimal::try_from(monto_pagado).unwrap_or_default();
+        }
+        if let Some(nro_pasajeros) = self.nro_pasajeros {
+            file.nro_pasajeros = nro_pasajeros;
+        }
+        if let Some(file_code) = self.file_code {
+            file.file_code = Some(file_code);
         }
         if let Some(is_active) = self.is_active {
             file.is_active = is_active;

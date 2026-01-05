@@ -6,7 +6,10 @@ use axum::{
 use tracing::{info, instrument};
 use validator::Validate;
 
-use crate::application::dtos::{CreateTransporteRequest, UpdateTransporteRequest, TransporteResponse};
+use crate::application::dtos::{
+    CreateTransporteRequest, UpdateTransporteRequest, UpdateTransporteInterfazRequest, 
+    TransporteResponse
+};
 use crate::domain::entities::{EntityType, UserRole, NotificationType, NotificationCategory, NotificationPriority};
 
 use crate::domain::errors::ApplicationError;
@@ -49,16 +52,13 @@ pub async fn get_mi_transporte(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("🚐 Buscando transporte para usuario '{}' (id_persona: {:?}, id_entidad: {:?}, nombre_entidad: {:?})", 
-        auth.user.username, auth.user.id_persona, auth.user.id_entidad, auth.user.nombre_entidad);
+    info!("🚐 Buscando transporte para usuario '{}' (id_persona: {:?}, id_entidad: {:?}, role: {:?})", 
+        auth.user.username, auth.user.id_persona, auth.user.id_entidad, auth.user.role);
     
     let mut transporte: Option<crate::domain::entities::Transporte> = None;
     
-    // Verificar si el nombre_entidad contiene "transporte"
-    let is_transporte_user = auth.user.nombre_entidad
-        .as_ref()
-        .map(|n| n.to_lowercase().contains("transporte"))
-        .unwrap_or(false);
+    // Verificar si el usuario tiene rol de transporte
+    let is_transporte_user = auth.user.role == UserRole::Transportes;
     
     // Primero intentar por id_entidad si el usuario está relacionado con un transporte
     if is_transporte_user {
@@ -94,6 +94,143 @@ pub async fn get_mi_transporte(
             Err(ApplicationError::NotFound("No tienes un transporte asociado".to_string()))
         }
     }
+}
+
+/// Actualizar mi propio transporte
+/// 
+/// Permite a usuarios de tipo Transporte o encargados actualizar su transporte.
+/// Solo pueden actualizar: paleta_colores, direccion, telefono, correo, media.
+/// No pueden modificar: ruc, nombre, encargado, estado.
+#[instrument(skip(state, auth, request))]
+pub async fn update_mi_transporte(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(request): Json<UpdateTransporteRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    info!("🚐 Usuario '{}' intenta actualizar su transporte", auth.user.username);
+    
+    // Buscar el transporte del usuario
+    let mut transporte: Option<crate::domain::entities::Transporte> = None;
+    
+    // Verificar si el usuario tiene rol de transporte
+    let is_transporte_user = auth.user.role == UserRole::Transportes;
+    
+    // Intentar por id_entidad si el usuario está relacionado con un transporte
+    if is_transporte_user {
+        if let Some(id_entidad) = auth.user.id_entidad {
+            transporte = state.container.transporte_repository
+                .find_by_id(id_entidad)
+                .await?;
+        }
+    }
+    
+    // Si no se encontró, buscar por encargado (id_persona)
+    if transporte.is_none() {
+        if let Some(persona_id) = auth.user.id_persona {
+            transporte = state.container.transporte_repository
+                .find_by_encargado(persona_id)
+                .await?;
+        }
+    }
+    
+    let old_transporte = transporte.ok_or_else(|| {
+        ApplicationError::NotFound("No tienes un transporte asociado".to_string())
+    })?;
+    
+    let transporte_id = old_transporte.id;
+    
+    // Crear un request limitado: solo permitir ciertos campos
+    let limited_request = UpdateTransporteRequest {
+        nombre: None, // No puede cambiar nombre
+        ruc: None, // No puede cambiar RUC
+        direccion: request.direccion,
+        telefono: request.telefono,
+        correo: request.correo,
+        encargado: None, // No puede cambiar encargado
+        paleta_colores: request.paleta_colores,
+        media: request.media, // Puede actualizar media (logo, etc.)
+        is_active: None, // No puede cambiar estado
+    };
+    
+    // Aplicar actualizaciones y guardar
+    let updated = limited_request.apply_to(old_transporte.clone(), Some(auth.user.id));
+    let result = state.container.transporte_repository.update(&updated).await?;
+    
+    // Logging del evento
+    let _ = state.container.logging_service.log_update::<crate::domain::entities::Transporte>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Transporte,
+        transporte_id,
+        Some(&old_transporte),
+        Some(&result),
+        None,
+        None,
+    ).await;
+    
+    info!("✅ Transporte actualizado por su usuario: {}", result.nombre);
+    
+    Ok(json_ok(TransporteResponse::from(result)))
+}
+
+/// Actualizar solo la interfaz de mi transporte (logo y paleta de colores)
+/// 
+/// Endpoint PATCH que permite actualizar solo logo y paleta_colores.
+#[instrument(skip(state, auth, request))]
+pub async fn patch_mi_transporte_interfaz(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(request): Json<UpdateTransporteInterfazRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    info!("🎨 Usuario '{}' actualiza interfaz de su transporte", auth.user.username);
+    
+    // Buscar el transporte del usuario
+    let mut transporte: Option<crate::domain::entities::Transporte> = None;
+    
+    // Verificar si el usuario tiene rol de transporte
+    let is_transporte_user = auth.user.role == UserRole::Transportes;
+    
+    if is_transporte_user {
+        if let Some(id_entidad) = auth.user.id_entidad {
+            transporte = state.container.transporte_repository
+                .find_by_id(id_entidad)
+                .await?;
+        }
+    }
+    
+    if transporte.is_none() {
+        if let Some(persona_id) = auth.user.id_persona {
+            transporte = state.container.transporte_repository
+                .find_by_encargado(persona_id)
+                .await?;
+        }
+    }
+    
+    let old_transporte = transporte.ok_or_else(|| {
+        ApplicationError::NotFound("No tienes un transporte asociado".to_string())
+    })?;
+    
+    let transporte_id = old_transporte.id;
+    
+    // Aplicar cambios solo de interfaz
+    let updated = request.apply_to(old_transporte.clone(), Some(auth.user.id));
+    let result = state.container.transporte_repository.update(&updated).await?;
+    
+    // Logging
+    let _ = state.container.logging_service.log_update::<crate::domain::entities::Transporte>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::Transporte,
+        transporte_id,
+        Some(&old_transporte),
+        Some(&result),
+        Some(vec!["paleta_colores".to_string(), "media".to_string()]),
+        None,
+    ).await;
+    
+    info!("✅ Interfaz de transporte '{}' actualizada", result.nombre);
+    
+    Ok(json_ok(TransporteResponse::from(result)))
 }
 
 #[instrument(skip(state, auth, request))]

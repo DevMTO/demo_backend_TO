@@ -8,7 +8,7 @@ use tracing::{info, warn, instrument};
 use validator::Validate;
 
 use crate::domain::entities::{
-    User, UserRole, UserStatus, Persona, TipoDocumento, EntityType,
+    User, UserRole, Persona, TipoDocumento, EntityType,
     NotificationType, NotificationCategory, NotificationPriority,
 };
 use crate::domain::errors::ApplicationError;
@@ -152,8 +152,7 @@ pub async fn create_user(
         password_hash,
         role,
         id_entidad: request.id_entidad,
-        nombre_entidad: request.nombre_entidad,
-        status: UserStatus::Activo,
+        is_active: true,
         last_login: None,
         created_at: now,
         updated_at: now,
@@ -236,7 +235,7 @@ pub async fn update_user(
     let mut changed_fields = Vec::new();
     if old_user.email != result.email { changed_fields.push("email".to_string()); }
     if old_user.role != result.role { changed_fields.push("role".to_string()); }
-    if old_user.status != result.status { changed_fields.push("status".to_string()); }
+    if old_user.is_active != result.is_active { changed_fields.push("is_active".to_string()); }
     if old_user.id_entidad != result.id_entidad { changed_fields.push("id_entidad".to_string()); }
     
     // Logging del evento
@@ -365,12 +364,12 @@ pub async fn activate_user(
         .ok_or_else(|| ApplicationError::NotFound(format!("Usuario {} no encontrado", id)))?;
     
     // Verificar que no está ya activo
-    if user.status == UserStatus::Activo {
+    if user.is_active {
         return Err(ApplicationError::Conflict("El usuario ya está activo".to_string()));
     }
     
-    let old_status = user.status.clone();
-    user.status = UserStatus::Activo;
+    let old_active = user.is_active;
+    user.is_active = true;
     user.updated_at = chrono::Utc::now();
     user.updated_by = Some(auth.user.id);
     
@@ -386,7 +385,7 @@ pub async fn activate_user(
         id,
         None::<&User>,
         None::<&User>,
-        Some(vec!["status".to_string()]),
+        Some(vec!["is_active".to_string()]),
         None,
     ).await {
         warn!("⚠️ Error al registrar log de activación de usuario: {}", e);
@@ -409,7 +408,7 @@ pub async fn activate_user(
     if let Err(e) = state.notify_roles_with_broadcast(
         vec![UserRole::SuperAdmin, UserRole::Admin],
         "Usuario activado",
-        &format!("El usuario '{}' ha sido activado por {} (estado anterior: {:?})", result.username, auth.user.username, old_status),
+        &format!("El usuario '{}' ha sido activado por {} (estado anterior: {})", result.username, auth.user.username, if old_active { "activo" } else { "inactivo" }),
         NotificationType::Info,
         NotificationCategory::Auth,
         NotificationPriority::Low,
@@ -446,12 +445,12 @@ pub async fn deactivate_user(
     }
     
     // Verificar que no está ya inactivo
-    if user.status == UserStatus::Inactivo {
+    if !user.is_active {
         return Err(ApplicationError::Conflict("El usuario ya está desactivado".to_string()));
     }
     
-    let old_status = user.status.clone();
-    user.status = UserStatus::Inactivo;
+    let old_active = user.is_active;
+    user.is_active = false;
     user.updated_at = chrono::Utc::now();
     user.updated_by = Some(auth.user.id);
     
@@ -467,7 +466,7 @@ pub async fn deactivate_user(
         id,
         None::<&User>,
         None::<&User>,
-        Some(vec!["status".to_string()]),
+        Some(vec!["is_active".to_string()]),
         None,
     ).await {
         warn!("⚠️ Error al registrar log de desactivación de usuario: {}", e);
@@ -490,7 +489,7 @@ pub async fn deactivate_user(
     if let Err(e) = state.notify_roles_with_broadcast(
         vec![UserRole::SuperAdmin, UserRole::Admin],
         "Usuario desactivado manualmente",
-        &format!("El usuario '{}' ha sido desactivado manualmente por {} (estado anterior: {:?})", result.username, auth.user.username, old_status),
+        &format!("El usuario '{}' ha sido desactivado manualmente por {} (estado anterior: {})", result.username, auth.user.username, if old_active { "activo" } else { "inactivo" }),
         NotificationType::Warning,
         NotificationCategory::Auth,
         NotificationPriority::Normal,

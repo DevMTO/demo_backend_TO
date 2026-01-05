@@ -74,8 +74,7 @@ pub struct AuthUserInfo {
     pub email: String,
     pub role: String,
     pub id_entidad: Option<i32>,
-    pub nombre_entidad: Option<String>,
-    pub status: String,
+    pub is_active: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Validate, TS)]

@@ -69,6 +69,8 @@ impl FileRepositoryPort for PostgresFileRepository {
             monto_total: Some(file.monto_total.clone()),
             monto_pagado: Some(file.monto_pagado.clone()),
             is_active: Some(file.is_active),
+            nro_pasajeros: Some(file.nro_pasajeros),
+            file_code: Some(file.file_code.as_deref()),
             updated_by: file.updated_by,
         };
         

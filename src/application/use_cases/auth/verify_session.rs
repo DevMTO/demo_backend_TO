@@ -60,7 +60,7 @@ impl VerifySessionUseCase {
             .ok_or_else(|| ApplicationError::NotFound("User not found".to_string()))?;
         
         // 5. Verificar que el usuario esté activo
-        if !user.is_active() {
+        if !user.is_active {
             return Err(ApplicationError::Authentication("User is inactive".to_string()));
         }
         
@@ -84,8 +84,7 @@ impl VerifySessionUseCase {
             email: user.email.clone(),
             role: user.role.to_string(),
             id_entidad: user.id_entidad,
-            nombre_entidad: user.nombre_entidad.clone(),
-            status: user.status.to_string(),
+            is_active: user.is_active,
         };
         
         Ok(SessionVerification {

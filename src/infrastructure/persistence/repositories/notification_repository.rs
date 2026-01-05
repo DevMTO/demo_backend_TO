@@ -545,7 +545,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
         
         let user_ids: Vec<i32> = users::table
             .filter(users::role.eq_any(&roles))
-            .filter(users::status.eq("activo"))
+            .filter(users::is_active.eq(true))
             .select(users::id)
             .load(&mut conn)
             .await
@@ -561,7 +561,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
         let mut conn = self.pool.get_connection().await?;
         
         let user_ids: Vec<i32> = users::table
-            .filter(users::status.eq("activo"))
+            .filter(users::is_active.eq(true))
             .select(users::id)
             .load(&mut conn)
             .await

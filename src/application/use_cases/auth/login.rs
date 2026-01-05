@@ -70,9 +70,9 @@ impl LoginUseCase {
             };
         
         // 2. Verificar que el usuario esté activo
-        debug!("🔍 Verificando estado del usuario: {:?}", user.status);
-        if !user.is_active() {
-            warn!("❌ Usuario inactivo: {} (status: {:?})", user.username, user.status);
+        debug!("🔍 Verificando estado del usuario: {:?}", user.is_active);
+        if !user.is_active {
+            warn!("❌ Usuario inactivo: {} (is_active: {:?})", user.username, user.is_active);
             return Err(ApplicationError::Authentication(
                 "Usuario inactivo".to_string()
             ));
@@ -146,8 +146,7 @@ impl LoginUseCase {
             email: user.email,
             role: user.role.to_string(),
             id_entidad: user.id_entidad,
-            nombre_entidad: user.nombre_entidad,
-            status: user.status.to_string(),
+            is_active: user.is_active,
         };
         
         let expires_in = created_session.expires_at.timestamp() - chrono::Utc::now().timestamp();

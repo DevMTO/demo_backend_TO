@@ -15,8 +15,7 @@ pub struct UserDetailDto {
     pub email: String,
     pub role: String,
     pub id_entidad: Option<i32>,
-    pub nombre_entidad: Option<String>,
-    pub status: String,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_login: Option<DateTime<Utc>>,
@@ -31,8 +30,7 @@ impl From<User> for UserDetailDto {
             email: user.email,
             role: user.role.to_string(),
             id_entidad: user.id_entidad,
-            nombre_entidad: user.nombre_entidad,
-            status: user.status.to_string(),
+            is_active: user.is_active,
             created_at: user.created_at,
             updated_at: user.updated_at,
             last_login: user.last_login,
@@ -88,9 +86,6 @@ pub struct CreateUserRequest {
     
     /// ID de la entidad asociada (agencia, transporte, etc.)
     pub id_entidad: Option<i32>,
-    
-    /// Nombre de la entidad asociada
-    pub nombre_entidad: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
@@ -102,16 +97,14 @@ pub struct UpdateUserRequest {
     
     pub role: Option<String>,
     
-    pub status: Option<String>,
+    pub is_active: Option<bool>,
     
     pub id_entidad: Option<i32>,
-    
-    pub nombre_entidad: Option<String>,
 }
 
 impl UpdateUserRequest {
     pub fn apply_to(self, mut user: crate::domain::entities::User, updated_by: Option<i32>) -> crate::domain::entities::User {
-        use crate::domain::entities::{UserRole, UserStatus};
+        use crate::domain::entities::UserRole;
         
         if let Some(email) = self.email {
             user.email = email.to_lowercase();
@@ -121,16 +114,11 @@ impl UpdateUserRequest {
                 user.role = r;
             }
         }
-        if let Some(status) = self.status {
-            if let Ok(s) = status.parse::<UserStatus>() {
-                user.status = s;
-            }
+        if let Some(is_active) = self.is_active {
+            user.is_active = is_active;
         }
         if let Some(id_entidad) = self.id_entidad {
             user.id_entidad = Some(id_entidad);
-        }
-        if let Some(nombre_entidad) = self.nombre_entidad {
-            user.nombre_entidad = Some(nombre_entidad);
         }
         user.updated_by = updated_by;
         user.updated_at = Utc::now();
@@ -147,8 +135,7 @@ pub struct UserListItemDto {
     pub username: String,
     pub email: String,
     pub role: String,
-    pub nombre_entidad: Option<String>,
-    pub status: String,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub last_login: Option<DateTime<Utc>>,
 }

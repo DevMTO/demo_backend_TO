@@ -190,3 +190,29 @@ pub struct TransporteListResponse {
     pub page_size: i64,
     pub total_pages: i64,
 }
+
+/// Request para actualizar solo la interfaz del transporte (logo y paleta de colores)
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateTransporteInterfazRequest {
+    #[ts(type = "object | null | undefined")]
+    pub paleta_colores: Option<JsonValue>,
+    
+    #[ts(type = "object | null | undefined")]
+    pub media: Option<JsonValue>,
+}
+
+impl UpdateTransporteInterfazRequest {
+    pub fn apply_to(self, mut transporte: Transporte, updated_by: Option<i32>) -> Transporte {
+        if let Some(paleta) = self.paleta_colores {
+            transporte.paleta_colores = Some(paleta);
+        }
+        if let Some(media) = self.media {
+            transporte.media = Some(media);
+        }
+        transporte.updated_by = updated_by;
+        transporte.updated_at = Utc::now();
+        transporte
+    }
+}

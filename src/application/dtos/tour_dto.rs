@@ -24,7 +24,6 @@ pub struct TourResponse {
     #[ts(type = "string")]
     pub precio_base: BigDecimal,
     pub duracion_dias: Option<i32>,
-    pub max_personas: Option<i32>,
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
     pub is_active: bool,
@@ -45,7 +44,6 @@ impl From<Tour> for TourResponse {
             itinerario: t.itinerario,
             precio_base: t.precio_base,
             duracion_dias: t.duracion_dias,
-            max_personas: t.max_personas,
             media: t.media,
             is_active: t.is_active,
             created_at: t.created_at,
@@ -83,9 +81,6 @@ pub struct CreateTourRequest {
     #[validate(range(min = 1, message = "Duración mínima 1 día"))]
     pub duracion_dias: Option<i32>,
     
-    #[validate(range(min = 1, message = "Máximo personas mínimo 1"))]
-    pub max_personas: Option<i32>,
-    
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
 }
@@ -104,7 +99,6 @@ impl CreateTourRequest {
             itinerario: self.itinerario,
             precio_base: BigDecimal::try_from(self.precio_base).unwrap_or_default(),
             duracion_dias: self.duracion_dias,
-            max_personas: self.max_personas,
             media: self.media,
             is_active: true,
             created_at: now,
@@ -144,9 +138,6 @@ pub struct UpdateTourRequest {
     #[validate(range(min = 1))]
     pub duracion_dias: Option<i32>,
     
-    #[validate(range(min = 1))]
-    pub max_personas: Option<i32>,
-    
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
     
@@ -181,9 +172,6 @@ impl UpdateTourRequest {
         }
         if let Some(duracion) = self.duracion_dias {
             tour.duracion_dias = Some(duracion);
-        }
-        if let Some(max) = self.max_personas {
-            tour.max_personas = Some(max);
         }
         if let Some(media) = self.media {
             tour.media = Some(media);

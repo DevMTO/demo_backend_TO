@@ -169,6 +169,9 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
         is_active -> Bool,
+        nro_pasajeros -> Int4,
+        #[max_length = 50]
+        file_code -> Nullable<Varchar>,
     }
 }
 
@@ -311,7 +314,6 @@ diesel::table! {
         itinerario -> Nullable<Jsonb>,
         precio_base -> Numeric,
         duracion_dias -> Nullable<Int4>,
-        max_personas -> Nullable<Int4>,
         media -> Nullable<Jsonb>,
         is_active -> Bool,
         created_at -> Timestamptz,
@@ -381,15 +383,12 @@ diesel::table! {
         #[max_length = 20]
         role -> Varchar,
         id_entidad -> Nullable<Int4>,
-        #[max_length = 200]
-        nombre_entidad -> Nullable<Varchar>,
-        #[max_length = 30]
-        status -> Varchar,
         last_login -> Nullable<Timestamptz>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+        is_active -> Bool,
     }
 }
 

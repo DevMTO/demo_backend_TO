@@ -20,7 +20,7 @@ pub mod file;
 pub mod pago;
 
 // Re-exports - Auth core
-pub use user::{User, UserRole, UserStatus};
+pub use user::{User, UserRole};
 pub use session::UserSession;
 
 // Re-exports - System entities

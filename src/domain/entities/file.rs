@@ -58,6 +58,8 @@ pub struct File {
     pub status: String,
     pub monto_total: BigDecimal,
     pub monto_pagado: BigDecimal,
+    pub nro_pasajeros: i32,
+    pub file_code: Option<String>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -80,6 +82,8 @@ impl File {
             status: StatusFile::Pendiente.to_string(),
             monto_total: BigDecimal::from(0),
             monto_pagado: BigDecimal::from(0),
+            nro_pasajeros: 0,
+            file_code: None, // Será asignado después de insertar
             is_active: true,
             created_at: now,
             updated_at: now,

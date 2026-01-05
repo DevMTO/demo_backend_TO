@@ -148,8 +148,7 @@ impl UserRepositoryPort for PostgresUserRepository {
                 users::password_hash.eq(&user.password_hash),
                 users::role.eq(user.role.to_string()),
                 users::id_entidad.eq(&user.id_entidad),
-                users::nombre_entidad.eq(&user.nombre_entidad),
-                users::status.eq(user.status.to_string()),
+                users::is_active.eq(user.is_active),
                 users::last_login.eq(user.last_login),
                 users::updated_by.eq(user.updated_by),
             ))
@@ -164,7 +163,7 @@ impl UserRepositoryPort for PostgresUserRepository {
         let mut conn = self.pool.get_connection().await?;
         
         diesel::update(users::table.filter(users::id.eq(id)))
-            .set(users::status.eq("inactivo"))
+            .set(users::is_active.eq(false))
             .execute(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
@@ -202,7 +201,7 @@ impl UserRepositoryPort for PostgresUserRepository {
         let mut conn = self.pool.get_connection().await?;
         
         let mut query = users::table
-            .filter(users::status.eq("activo"))
+            .filter(users::is_active.eq(true))
             .order(users::created_at.desc())
             .into_boxed();
         
@@ -226,7 +225,7 @@ impl UserRepositoryPort for PostgresUserRepository {
         let mut conn = self.pool.get_connection().await?;
         
         let count = users::table
-            .filter(users::status.eq("activo"))
+            .filter(users::is_active.eq(true))
             .count()
             .get_result(&mut conn)
             .await
@@ -274,8 +273,7 @@ impl UserRepositoryPort for PostgresUserRepository {
                     username: user.username,
                     email: user.email,
                     role: user.role,
-                    nombre_entidad: user.nombre_entidad,
-                    status: user.status,
+                    is_active: user.is_active,
                     created_at: user.created_at,
                     last_login: user.last_login,
                 }
