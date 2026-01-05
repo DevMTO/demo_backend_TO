@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::Conductor;
-use super::{PaginationOptions, PaginatedResult};
+use crate::application::dtos::ConductorListItemDto;
 
 #[async_trait]
 pub trait ConductorRepositoryPort: Send + Sync {
@@ -10,9 +10,9 @@ pub trait ConductorRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<Conductor>, ApplicationError>;
     async fn update(&self, conductor: &Conductor) -> Result<Conductor, ApplicationError>;
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Conductor>, ApplicationError>;
-    async fn count(&self) -> Result<i64, ApplicationError>;
-    async fn list_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Conductor>, ApplicationError>;
+
+    // Listado con detalles de persona y transporte
+    async fn list_with_details(&self, limit: i64, offset: i64) -> Result<(Vec<ConductorListItemDto>, i64), ApplicationError>;
     
     // Específicos de Conductor
     async fn find_by_brevete(&self, nro_brevete: &str) -> Result<Option<Conductor>, ApplicationError>;

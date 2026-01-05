@@ -237,6 +237,8 @@ pub async fn update_user(
     if old_user.role != result.role { changed_fields.push("role".to_string()); }
     if old_user.is_active != result.is_active { changed_fields.push("is_active".to_string()); }
     if old_user.id_entidad != result.id_entidad { changed_fields.push("id_entidad".to_string()); }
+    if old_user.id_persona != result.id_persona { changed_fields.push("id_persona".to_string()); }
+    if old_user.username != result.username { changed_fields.push("username".to_string()); }
     
     // Logging del evento
     if let Err(e) = state.container.logging_service.log_update::<User>(

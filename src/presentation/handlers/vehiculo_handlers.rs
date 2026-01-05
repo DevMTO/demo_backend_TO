@@ -2,24 +2,30 @@ use axum::{extract::{Path, Query, State}, response::IntoResponse, Json};
 use tracing::{info, instrument};
 use validator::Validate;
 
-use crate::application::dtos::{CreateVehiculoRequest, UpdateVehiculoRequest, VehiculoResponse};
+use crate::application::dtos::{CreateVehiculoRequest, UpdateVehiculoRequest, VehiculoResponse, VehiculoListResponse};
 use crate::domain::entities::{EntityType, UserRole, NotificationType, NotificationCategory, NotificationPriority};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
-use super::common::{PaginationParams, PaginatedResponse, PaginationInfo, json_ok, json_created, json_deleted};
+use super::common::{PaginationParams, json_ok, json_created, json_deleted};
 
 #[instrument(skip(state, _auth))]
 pub async fn list_vehiculos(
     State(state): State<AppState>, _auth: AuthUser, Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let result = state.container.vehiculo_repository.list_paginated(params.to_options()).await?;
-    let page = result.current_page();
-    let page_size = result.limit;
-    let total_pages = result.pages();
-    Ok(json_ok(PaginatedResponse {
-        items: result.data.into_iter().map(VehiculoResponse::from).collect(),
-        pagination: PaginationInfo { page, page_size, total: result.total, total_pages },
+    let page = params.page;
+    let page_size = params.page_size;
+    let offset = (page - 1) * page_size;
+    
+    let (items, total) = state.container.vehiculo_repository.list_with_details(page_size, offset).await?;
+    let total_pages = ((total as f64) / (page_size as f64)).ceil() as i64;
+    
+    Ok(json_ok(VehiculoListResponse {
+        items,
+        total,
+        page,
+        page_size,
+        total_pages,
     }))
 }
 

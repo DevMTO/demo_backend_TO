@@ -3,12 +3,13 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tracing::{info, instrument};
 
-use crate::application::ports::{ConductorRepositoryPort, PaginationOptions, PaginatedResult};
+use crate::application::ports::ConductorRepositoryPort;
+use crate::application::dtos::ConductorListItemDto;
 use crate::domain::{entities::Conductor, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
     models::{ConductorModel, NewConductorModel, UpdateConductorModel},
-    schema::conductores,
+    schema::{conductores, personas, transportes},
 };
 
 pub struct PostgresConductorRepository { pool: DatabasePool }
@@ -62,26 +63,59 @@ impl ConductorRepositoryPort for PostgresConductorRepository {
         Ok(affected > 0)
     }
     
-    async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Conductor>, ApplicationError> {
+    #[instrument(skip(self))]
+    async fn list_with_details(&self, limit: i64, offset: i64) -> Result<(Vec<ConductorListItemDto>, i64), ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
-        let results = conductores::table.order(conductores::nro_brevete.asc())
-            .limit(limit).offset(offset)
-            .load::<ConductorModel>(&mut conn).await
+        
+        let total: i64 = conductores::table
+            .count()
+            .get_result(&mut conn)
+            .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(results.into_iter().map(Into::into).collect())
-    }
-    
-    async fn count(&self) -> Result<i64, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        conductores::table.count().get_result::<i64>(&mut conn).await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
-    
-    async fn list_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Conductor>, ApplicationError> {
-        let total = self.count().await?;
-        let limit = options.limit.unwrap_or(50); let offset = options.offset.unwrap_or(0);
-        let data = self.list(limit, offset).await?;
-        Ok(PaginatedResult::new(data, total, limit, offset))
+        
+        let results: Vec<(ConductorModel, Option<(String, String, String)>, Option<String>)> = conductores::table
+            .left_join(personas::table.on(conductores::id_persona.eq(personas::id)))
+            .left_join(transportes::table.on(conductores::id_transporte.eq(transportes::id.nullable())))
+            .select((
+                ConductorModel::as_select(),
+                (personas::nombre, personas::apellidos, personas::nro_documento).nullable(),
+                transportes::nombre.nullable(),
+            ))
+            .order(conductores::nro_brevete.asc())
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let items: Vec<ConductorListItemDto> = results
+            .into_iter()
+            .map(|(conductor, persona_data, transporte_nombre)| {
+                let (persona_nombre, persona_documento) = persona_data
+                    .map(|(nombre, apellidos, doc)| {
+                        (Some(format!("{} {}", nombre, apellidos)), Some(doc))
+                    })
+                    .unwrap_or((None, None));
+                
+                ConductorListItemDto {
+                    id: conductor.id,
+                    id_persona: conductor.id_persona,
+                    persona_nombre,
+                    persona_documento,
+                    id_transporte: conductor.id_transporte,
+                    transporte_nombre,
+                    nro_brevete: conductor.nro_brevete,
+                    tiene_soat: conductor.tiene_soat,
+                    status: conductor.status,
+                    is_active: conductor.is_active,
+                    created_at: conductor.created_at,
+                    updated_at: conductor.updated_at,
+                }
+            })
+            .collect();
+        
+        info!("✅ Listados {} conductores de {} total", items.len(), total);
+        Ok((items, total))
     }
     
     async fn find_by_brevete(&self, nro_brevete: &str) -> Result<Option<Conductor>, ApplicationError> {

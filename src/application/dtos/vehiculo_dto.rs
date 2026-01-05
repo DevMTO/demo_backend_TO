@@ -38,6 +38,24 @@ impl From<Vehiculo> for VehiculoResponse {
     }
 }
 
+/// DTO para listar vehículos con el nombre del transporte
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct VehiculoListItemDto {
+    pub id: i32,
+    pub id_transporte: i32,
+    pub transporte_nombre: Option<String>,
+    pub nombre: String,
+    pub modelo: Option<String>,
+    pub placa: String,
+    pub capacidad: i32,
+    pub status: String,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -137,7 +155,7 @@ impl UpdateVehiculoRequest {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct VehiculoListResponse {
-    pub items: Vec<VehiculoResponse>,
+    pub items: Vec<VehiculoListItemDto>,
     pub total: i64,
     pub page: i64,
     pub page_size: i64,

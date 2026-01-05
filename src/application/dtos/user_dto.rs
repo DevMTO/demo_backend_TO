@@ -92,6 +92,11 @@ pub struct CreateUserRequest {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateUserRequest {
+    pub id_persona: Option<i32>,
+    
+    #[validate(length(min = 3, max = 50, message = "Username must be between 3 and 50 characters"))]
+    pub username: Option<String>,
+    
     #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
     
@@ -106,6 +111,12 @@ impl UpdateUserRequest {
     pub fn apply_to(self, mut user: crate::domain::entities::User, updated_by: Option<i32>) -> crate::domain::entities::User {
         use crate::domain::entities::UserRole;
         
+        // id_persona: siempre actualizar (permite asignar y quitar persona)
+        user.id_persona = self.id_persona;
+        
+        if let Some(username) = self.username {
+            user.username = username;
+        }
         if let Some(email) = self.email {
             user.email = email.to_lowercase();
         }
@@ -117,9 +128,9 @@ impl UpdateUserRequest {
         if let Some(is_active) = self.is_active {
             user.is_active = is_active;
         }
-        if let Some(id_entidad) = self.id_entidad {
-            user.id_entidad = Some(id_entidad);
-        }
+        // id_entidad: siempre actualizar (permite asignar y quitar entidad)
+        user.id_entidad = self.id_entidad;
+        
         user.updated_by = updated_by;
         user.updated_at = Utc::now();
         user
@@ -138,6 +149,8 @@ pub struct UserListItemDto {
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub last_login: Option<DateTime<Utc>>,
+    pub id_persona: Option<i32>,
+    pub id_entidad: Option<i32>,
 }
 
 #[allow(dead_code)]

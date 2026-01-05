@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::Vehiculo;
+use crate::application::dtos::VehiculoListItemDto;
 use super::{PaginationOptions, PaginatedResult};
 
 #[allow(dead_code)]
@@ -14,6 +15,9 @@ pub trait VehiculoRepositoryPort: Send + Sync {
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Vehiculo>, ApplicationError>;
     async fn count(&self) -> Result<i64, ApplicationError>;
     async fn list_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Vehiculo>, ApplicationError>;
+    
+    // Listado con detalles del transporte
+    async fn list_with_details(&self, limit: i64, offset: i64) -> Result<(Vec<VehiculoListItemDto>, i64), ApplicationError>;
     
     // Específicos de Vehiculo
     async fn find_by_placa(&self, placa: &str) -> Result<Option<Vehiculo>, ApplicationError>;

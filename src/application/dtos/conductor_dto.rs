@@ -36,6 +36,25 @@ impl From<Conductor> for ConductorResponse {
     }
 }
 
+/// DTO para listar conductores con nombre de persona y transporte
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct ConductorListItemDto {
+    pub id: i32,
+    pub id_persona: i32,
+    pub persona_nombre: Option<String>,
+    pub persona_documento: Option<String>,
+    pub id_transporte: Option<i32>,
+    pub transporte_nombre: Option<String>,
+    pub nro_brevete: String,
+    pub tiene_soat: bool,
+    pub status: String,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -117,9 +136,11 @@ impl UpdateConductorRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct ConductorListResponse {
-    pub items: Vec<ConductorResponse>,
+    pub items: Vec<ConductorListItemDto>,
     pub total: i64,
     pub page: i64,
     pub page_size: i64,

@@ -4,11 +4,12 @@ use diesel_async::RunQueryDsl;
 use tracing::{info, instrument};
 
 use crate::application::ports::{VehiculoRepositoryPort, PaginationOptions, PaginatedResult};
+use crate::application::dtos::VehiculoListItemDto;
 use crate::domain::{entities::Vehiculo, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
     models::{VehiculoModel, NewVehiculoModel, UpdateVehiculoModel},
-    schema::vehiculos,
+    schema::{vehiculos, transportes},
 };
 
 pub struct PostgresVehiculoRepository { pool: DatabasePool }
@@ -82,6 +83,52 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
         let limit = options.limit.unwrap_or(50); let offset = options.offset.unwrap_or(0);
         let data = self.list(limit, offset).await?;
         Ok(PaginatedResult::new(data, total, limit, offset))
+    }
+    
+    #[instrument(skip(self))]
+    async fn list_with_details(&self, limit: i64, offset: i64) -> Result<(Vec<VehiculoListItemDto>, i64), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let total: i64 = vehiculos::table
+            .count()
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let results: Vec<(VehiculoModel, Option<String>)> = vehiculos::table
+            .left_join(transportes::table.on(vehiculos::id_transporte.eq(transportes::id)))
+            .select((
+                VehiculoModel::as_select(),
+                transportes::nombre.nullable(),
+            ))
+            .order(vehiculos::placa.asc())
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let items: Vec<VehiculoListItemDto> = results
+            .into_iter()
+            .map(|(vehiculo, transporte_nombre)| {
+                VehiculoListItemDto {
+                    id: vehiculo.id,
+                    id_transporte: vehiculo.id_transporte,
+                    transporte_nombre,
+                    nombre: vehiculo.nombre,
+                    modelo: vehiculo.modelo,
+                    placa: vehiculo.placa,
+                    capacidad: vehiculo.capacidad,
+                    status: vehiculo.status,
+                    is_active: vehiculo.is_active,
+                    created_at: vehiculo.created_at,
+                    updated_at: vehiculo.updated_at,
+                }
+            })
+            .collect();
+        
+        info!("✅ Listados {} vehículos de {} total", items.len(), total);
+        Ok((items, total))
     }
     
     async fn find_by_placa(&self, placa: &str) -> Result<Option<Vehiculo>, ApplicationError> {

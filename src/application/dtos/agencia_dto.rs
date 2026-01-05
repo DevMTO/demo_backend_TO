@@ -167,9 +167,9 @@ impl UpdateAgenciaRequest {
         if let Some(media) = self.media {
             agencia.media = Some(media);
         }
-        if let Some(encargado) = self.encargado {
-            agencia.encargado = Some(encargado);
-        }
+        // encargado: siempre actualizar (permite asignar y quitar encargado)
+        agencia.encargado = self.encargado;
+        
         if let Some(is_active) = self.is_active {
             agencia.is_active = is_active;
         }

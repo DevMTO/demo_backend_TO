@@ -186,9 +186,9 @@ impl UpdateRestauranteRequest {
         if let Some(horario) = self.horario {
             restaurante.horario = Some(horario);
         }
-        if let Some(encargado) = self.encargado {
-            restaurante.encargado = Some(encargado);
-        }
+        // encargado: siempre actualizar (permite asignar y quitar encargado)
+        restaurante.encargado = self.encargado;
+        
         if let Some(is_active) = self.is_active {
             restaurante.is_active = is_active;
         }

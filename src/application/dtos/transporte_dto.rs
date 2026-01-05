@@ -162,9 +162,9 @@ impl UpdateTransporteRequest {
         if let Some(direccion) = self.direccion {
             transporte.direccion = Some(direccion);
         }
-        if let Some(encargado) = self.encargado {
-            transporte.encargado = Some(encargado);
-        }
+        // encargado: siempre actualizar (permite asignar y quitar encargado)
+        transporte.encargado = self.encargado;
+        
         if let Some(media) = self.media {
             transporte.media = Some(media);
         }

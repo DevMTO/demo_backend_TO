@@ -143,6 +143,7 @@ impl UserRepositoryPort for PostgresUserRepository {
         
         let result = diesel::update(users::table.filter(users::id.eq(user.id)))
             .set((
+                users::id_persona.eq(&user.id_persona),
                 users::username.eq(&user.username),
                 users::email.eq(&user.email),
                 users::password_hash.eq(&user.password_hash),
@@ -276,6 +277,8 @@ impl UserRepositoryPort for PostgresUserRepository {
                     is_active: user.is_active,
                     created_at: user.created_at,
                     last_login: user.last_login,
+                    id_persona: user.id_persona,
+                    id_entidad: user.id_entidad,
                 }
             })
             .collect();
