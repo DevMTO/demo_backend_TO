@@ -74,6 +74,12 @@ impl TigrisStorage {
     fn get_full_path(&self, path: &str) -> String {
         if self.prefix.is_empty() {
             path.to_string()
+        } else if path.starts_with(&self.prefix) {
+            // El path ya contiene el prefix, no duplicar
+            path.to_string()
+        } else if path.starts_with(&format!("{}/", self.prefix)) {
+            // El path ya contiene el prefix con slash, no duplicar
+            path.to_string()
         } else {
             format!("{}/{}", self.prefix, path)
         }
@@ -198,6 +204,17 @@ impl TigrisStorage {
     pub fn generate_agencia_path(agencia_id: i32, file_type: &str, extension: &str) -> String {
         let timestamp = chrono::Utc::now().timestamp();
         format!("agencias/{}/{}-{}.{}", agencia_id, file_type, timestamp, extension)
+    }
+    
+    /// Genera un path único para un archivo de transporte
+    /// 
+    /// # Arguments
+    /// * `transporte_id` - ID del transporte
+    /// * `file_type` - Tipo de archivo (logo, banner, image)
+    /// * `extension` - Extensión del archivo (png, jpg, etc)
+    pub fn generate_transporte_path(transporte_id: i32, file_type: &str, extension: &str) -> String {
+        let timestamp = chrono::Utc::now().timestamp();
+        format!("transportes/{}/{}-{}.{}", transporte_id, file_type, timestamp, extension)
     }
 }
 

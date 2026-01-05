@@ -7,10 +7,12 @@ use axum::{
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use tower_cookies::Cookies;
 use tracing::{info, warn, debug, instrument};
+use validator::Validate;
 
 use crate::application::dtos::auth_dto::{
     LoginRequest, LogoutRequest, AuthResponse,
     SuccessResponse, AuthUserInfo,
+    PersonaProfileInfo, UserProfileResponse, UpdateProfileRequest,
 };
 use crate::domain::entities::{
     NotificationType, NotificationCategory, NotificationPriority, UserRole,
@@ -197,6 +199,141 @@ pub async fn verify_session_handler(
 
 pub async fn health_check() -> &'static str {
     "OK"
+}
+
+/// Handler para obtener el perfil completo del usuario autenticado (incluyendo persona)
+#[instrument(skip(state, auth_user))]
+pub async fn get_profile_handler(
+    State(state): State<AppState>,
+    auth_user: AuthUser,
+) -> Result<impl IntoResponse, ApplicationError> {
+    info!("👤 Obteniendo perfil para usuario: {}", auth_user.user.username);
+    
+    let user_info = AuthUserInfo {
+        id: auth_user.user.id,
+        id_persona: auth_user.user.id_persona,
+        username: auth_user.user.username.clone(),
+        email: auth_user.user.email.clone(),
+        role: auth_user.user.role.to_string(),
+        id_entidad: auth_user.user.id_entidad,
+        nombre_entidad: auth_user.user.nombre_entidad.clone(),
+        status: auth_user.user.status.to_string(),
+    };
+    
+    // Obtener la persona asociada si existe
+    let persona_info = if let Some(id_persona) = auth_user.user.id_persona {
+        match state.container.persona_repository.find_by_id(id_persona).await {
+            Ok(Some(persona)) => Some(PersonaProfileInfo {
+                id: persona.id,
+                tipo_documento: persona.tipo_documento.to_string(),
+                nro_documento: persona.nro_documento,
+                nombre: persona.nombre,
+                apellidos: persona.apellidos,
+                telefono: persona.telefono,
+                correo: persona.correo,
+                fecha_nacimiento: persona.fecha_nacimiento,
+            }),
+            Ok(None) => {
+                warn!("⚠️ Persona con ID {} no encontrada para usuario {}", id_persona, auth_user.user.username);
+                None
+            },
+            Err(e) => {
+                warn!("⚠️ Error al obtener persona {}: {}", id_persona, e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+    
+    let response = UserProfileResponse {
+        user: user_info,
+        persona: persona_info,
+    };
+    
+    info!("✅ Perfil obtenido para: {}", auth_user.user.username);
+    Ok((StatusCode::OK, Json(response)))
+}
+
+/// Handler para actualizar el perfil del usuario autenticado
+#[instrument(skip(state, auth_user, request))]
+pub async fn update_profile_handler(
+    State(state): State<AppState>,
+    auth_user: AuthUser,
+    Json(request): Json<UpdateProfileRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    info!("📝 Actualizando perfil para usuario: {}", auth_user.user.username);
+    
+    // Validar request
+    request.validate()
+        .map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    
+    // Verificar que el usuario tenga persona asociada
+    let id_persona = auth_user.user.id_persona
+        .ok_or_else(|| ApplicationError::BadRequest("Usuario no tiene persona asociada".to_string()))?;
+    
+    // Obtener la persona actual
+    let mut persona = state.container.persona_repository
+        .find_by_id(id_persona)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Persona con ID {} no encontrada", id_persona)))?;
+    
+    // Actualizar solo los campos que vienen en el request
+    if let Some(nombre) = request.nombre {
+        persona.nombre = nombre;
+    }
+    if let Some(apellidos) = request.apellidos {
+        persona.apellidos = apellidos;
+    }
+    // Para telefono y correo, actualizamos incluso si es None (permitir borrar)
+    if request.telefono.is_some() || request.correo.is_some() {
+        if request.telefono.is_some() {
+            persona.telefono = request.telefono;
+        }
+        if request.correo.is_some() {
+            persona.correo = request.correo;
+        }
+    }
+    if let Some(fecha) = request.fecha_nacimiento {
+        persona.fecha_nacimiento = Some(fecha);
+    }
+    
+    persona.updated_by = Some(auth_user.user.id);
+    persona.updated_at = chrono::Utc::now();
+    
+    // Guardar cambios
+    let updated = state.container.persona_repository.update(&persona).await?;
+    
+    // Construir respuesta
+    let user_info = AuthUserInfo {
+        id: auth_user.user.id,
+        id_persona: auth_user.user.id_persona,
+        username: auth_user.user.username.clone(),
+        email: auth_user.user.email.clone(),
+        role: auth_user.user.role.to_string(),
+        id_entidad: auth_user.user.id_entidad,
+        nombre_entidad: auth_user.user.nombre_entidad.clone(),
+        status: auth_user.user.status.to_string(),
+    };
+    
+    let persona_info = PersonaProfileInfo {
+        id: updated.id,
+        tipo_documento: updated.tipo_documento.to_string(),
+        nro_documento: updated.nro_documento,
+        nombre: updated.nombre,
+        apellidos: updated.apellidos,
+        telefono: updated.telefono,
+        correo: updated.correo,
+        fecha_nacimiento: updated.fecha_nacimiento,
+    };
+    
+    let response = UserProfileResponse {
+        user: user_info,
+        persona: Some(persona_info),
+    };
+    
+    info!("✅ Perfil actualizado para: {}", auth_user.user.username);
+    Ok((StatusCode::OK, Json(response)))
 }
 
 fn create_session_cookie(

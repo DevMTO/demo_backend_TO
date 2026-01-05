@@ -17,6 +17,7 @@ pub mod guia_repository;
 pub mod restaurante_repository;
 pub mod entrada_repository;
 pub mod file_repository;
+pub mod file_relations_repository;
 pub mod pago_repository;
 
 // Re-exports - Auth
@@ -38,4 +39,6 @@ pub use guia_repository::*;
 pub use restaurante_repository::*;
 pub use entrada_repository::*;
 pub use file_repository::*;
+pub use file_relations_repository::*;
 pub use pago_repository::*;
+

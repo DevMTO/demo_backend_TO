@@ -34,6 +34,13 @@ pub struct StorageErrorResponse {
     pub error: String,
 }
 
+/// Respuesta de eliminación de archivo
+#[derive(Debug, Serialize)]
+pub struct StorageDeleteResponse {
+    pub success: bool,
+    pub message: String,
+}
+
 /// Subir logo de agencia
 /// 
 /// POST /api/v1/storage/agencia/{agencia_id}/logo
@@ -274,6 +281,216 @@ pub async fn upload_agencia_banner(
     })))
 }
 
+/// Eliminar logo de agencia
+/// 
+/// DELETE /api/v1/storage/agencia/{agencia_id}/logo
+pub async fn delete_agencia_logo(
+    State(state): State<AppState>,
+    auth_user: AuthUser,
+    Path(agencia_id): Path<i32>,
+) -> Result<Json<StorageDeleteResponse>, (StatusCode, Json<StorageErrorResponse>)> {
+    info!("🗑️ Eliminando logo para agencia {}", agencia_id);
+    
+    let storage = state.container.tigris_storage.as_ref()
+        .ok_or_else(|| {
+            (StatusCode::SERVICE_UNAVAILABLE, Json(StorageErrorResponse {
+                success: false,
+                error: "Storage no disponible".to_string(),
+            }))
+        })?;
+    
+    // Verificar permisos
+    let is_agencia_user = auth_user.user.nombre_entidad
+        .as_ref()
+        .map(|n| n.to_lowercase().contains("agencia"))
+        .unwrap_or(false);
+    
+    let mut can_delete = auth_user.user.role == UserRole::SuperAdmin 
+        || auth_user.user.role == UserRole::Admin
+        || (is_agencia_user && auth_user.user.id_entidad == Some(agencia_id));
+    
+    if !can_delete {
+        if let Some(user_persona_id) = auth_user.user.id_persona {
+            if let Ok(Some(agencia)) = state.container.agencia_repository.find_by_id(agencia_id).await {
+                if agencia.encargado == Some(user_persona_id) {
+                    can_delete = true;
+                }
+            }
+        }
+    }
+    
+    if !can_delete {
+        return Err((StatusCode::FORBIDDEN, Json(StorageErrorResponse {
+            success: false,
+            error: "No tienes permisos para modificar esta agencia".to_string(),
+        })));
+    }
+    
+    // Obtener la agencia para ver el path actual del logo
+    let agencia = state.container.agencia_repository
+        .find_by_id(agencia_id)
+        .await
+        .map_err(|e| {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(StorageErrorResponse {
+                success: false,
+                error: format!("Error obteniendo agencia: {}", e),
+            }))
+        })?
+        .ok_or_else(|| {
+            (StatusCode::NOT_FOUND, Json(StorageErrorResponse {
+                success: false,
+                error: "Agencia no encontrada".to_string(),
+            }))
+        })?;
+    
+    let media = agencia.get_media().unwrap_or_default();
+    
+    if let Some(logo_path) = &media.logo {
+        // Eliminar archivo de Tigris
+        if let Err(e) = storage.delete(logo_path).await {
+            warn!("⚠️ Error eliminando archivo de Tigris: {}", e);
+            // Continuamos para limpiar la BD aunque falle Tigris
+        }
+    }
+    
+    // Actualizar media quitando el logo
+    if let Err(e) = clear_agencia_media(&state, agencia_id, "logo", auth_user.user.id).await {
+        warn!("⚠️ Error limpiando media de agencia: {}", e);
+    }
+    
+    info!("✅ Logo eliminado para agencia {}", agencia_id);
+    
+    Ok(Json(StorageDeleteResponse {
+        success: true,
+        message: "Logo eliminado correctamente".to_string(),
+    }))
+}
+
+/// Eliminar banner de agencia
+/// 
+/// DELETE /api/v1/storage/agencia/{agencia_id}/banner
+pub async fn delete_agencia_banner(
+    State(state): State<AppState>,
+    auth_user: AuthUser,
+    Path(agencia_id): Path<i32>,
+) -> Result<Json<StorageDeleteResponse>, (StatusCode, Json<StorageErrorResponse>)> {
+    info!("🗑️ Eliminando banner para agencia {}", agencia_id);
+    
+    let storage = state.container.tigris_storage.as_ref()
+        .ok_or_else(|| {
+            (StatusCode::SERVICE_UNAVAILABLE, Json(StorageErrorResponse {
+                success: false,
+                error: "Storage no disponible".to_string(),
+            }))
+        })?;
+    
+    // Verificar permisos
+    let is_agencia_user = auth_user.user.nombre_entidad
+        .as_ref()
+        .map(|n| n.to_lowercase().contains("agencia"))
+        .unwrap_or(false);
+    
+    let mut can_delete = auth_user.user.role == UserRole::SuperAdmin 
+        || auth_user.user.role == UserRole::Admin
+        || (is_agencia_user && auth_user.user.id_entidad == Some(agencia_id));
+    
+    if !can_delete {
+        if let Some(user_persona_id) = auth_user.user.id_persona {
+            if let Ok(Some(agencia)) = state.container.agencia_repository.find_by_id(agencia_id).await {
+                if agencia.encargado == Some(user_persona_id) {
+                    can_delete = true;
+                }
+            }
+        }
+    }
+    
+    if !can_delete {
+        return Err((StatusCode::FORBIDDEN, Json(StorageErrorResponse {
+            success: false,
+            error: "No tienes permisos para modificar esta agencia".to_string(),
+        })));
+    }
+    
+    // Obtener la agencia para ver el path actual del banner
+    let agencia = state.container.agencia_repository
+        .find_by_id(agencia_id)
+        .await
+        .map_err(|e| {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(StorageErrorResponse {
+                success: false,
+                error: format!("Error obteniendo agencia: {}", e),
+            }))
+        })?
+        .ok_or_else(|| {
+            (StatusCode::NOT_FOUND, Json(StorageErrorResponse {
+                success: false,
+                error: "Agencia no encontrada".to_string(),
+            }))
+        })?;
+    
+    let media = agencia.get_media().unwrap_or_default();
+    
+    if let Some(banner_path) = &media.banner {
+        // Eliminar archivo de Tigris
+        if let Err(e) = storage.delete(banner_path).await {
+            warn!("⚠️ Error eliminando archivo de Tigris: {}", e);
+        }
+    }
+    
+    // Actualizar media quitando el banner
+    if let Err(e) = clear_agencia_media(&state, agencia_id, "banner", auth_user.user.id).await {
+        warn!("⚠️ Error limpiando media de agencia: {}", e);
+    }
+    
+    info!("✅ Banner eliminado para agencia {}", agencia_id);
+    
+    Ok(Json(StorageDeleteResponse {
+        success: true,
+        message: "Banner eliminado correctamente".to_string(),
+    }))
+}
+
+/// Limpia un campo de media de una agencia (lo pone en null)
+async fn clear_agencia_media(
+    state: &AppState,
+    agencia_id: i32,
+    field: &str,
+    updated_by: i32,
+) -> Result<(), ApplicationError> {
+    use crate::application::dtos::UpdateAgenciaRequest;
+    use serde_json::json;
+    
+    let agencia = state.container.agencia_repository
+        .find_by_id(agencia_id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound("Agencia no encontrada".to_string()))?;
+    
+    let mut media = agencia.get_media().unwrap_or_default();
+    match field {
+        "logo" => media.logo = None,
+        "banner" => media.banner = None,
+        _ => {}
+    }
+    
+    let request = UpdateAgenciaRequest {
+        nombre: None,
+        ruc: None,
+        telefono: None,
+        correo: None,
+        direccion: None,
+        paleta_colores: None,
+        media: Some(serde_json::to_value(&media).unwrap_or(json!({}))),
+        encargado: None,
+        is_active: None,
+    };
+    
+    state.container.update_agencia_use_case
+        .execute(agencia_id, request, updated_by)
+        .await?;
+    
+    Ok(())
+}
+
 /// Proxy para servir archivos de Tigris
 /// 
 /// GET /api/v1/storage/proxy/*path
@@ -356,6 +573,184 @@ async fn update_agencia_media(
     state.container.update_agencia_use_case
         .execute(agencia_id, request, updated_by)
         .await?;
+    
+    Ok(())
+}
+
+/// Subir logo de transporte
+/// 
+/// POST /api/v1/storage/transporte/{transporte_id}/logo
+pub async fn upload_transporte_logo(
+    State(state): State<AppState>,
+    auth_user: AuthUser,
+    Path(transporte_id): Path<i32>,
+    mut multipart: Multipart,
+) -> Result<Json<UploadResponse>, (StatusCode, Json<StorageErrorResponse>)> {
+    info!("📤 Subiendo logo para transporte {}", transporte_id);
+    
+    // Verificar que el storage está configurado
+    let storage = state.container.tigris_storage.as_ref()
+        .ok_or_else(|| {
+            error!("❌ Storage no configurado");
+            (StatusCode::SERVICE_UNAVAILABLE, Json(StorageErrorResponse {
+                success: false,
+                error: "Storage no disponible".to_string(),
+            }))
+        })?;
+    
+    // Verificar si el usuario está relacionado con transportes
+    let is_transporte_user = auth_user.user.nombre_entidad
+        .as_ref()
+        .map(|n| n.to_lowercase().contains("transporte"))
+        .unwrap_or(false);
+    
+    // Verificar permisos: SuperAdmin, Admin, o encargado del transporte
+    let mut can_upload = auth_user.user.role == UserRole::SuperAdmin 
+        || auth_user.user.role == UserRole::Admin
+        || (is_transporte_user && auth_user.user.id_entidad == Some(transporte_id));
+    
+    // Si aún no tiene permisos, verificar si es el encargado del transporte
+    if !can_upload {
+        if let Some(user_persona_id) = auth_user.user.id_persona {
+            if let Ok(Some(transporte)) = state.container.transporte_repository.find_by_id(transporte_id).await {
+                if transporte.encargado == Some(user_persona_id) {
+                    can_upload = true;
+                    info!("✅ Usuario {} es encargado de transporte {} (persona_id: {})", 
+                        auth_user.user.username, transporte_id, user_persona_id);
+                }
+            }
+        }
+    }
+    
+    if !can_upload {
+        warn!("⚠️ Usuario {} no tiene permisos para subir logo de transporte {}", 
+            auth_user.user.username, transporte_id);
+        return Err((StatusCode::FORBIDDEN, Json(StorageErrorResponse {
+            success: false,
+            error: "No tienes permisos para modificar este transporte".to_string(),
+        })));
+    }
+    
+    // Procesar archivo del multipart
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        error!("❌ Error procesando multipart: {}", e);
+        (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
+            success: false,
+            error: format!("Error procesando archivo: {}", e),
+        }))
+    })? {
+        let content_type = field.content_type()
+            .map(|ct| ct.to_string())
+            .unwrap_or_default();
+        
+        // Validar tipo de archivo
+        if let Err(e) = validate_content_type(&content_type) {
+            return Err((StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
+                success: false,
+                error: e,
+            })));
+        }
+        
+        // Leer bytes del archivo
+        let data = field.bytes().await.map_err(|e| {
+            error!("❌ Error leyendo archivo: {}", e);
+            (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
+                success: false,
+                error: format!("Error leyendo archivo: {}", e),
+            }))
+        })?;
+        
+        // Validar tamaño
+        if data.len() > MAX_FILE_SIZE {
+            return Err((StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
+                success: false,
+                error: format!("Archivo muy grande. Máximo: {} MB", MAX_FILE_SIZE / 1024 / 1024),
+            })));
+        }
+        
+        // Generar path y subir
+        let extension = extension_from_content_type(&content_type);
+        let path = TigrisStorage::generate_transporte_path(transporte_id, "logo", extension);
+        
+        let url = storage.upload(&path, &data, &content_type).await.map_err(|e| {
+            error!("❌ Error subiendo a Tigris: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(StorageErrorResponse {
+                success: false,
+                error: format!("Error subiendo archivo: {}", e),
+            }))
+        })?;
+        
+        // Actualizar el transporte con la nueva URL del logo
+        if let Err(e) = update_transporte_media(
+            &state, 
+            transporte_id, 
+            "logo", 
+            &path,
+            auth_user.user.id,
+        ).await {
+            warn!("⚠️ Error actualizando media de transporte: {}", e);
+        }
+        
+        info!("✅ Logo de transporte subido: {}", url);
+        
+        return Ok(Json(UploadResponse {
+            success: true,
+            url,
+            path,
+            message: "Logo subido correctamente".to_string(),
+        }));
+    }
+    
+    Err((StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
+        success: false,
+        error: "No se recibió ningún archivo".to_string(),
+    })))
+}
+
+/// Actualiza el campo media de un transporte
+async fn update_transporte_media(
+    state: &AppState,
+    transporte_id: i32,
+    field: &str,
+    path: &str,
+    updated_by: i32,
+) -> Result<(), ApplicationError> {
+    use crate::application::dtos::UpdateTransporteRequest;
+    use serde_json::json;
+    
+    // Obtener transporte actual
+    let transporte = state.container.transporte_repository
+        .find_by_id(transporte_id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound("Transporte no encontrado".to_string()))?;
+    
+    // Parsear media actual o crear nuevo
+    let current_media = transporte.media.clone().unwrap_or(json!({}));
+    let mut media: serde_json::Value = if current_media.is_string() {
+        serde_json::from_str(current_media.as_str().unwrap_or("{}")).unwrap_or(json!({}))
+    } else {
+        current_media
+    };
+    
+    // Actualizar campo
+    media[field] = json!(path);
+    
+    // Construir request de actualización
+    let request = UpdateTransporteRequest {
+        nombre: None,
+        ruc: None,
+        telefono: None,
+        correo: None,
+        direccion: None,
+        encargado: None,
+        media: Some(media),
+        paleta_colores: None,
+        is_active: None,
+    };
+    
+    // Aplicar la actualización usando el repositorio directamente
+    let updated = request.apply_to(transporte, Some(updated_by));
+    state.container.transporte_repository.update(&updated).await?;
     
     Ok(())
 }

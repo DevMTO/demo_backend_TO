@@ -25,4 +25,7 @@ pub trait GuiaRepositoryPort: Send + Sync {
     async fn list_available(&self) -> Result<Vec<Guia>, ApplicationError>;
     async fn find_by_idioma(&self, idioma: &str) -> Result<Vec<Guia>, ApplicationError>;
     async fn find_by_especialidad(&self, especialidad: &str) -> Result<Vec<Guia>, ApplicationError>;
+    
+    /// Actualiza el status del guía (disponible, ocupado, etc.)
+    async fn update_status(&self, id: i32, status: &str) -> Result<bool, ApplicationError>;
 }

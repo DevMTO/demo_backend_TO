@@ -12,6 +12,7 @@ pub struct Transporte {
     pub direccion: Option<String>,
     pub encargado: Option<i32>,  // FK a personas
     pub media: Option<JsonValue>,  // logo, banner, etc.
+    pub paleta_colores: Option<JsonValue>,  // Color palette for branding
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -31,6 +32,7 @@ impl Transporte {
             direccion: None,
             encargado: None,
             media: None,
+            paleta_colores: None,
             is_active: true,
             created_at: now,
             updated_at: now,

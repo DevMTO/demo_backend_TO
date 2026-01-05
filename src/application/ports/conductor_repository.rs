@@ -19,4 +19,7 @@ pub trait ConductorRepositoryPort: Send + Sync {
     async fn exists_by_brevete(&self, nro_brevete: &str) -> Result<bool, ApplicationError>;
     async fn find_by_transporte(&self, id_transporte: i32) -> Result<Vec<Conductor>, ApplicationError>;
     async fn list_available(&self) -> Result<Vec<Conductor>, ApplicationError>;
+    
+    /// Actualiza el status del conductor (disponible, ocupado, etc.)
+    async fn update_status(&self, id: i32, status: &str) -> Result<bool, ApplicationError>;
 }

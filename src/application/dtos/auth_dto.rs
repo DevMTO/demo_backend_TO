@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use validator::Validate;
@@ -114,4 +115,53 @@ impl SuccessResponse {
             message: message.into(),
         }
     }
+}
+
+/// Información de persona asociada al usuario (para perfil)
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct PersonaProfileInfo {
+    pub id: i32,
+    pub tipo_documento: String,
+    pub nro_documento: String,
+    pub nombre: String,
+    pub apellidos: String,
+    pub telefono: Option<String>,
+    pub correo: Option<String>,
+    pub fecha_nacimiento: Option<NaiveDate>,
+}
+
+/// Respuesta completa del perfil de usuario con su persona asociada
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UserProfileResponse {
+    pub user: AuthUserInfo,
+    pub persona: Option<PersonaProfileInfo>,
+}
+
+/// Request para actualizar el perfil del usuario
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateProfileRequest {
+    /// Nombre (de la persona)
+    #[validate(length(min = 2, max = 100, message = "Nombre debe tener entre 2 y 100 caracteres"))]
+    pub nombre: Option<String>,
+    
+    /// Apellidos (de la persona)
+    #[validate(length(min = 2, max = 100, message = "Apellidos debe tener entre 2 y 100 caracteres"))]
+    pub apellidos: Option<String>,
+    
+    /// Teléfono (de la persona)
+    #[validate(length(max = 20, message = "Teléfono muy largo"))]
+    pub telefono: Option<String>,
+    
+    /// Correo electrónico personal (de la persona, diferente al email de login)
+    #[validate(email(message = "Correo inválido"))]
+    pub correo: Option<String>,
+    
+    /// Fecha de nacimiento
+    pub fecha_nacimiento: Option<NaiveDate>,
 }

@@ -162,4 +162,15 @@ impl GuiaRepositoryPort for PostgresGuiaRepository {
         
         Ok((items, total))
     }
+    
+    async fn update_status(&self, id: i32, status: &str) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::update(guias::table.filter(guias::id.eq(id)))
+            .set(guias::status.eq(status))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        info!("✅ Guia {} status actualizado a: {}", id, status);
+        Ok(affected > 0)
+    }
 }

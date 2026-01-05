@@ -46,6 +46,7 @@ impl TransporteRepositoryPort for PostgresTransporteRepository {
             telefono: Some(transporte.telefono.as_deref()), correo: Some(transporte.correo.as_deref()),
             direccion: Some(transporte.direccion.as_deref()), encargado: Some(transporte.encargado),
             media: Some(transporte.media.clone()),
+            paleta_colores: Some(transporte.paleta_colores.clone()),
             is_active: Some(transporte.is_active), updated_by: transporte.updated_by,
         };
         let result = diesel::update(transportes::table.filter(transportes::id.eq(transporte.id)))
@@ -154,6 +155,7 @@ impl TransporteRepositoryPort for PostgresTransporteRepository {
                 encargado: transporte.encargado,
                 encargado_nombre,
                 media: transporte.media,
+                paleta_colores: transporte.paleta_colores,
                 is_active: transporte.is_active,
                 created_at: transporte.created_at,
                 updated_at: transporte.updated_at,
@@ -161,5 +163,17 @@ impl TransporteRepositoryPort for PostgresTransporteRepository {
         }).collect();
         
         Ok((items, total))
+    }
+    
+    async fn find_by_encargado(&self, persona_id: i32) -> Result<Option<Transporte>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let result = transportes::table
+            .filter(transportes::encargado.eq(Some(persona_id)))
+            .filter(transportes::is_active.eq(true))
+            .first::<TransporteModel>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(result.map(Into::into))
     }
 }

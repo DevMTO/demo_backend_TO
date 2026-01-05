@@ -20,6 +20,13 @@ use crate::application::ports::{
     ActivityLogRepositoryPort,
     NotificationRepositoryPort,
 };
+use crate::infrastructure::persistence::repositories::{
+    FileEntradaRepositoryPort,
+    FileGuiaRepositoryPort,
+    FilePasajeroRepositoryPort,
+    FileRestauranteRepositoryPort,
+    FileVehiculoRepositoryPort,
+};
 use crate::application::services::{
     LoggingService,
     NotificationService,
@@ -75,6 +82,11 @@ use crate::infrastructure::persistence::{
         PostgresPagoRepository,
         PostgresActivityLogRepository,
         PostgresNotificationRepository,
+        PostgresFileEntradaRepository,
+        PostgresFileGuiaRepository,
+        PostgresFilePasajeroRepository,
+        PostgresFileRestauranteRepository,
+        PostgresFileVehiculoRepository,
     },
 };
 use crate::infrastructure::security::{
@@ -144,6 +156,13 @@ pub struct DependencyContainer {
     pub pago_repository: Arc<dyn PagoRepositoryPort>,
     pub activity_log_repository: Arc<dyn ActivityLogRepositoryPort>,
     pub notification_repository: Arc<dyn NotificationRepositoryPort>,
+    
+    // File Relations Repositories
+    pub file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
+    pub file_guia_repository: Arc<dyn FileGuiaRepositoryPort>,
+    pub file_pasajero_repository: Arc<dyn FilePasajeroRepositoryPort>,
+    pub file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
+    pub file_vehiculo_repository: Arc<dyn FileVehiculoRepositoryPort>,
     
     // Config
     pub cookie_name: String,
@@ -222,7 +241,24 @@ impl DependencyContainer {
             PostgresActivityLogRepository::new(db_pool.clone())
         );
         let notification_repository: Arc<dyn NotificationRepositoryPort> = Arc::new(
-            PostgresNotificationRepository::new(db_pool)
+            PostgresNotificationRepository::new(db_pool.clone())
+        );
+        
+        // Crear repositorios de file relations
+        let file_entrada_repository: Arc<dyn FileEntradaRepositoryPort> = Arc::new(
+            PostgresFileEntradaRepository::new(db_pool.clone())
+        );
+        let file_guia_repository: Arc<dyn FileGuiaRepositoryPort> = Arc::new(
+            PostgresFileGuiaRepository::new(db_pool.clone())
+        );
+        let file_pasajero_repository: Arc<dyn FilePasajeroRepositoryPort> = Arc::new(
+            PostgresFilePasajeroRepository::new(db_pool.clone())
+        );
+        let file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort> = Arc::new(
+            PostgresFileRestauranteRepository::new(db_pool.clone())
+        );
+        let file_vehiculo_repository: Arc<dyn FileVehiculoRepositoryPort> = Arc::new(
+            PostgresFileVehiculoRepository::new(db_pool)
         );
         
         // Crear servicios de sistema
@@ -360,6 +396,12 @@ impl DependencyContainer {
             pago_repository,
             activity_log_repository,
             notification_repository,
+            // File Relations Repositories
+            file_entrada_repository,
+            file_guia_repository,
+            file_pasajero_repository,
+            file_restaurante_repository,
+            file_vehiculo_repository,
             // Cookie config
             cookie_name: config.cookie_name,
             cookie_secure: config.cookie_secure,

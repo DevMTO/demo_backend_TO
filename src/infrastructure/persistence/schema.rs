@@ -340,6 +340,7 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
         media -> Nullable<Jsonb>,
+        paleta_colores -> Nullable<Jsonb>,
     }
 }
 

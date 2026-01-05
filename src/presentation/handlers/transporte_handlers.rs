@@ -40,6 +40,62 @@ pub async fn get_transporte(
     Ok(json_ok(TransporteResponse::from(t)))
 }
 
+/// Obtiene el transporte asociado al usuario autenticado.
+/// 
+/// Busca primero por id_entidad si el usuario es de un transporte,
+/// o por encargado si el usuario es el responsable de un transporte.
+#[instrument(skip(state, auth))]
+pub async fn get_mi_transporte(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> Result<impl IntoResponse, ApplicationError> {
+    info!("🚐 Buscando transporte para usuario '{}' (id_persona: {:?}, id_entidad: {:?}, nombre_entidad: {:?})", 
+        auth.user.username, auth.user.id_persona, auth.user.id_entidad, auth.user.nombre_entidad);
+    
+    let mut transporte: Option<crate::domain::entities::Transporte> = None;
+    
+    // Verificar si el nombre_entidad contiene "transporte"
+    let is_transporte_user = auth.user.nombre_entidad
+        .as_ref()
+        .map(|n| n.to_lowercase().contains("transporte"))
+        .unwrap_or(false);
+    
+    // Primero intentar por id_entidad si el usuario está relacionado con un transporte
+    if is_transporte_user {
+        if let Some(id_entidad) = auth.user.id_entidad {
+            transporte = state.container.transporte_repository
+                .find_by_id(id_entidad)
+                .await?;
+            if transporte.is_some() {
+                info!("✅ Transporte encontrado por id_entidad: {}", id_entidad);
+            }
+        }
+    }
+    
+    // Si no se encontró, buscar por encargado (id_persona)
+    if transporte.is_none() {
+        if let Some(persona_id) = auth.user.id_persona {
+            transporte = state.container.transporte_repository
+                .find_by_encargado(persona_id)
+                .await?;
+            if transporte.is_some() {
+                info!("✅ Transporte encontrado por encargado (persona_id: {})", persona_id);
+            }
+        }
+    }
+    
+    match transporte {
+        Some(t) => {
+            let response: TransporteResponse = t.into();
+            Ok(json_ok(response))
+        }
+        None => {
+            info!("ℹ️ Usuario '{}' no tiene transporte asociado", auth.user.username);
+            Err(ApplicationError::NotFound("No tienes un transporte asociado".to_string()))
+        }
+    }
+}
+
 #[instrument(skip(state, auth, request))]
 pub async fn create_transporte(
     State(state): State<AppState>,

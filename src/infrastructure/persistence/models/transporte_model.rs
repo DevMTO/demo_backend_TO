@@ -23,6 +23,7 @@ pub struct TransporteModel {
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
     pub media: Option<JsonValue>,
+    pub paleta_colores: Option<JsonValue>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -35,6 +36,7 @@ pub struct NewTransporteModel<'a> {
     pub direccion: Option<&'a str>,
     pub encargado: Option<i32>,
     pub media: Option<JsonValue>,
+    pub paleta_colores: Option<JsonValue>,
     pub is_active: bool,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
@@ -50,6 +52,7 @@ pub struct UpdateTransporteModel<'a> {
     pub direccion: Option<Option<&'a str>>,
     pub encargado: Option<Option<i32>>,
     pub media: Option<Option<JsonValue>>,
+    pub paleta_colores: Option<Option<JsonValue>>,
     pub is_active: Option<bool>,
     pub updated_by: Option<i32>,
 }
@@ -65,6 +68,7 @@ impl From<TransporteModel> for Transporte {
             direccion: model.direccion,
             encargado: model.encargado,
             media: model.media,
+            paleta_colores: model.paleta_colores,
             is_active: model.is_active,
             created_at: model.created_at,
             updated_at: model.updated_at,
@@ -84,6 +88,7 @@ impl<'a> From<&'a Transporte> for NewTransporteModel<'a> {
             direccion: transporte.direccion.as_deref(),
             encargado: transporte.encargado,
             media: transporte.media.clone(),
+            paleta_colores: transporte.paleta_colores.clone(),
             is_active: transporte.is_active,
             created_by: transporte.created_by,
             updated_by: transporte.updated_by,

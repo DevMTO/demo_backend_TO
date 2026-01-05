@@ -22,6 +22,8 @@ use super::handlers::{
     logout_handler,
     verify_session_handler,
     health_check,
+    get_profile_handler,
+    update_profile_handler,
     user_handlers,
     persona_handlers,
     agencia_handlers,
@@ -33,6 +35,7 @@ use super::handlers::{
     restaurante_handlers,
     entrada_handlers,
     file_handlers,
+    file_relations_handlers,
     pago_handlers,
     activity_log_handlers,
     notification_handlers,
@@ -165,7 +168,8 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
         .route("/login", post(login_handler))
         .route("/logout", post(logout_handler))
         .route("/verify", get(verify_session_handler))
-        .route("/me", get(verify_session_handler));
+        .route("/me", get(verify_session_handler))
+        .route("/profile", get(get_profile_handler).put(update_profile_handler));
     
     // Router de health check
     let health_routes = Router::new()
@@ -180,7 +184,7 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
 
     let agencia_routes = Router::new()
         .route("/", get(agencia_handlers::list_agencias).post(agencia_handlers::create_agencia))
-        .route("/mi-agencia", get(agencia_handlers::get_mi_agencia))
+        .route("/mi-agencia", get(agencia_handlers::get_mi_agencia).put(agencia_handlers::update_mi_agencia))
         .route("/ruc/{ruc}", get(agencia_handlers::get_agencia_by_ruc))
         .route("/{id}", get(agencia_handlers::get_agencia).put(agencia_handlers::update_agencia).delete(agencia_handlers::delete_agencia))
         .route("/{id}/restore", post(agencia_handlers::restore_agencia));
@@ -193,6 +197,7 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
 
     let transporte_routes = Router::new()
         .route("/", get(transporte_handlers::list_transportes).post(transporte_handlers::create_transporte))
+        .route("/mi-transporte", get(transporte_handlers::get_mi_transporte))
         .route("/with-vehicles", get(transporte_handlers::list_transportes_with_vehicles))
         .route("/{id}", get(transporte_handlers::get_transporte).put(transporte_handlers::update_transporte).delete(transporte_handlers::delete_transporte))
         .route("/{id}/restore", post(transporte_handlers::restore_transporte));
@@ -233,7 +238,24 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
         .route("/pending-payment", get(file_handlers::list_files_pending_payment))
         .route("/by-date", get(file_handlers::list_files_by_date_range))
         .route("/agencia/{agencia_id}", get(file_handlers::list_files_by_agencia))
-        .route("/{id}", get(file_handlers::get_file).put(file_handlers::update_file).delete(file_handlers::delete_file));
+        .route("/{id}", get(file_handlers::get_file).put(file_handlers::update_file).delete(file_handlers::delete_file))
+        // File Relations - Entradas
+        .route("/{id}/entradas", get(file_relations_handlers::list_file_entradas).post(file_relations_handlers::assign_entrada_to_file))
+        .route("/{id}/entradas/{entry_id}", axum::routing::delete(file_relations_handlers::remove_file_entrada))
+        // File Relations - Guías
+        .route("/{id}/guias", get(file_relations_handlers::list_file_guias).post(file_relations_handlers::assign_guia_to_file))
+        .route("/{id}/guias/{guia_id}", axum::routing::delete(file_relations_handlers::remove_file_guia))
+        // File Relations - Pasajeros
+        .route("/{id}/pasajeros", get(file_relations_handlers::list_file_pasajeros).post(file_relations_handlers::add_pasajero_to_file))
+        .route("/{id}/pasajeros/with-persona", post(file_relations_handlers::create_pasajero_with_persona))
+        .route("/{id}/pasajeros/{pasajero_id}", axum::routing::delete(file_relations_handlers::remove_file_pasajero))
+        // File Relations - Restaurantes
+        .route("/{id}/restaurantes", get(file_relations_handlers::list_file_restaurantes).post(file_relations_handlers::assign_restaurante_to_file))
+        .route("/{id}/restaurantes/{restaurante_id}", axum::routing::delete(file_relations_handlers::remove_file_restaurante))
+        // File Relations - Vehículos
+        .route("/{id}/vehiculos", get(file_relations_handlers::list_file_vehiculos).post(file_relations_handlers::assign_vehiculo_to_file))
+        .route("/{id}/vehiculos/{vehiculo_id}", axum::routing::delete(file_relations_handlers::remove_file_vehiculo))
+        .route("/{id}/vehiculos/{vehiculo_id}/status", axum::routing::put(file_relations_handlers::update_vehiculo_status));
 
     let pago_routes = Router::new()
         .route("/", get(pago_handlers::list_pagos).post(pago_handlers::create_pago))
@@ -245,7 +267,8 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
         .route("/", get(user_handlers::list_users).post(user_handlers::create_user))
         .route("/{id}", get(user_handlers::get_user).put(user_handlers::update_user).delete(user_handlers::delete_user))
         .route("/{id}/activate", post(user_handlers::activate_user))
-        .route("/{id}/deactivate", post(user_handlers::deactivate_user));
+        .route("/{id}/deactivate", post(user_handlers::deactivate_user))
+        .route("/{id}/change-password", post(user_handlers::admin_change_password));
 
     // === System Routes (Logs & Notifications) ===
     
@@ -271,10 +294,11 @@ pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) ->
         .route("/{id}", axum::routing::delete(notification_handlers::delete_notification));
 
     // === Storage Routes (Tigris) ===
-    // Rutas de subida y proxy (todas protegidas)
+    // Rutas de subida, eliminación y proxy (todas protegidas)
     let storage_routes = Router::new()
-        .route("/agencia/{agencia_id}/logo", post(storage_handlers::upload_agencia_logo))
-        .route("/agencia/{agencia_id}/banner", post(storage_handlers::upload_agencia_banner))
+        .route("/agencia/{agencia_id}/logo", post(storage_handlers::upload_agencia_logo).delete(storage_handlers::delete_agencia_logo))
+        .route("/agencia/{agencia_id}/banner", post(storage_handlers::upload_agencia_banner).delete(storage_handlers::delete_agencia_banner))
+        .route("/transporte/{transporte_id}/logo", post(storage_handlers::upload_transporte_logo))
         .route("/proxy/{*file_path}", get(storage_handlers::proxy_file));
 
     // ========== RUTAS PROTEGIDAS ==========

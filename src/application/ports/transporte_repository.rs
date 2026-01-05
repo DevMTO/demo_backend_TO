@@ -27,4 +27,7 @@ pub trait TransporteRepositoryPort: Send + Sync {
     async fn find_by_ruc(&self, ruc: &str) -> Result<Option<Transporte>, ApplicationError>;
     async fn exists_by_ruc(&self, ruc: &str) -> Result<bool, ApplicationError>;
     async fn find_with_available_vehicles(&self) -> Result<Vec<Transporte>, ApplicationError>;
+    
+    /// Busca un transporte por el ID de la persona encargada
+    async fn find_by_encargado(&self, persona_id: i32) -> Result<Option<Transporte>, ApplicationError>;
 }

@@ -17,6 +17,7 @@ pub mod guia_dto;
 pub mod restaurante_dto;
 pub mod entrada_dto;
 pub mod file_dto;
+pub mod file_relations_dto;
 pub mod pago_dto;
 
 // Re-exports - Auth
@@ -37,10 +38,13 @@ pub use guia_dto::*;
 pub use restaurante_dto::*;
 pub use entrada_dto::*;
 pub use file_dto::*;
+pub use file_relations_dto::*;
 pub use pago_dto::*;
 pub use user_dto::{
     UserListItemDto, 
     UserDetailDto, 
     CreateUserRequest, 
     UpdateUserRequest,
+    AdminChangePasswordRequest,
 };
+

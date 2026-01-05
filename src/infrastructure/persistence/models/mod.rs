@@ -19,6 +19,13 @@ pub mod entrada_model;
 pub mod file_model;
 pub mod pago_model;
 
+// File relation models
+pub mod file_entrada_model;
+pub mod file_guia_model;
+pub mod file_pasajero_model;
+pub mod file_restaurante_model;
+pub mod file_vehiculo_model;
+
 // Re-exports - Auth
 pub use user_model::*;
 pub use session_model::*;
@@ -39,3 +46,11 @@ pub use restaurante_model::*;
 pub use entrada_model::*;
 pub use file_model::*;
 pub use pago_model::*;
+
+// Re-exports - File relations
+pub use file_entrada_model::*;
+pub use file_guia_model::*;
+pub use file_pasajero_model::*;
+pub use file_restaurante_model::*;
+pub use file_vehiculo_model::*;
+

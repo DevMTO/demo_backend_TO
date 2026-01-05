@@ -15,7 +15,7 @@ use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::handlers::common::{json_ok, json_created, json_deleted, create_paginated_response};
 use crate::presentation::extractors::AuthUser;
-use crate::application::dtos::{CreateUserRequest, UpdateUserRequest, UserDetailDto};
+use crate::application::dtos::{CreateUserRequest, UpdateUserRequest, UserDetailDto, AdminChangePasswordRequest};
 
 #[derive(Debug, Deserialize)]
 pub struct ListUsersParams {
@@ -67,12 +67,18 @@ pub async fn get_user(
 }
 
 /// Crear un nuevo usuario (opcionalmente con persona nueva)
+/// Solo SuperAdmin puede crear usuarios
 #[instrument(skip(state, auth, request))]
 pub async fn create_user(
     State(state): State<AppState>,
     auth: AuthUser,
     Json(request): Json<CreateUserRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede crear usuarios".to_string()));
+    }
+    
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
     // Verificar si email ya existe
@@ -188,6 +194,7 @@ pub async fn create_user(
 }
 
 /// Actualizar un usuario existente
+/// Solo SuperAdmin puede editar usuarios
 #[instrument(skip(state, auth, request))]
 pub async fn update_user(
     State(state): State<AppState>,
@@ -195,6 +202,11 @@ pub async fn update_user(
     Path(id): Path<i32>,
     Json(request): Json<UpdateUserRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede editar usuarios".to_string()));
+    }
+    
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
     // Buscar usuario existente
@@ -266,12 +278,18 @@ pub async fn update_user(
 }
 
 /// Eliminar (desactivar) un usuario
+/// Solo SuperAdmin puede eliminar usuarios
 #[instrument(skip(state, auth))]
 pub async fn delete_user(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar usuarios".to_string()));
+    }
+    
     // Verificar que existe
     let user = state.container.user_repository
         .find_by_id(id)
@@ -328,12 +346,18 @@ pub async fn delete_user(
     Ok(json_deleted())
 }
 /// Activar un usuario
+/// Solo SuperAdmin puede activar usuarios
 #[instrument(skip(state, auth))]
 pub async fn activate_user(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede activar usuarios".to_string()));
+    }
+    
     // Verificar que existe
     let mut user = state.container.user_repository
         .find_by_id(id)
@@ -398,12 +422,18 @@ pub async fn activate_user(
 }
 
 /// Desactivar un usuario
+/// Solo SuperAdmin puede desactivar usuarios
 #[instrument(skip(state, auth))]
 pub async fn deactivate_user(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede desactivar usuarios".to_string()));
+    }
+    
     // Verificar que existe
     let mut user = state.container.user_repository
         .find_by_id(id)
@@ -467,6 +497,69 @@ pub async fn deactivate_user(
         Some(auth.user.id),
     ).await {
         warn!("⚠️ Error al enviar notificación a admins: {}", e);
+    }
+    
+    Ok(json_ok(UserDetailDto::from(result)))
+}
+
+/// Cambiar contraseña de un usuario (solo SuperAdmin)
+#[instrument(skip(state, auth, request))]
+pub async fn admin_change_password(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+    Json(request): Json<AdminChangePasswordRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede cambiar contraseñas de otros usuarios".to_string()));
+    }
+    
+    // Validar request
+    request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    
+    // Buscar usuario existente
+    let mut user = state.container.user_repository
+        .find_by_id(id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Usuario {} no encontrado", id)))?;
+    
+    // Hash de la nueva contraseña
+    let new_password_hash = state.container.password_hasher.hash(&request.new_password)?;
+    
+    // Actualizar contraseña
+    user.update_password(new_password_hash);
+    user.updated_by = Some(auth.user.id);
+    
+    let result = state.container.user_repository.update(&user).await?;
+    
+    info!("🔐 Contraseña cambiada para usuario: {} (ID: {}) por SuperAdmin: {}", result.username, id, auth.user.username);
+    
+    // Logging del evento
+    if let Err(e) = state.container.logging_service.log_update::<User>(
+        Some(auth.user.id),
+        Some(auth.user.username.clone()),
+        EntityType::User,
+        id,
+        None::<&User>,
+        None::<&User>,
+        Some(vec!["password".to_string()]),
+        Some("Contraseña cambiada por SuperAdmin".to_string()),
+    ).await {
+        warn!("⚠️ Error al registrar log de cambio de contraseña: {}", e);
+    }
+    
+    // Notificación al usuario afectado
+    if let Err(e) = state.notify_user_with_broadcast(
+        id,
+        "Contraseña actualizada",
+        "Tu contraseña ha sido actualizada por un administrador. Si no solicitaste este cambio, contacta con soporte.",
+        NotificationType::Warning,
+        NotificationCategory::Auth,
+        NotificationPriority::High,
+        Some(auth.user.id),
+    ).await {
+        warn!("⚠️ Error al enviar notificación de cambio de contraseña: {}", e);
     }
     
     Ok(json_ok(UserDetailDto::from(result)))

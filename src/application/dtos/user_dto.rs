@@ -207,3 +207,12 @@ impl PaginationParams {
         self.per_page.min(100) // Máximo 100 por página
     }
 }
+
+/// Request para que un superadmin cambie la contraseña de un usuario
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct AdminChangePasswordRequest {
+    #[validate(length(min = 8, message = "La contraseña debe tener al menos 8 caracteres"))]
+    pub new_password: String,
+}

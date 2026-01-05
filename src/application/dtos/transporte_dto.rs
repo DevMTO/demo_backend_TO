@@ -19,6 +19,8 @@ pub struct TransporteResponse {
     pub encargado: Option<i32>,
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
+    #[ts(type = "object | null")]
+    pub paleta_colores: Option<JsonValue>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -35,6 +37,7 @@ impl From<Transporte> for TransporteResponse {
             direccion: t.direccion,
             encargado: t.encargado,
             media: t.media,
+            paleta_colores: t.paleta_colores,
             is_active: t.is_active,
             created_at: t.created_at,
             updated_at: t.updated_at,
@@ -57,6 +60,8 @@ pub struct TransporteListItemDto {
     pub encargado_nombre: Option<String>,
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
+    #[ts(type = "object | null")]
+    pub paleta_colores: Option<JsonValue>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -84,6 +89,9 @@ pub struct CreateTransporteRequest {
     
     #[ts(type = "object | null | undefined")]
     pub media: Option<JsonValue>,
+    
+    #[ts(type = "object | null | undefined")]
+    pub paleta_colores: Option<JsonValue>,
 }
 
 impl CreateTransporteRequest {
@@ -98,6 +106,7 @@ impl CreateTransporteRequest {
             direccion: self.direccion,
             encargado: self.encargado,
             media: self.media,
+            paleta_colores: self.paleta_colores,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -130,6 +139,9 @@ pub struct UpdateTransporteRequest {
     #[ts(type = "object | null | undefined")]
     pub media: Option<JsonValue>,
     
+    #[ts(type = "object | null | undefined")]
+    pub paleta_colores: Option<JsonValue>,
+    
     pub is_active: Option<bool>,
 }
 
@@ -155,6 +167,9 @@ impl UpdateTransporteRequest {
         }
         if let Some(media) = self.media {
             transporte.media = Some(media);
+        }
+        if let Some(paleta_colores) = self.paleta_colores {
+            transporte.paleta_colores = Some(paleta_colores);
         }
         if let Some(is_active) = self.is_active {
             transporte.is_active = is_active;
