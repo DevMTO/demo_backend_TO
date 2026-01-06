@@ -2,6 +2,9 @@ use axum::{
     extract::FromRequestParts,
     http::request::Parts,
 };
+use axum_extra::extract::cookie::{Cookie, SameSite};
+use tower_cookies::Cookies;
+use tracing::debug;
 
 use crate::domain::{entities::User, errors::ApplicationError};
 use crate::presentation::routes::AppState;
@@ -30,6 +33,25 @@ impl FromRequestParts<AppState> for AuthUser {
             .execute(&token)
             .await?;
         
+        // Si el token fue rotado, actualizar la cookie automáticamente
+        if let Some(ref new_token) = verification.new_token {
+            // Intentar obtener el Cookies manager de las extensiones
+            if let Some(cookies) = parts.extensions.get::<Cookies>() {
+                debug!("🔄 Token rotado automáticamente, actualizando cookie...");
+                let session_cookie = create_session_cookie_for_rotation(
+                    new_token,
+                    state.container.cookie_max_age_hours,
+                    &state.container.cookie_name,
+                    &state.container.cookie_domain,
+                    &state.container.cookie_path,
+                    state.container.cookie_secure,
+                    state.container.cookie_http_only,
+                    &state.container.cookie_same_site,
+                );
+                cookies.add(session_cookie);
+            }
+        }
+        
         Ok(AuthUser {
             user: verification.user,
             session_id: verification.session_id,
@@ -54,4 +76,35 @@ fn extract_session_token(parts: &Parts, cookie_name: &str) -> Option<String> {
     }
     
     None
+}
+
+/// Crea una cookie de sesión con el token rotado
+fn create_session_cookie_for_rotation(
+    token: &str,
+    max_age_hours: i64,
+    cookie_name: &str,
+    cookie_domain: &str,
+    cookie_path: &str,
+    cookie_secure: bool,
+    cookie_http_only: bool,
+    cookie_same_site: &str,
+) -> Cookie<'static> {
+    let same_site = match cookie_same_site.to_lowercase().as_str() {
+        "strict" => SameSite::Strict,
+        "none" => SameSite::None,
+        _ => SameSite::Lax,
+    };
+    
+    let mut cookie = Cookie::build((cookie_name.to_string(), token.to_string()))
+        .path(cookie_path.to_string())
+        .max_age(time::Duration::hours(max_age_hours))
+        .same_site(same_site)
+        .http_only(cookie_http_only)
+        .secure(cookie_secure);
+    
+    if !cookie_domain.is_empty() {
+        cookie = cookie.domain(cookie_domain.to_string());
+    }
+    
+    cookie.build()
 }
