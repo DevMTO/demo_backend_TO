@@ -2,20 +2,24 @@ use axum::{extract::{Path, Query, State}, response::IntoResponse, Json};
 use tracing::{info, instrument};
 use validator::Validate;
 
-use crate::application::dtos::{CreateConductorRequest, UpdateConductorRequest, ConductorResponse, ConductorListResponse};
-use crate::domain::entities::{EntityType, UserRole, NotificationType, NotificationCategory, NotificationPriority};
+use crate::application::dtos::{CreateConductorRequest, UpdateConductorRequest, ConductorListResponse};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use super::common::{PaginationParams, json_ok, json_created, json_deleted};
 
+/// GET /api/v1/conductores - Listar conductores con paginación
 #[instrument(skip(state, _auth))]
-pub async fn list_conductores(State(state): State<AppState>, _auth: AuthUser, Query(params): Query<PaginationParams>) -> Result<impl IntoResponse, ApplicationError> {
+pub async fn list_conductores(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Query(params): Query<PaginationParams>,
+) -> Result<impl IntoResponse, ApplicationError> {
     let page = params.page;
     let page_size = params.page_size;
     let offset = (page - 1) * page_size;
     
-    let (items, total) = state.container.conductor_repository.list_with_details(page_size, offset).await?;
+    let (items, total) = state.container.conductor_service.list_conductores(page_size, offset).await?;
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as i64;
     
     Ok(json_ok(ConductorListResponse {
@@ -27,120 +31,89 @@ pub async fn list_conductores(State(state): State<AppState>, _auth: AuthUser, Qu
     }))
 }
 
+/// GET /api/v1/conductores/:id - Obtener un conductor por ID
 #[instrument(skip(state, _auth))]
-pub async fn get_conductor(State(state): State<AppState>, _auth: AuthUser, Path(id): Path<i32>) -> Result<impl IntoResponse, ApplicationError> {
-    let c = state.container.conductor_repository.find_by_id(id).await?.ok_or_else(|| ApplicationError::NotFound(format!("Conductor {} no encontrado", id)))?;
-    Ok(json_ok(ConductorResponse::from(c)))
+pub async fn get_conductor(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    let conductor = state.container.conductor_service.get_conductor(id).await?;
+    Ok(json_ok(conductor))
 }
 
+/// POST /api/v1/conductores - Crear un nuevo conductor
 #[instrument(skip(state, auth, request))]
-pub async fn create_conductor(State(state): State<AppState>, auth: AuthUser, Json(request): Json<CreateConductorRequest>) -> Result<impl IntoResponse, ApplicationError> {
+pub async fn create_conductor(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(request): Json<CreateConductorRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Validar request
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
-    if state.container.conductor_repository.exists_by_brevete(&request.nro_brevete).await? {
-        return Err(ApplicationError::Conflict(format!("Brevete {} ya existe", request.nro_brevete)));
-    }
-    let created = state.container.conductor_repository.create(&request.into_entity(Some(auth.user.id))).await?;
-    info!("✅ Conductor creado: {} (ID: {})", created.nro_brevete, created.id);
-
-    // Log activity
-    let _ = state.container.logging_service.log_create::<crate::domain::entities::Conductor>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Conductor,
-        created.id,
-        &created.nro_brevete,
-        Some(&created),
-        None,
-    ).await;
-
-    // Notify admins via SSE broadcast
-    let _ = state.notify_roles_with_broadcast(
-        vec![UserRole::SuperAdmin, UserRole::Admin],
-        "Nuevo conductor creado",
-        &format!("{} ha creado el conductor con brevete '{}'", auth.user.username, created.nro_brevete),
-        NotificationType::Info,
-        NotificationCategory::Crud,
-        NotificationPriority::Low,
-        Some(auth.user.id),
-    ).await;
-
-    Ok(json_created(ConductorResponse::from(created)))
+    
+    // Delegar al servicio
+    let created = state.container.conductor_service
+        .create_conductor(request, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("✅ Handler: Conductor creado: {} (ID: {})", created.nro_brevete, created.id);
+    Ok(json_created(created))
 }
 
+/// PUT /api/v1/conductores/:id - Actualizar un conductor
 #[instrument(skip(state, auth, request))]
-pub async fn update_conductor(State(state): State<AppState>, auth: AuthUser, Path(id): Path<i32>, Json(request): Json<UpdateConductorRequest>) -> Result<impl IntoResponse, ApplicationError> {
+pub async fn update_conductor(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+    Json(request): Json<UpdateConductorRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Validar request
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
-    let old_c = state.container.conductor_repository.find_by_id(id).await?.ok_or_else(|| ApplicationError::NotFound(format!("Conductor {} no encontrado", id)))?;
-    let result = state.container.conductor_repository.update(&request.apply_to(old_c.clone(), Some(auth.user.id))).await?;
-
-    // Log activity
-    let _ = state.container.logging_service.log_update::<crate::domain::entities::Conductor>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Conductor,
-        result.id,
-        Some(&old_c),
-        Some(&result),
-        None,
-        None,
-    ).await;
-
-    // Notify admins via SSE broadcast
-    let _ = state.notify_roles_with_broadcast(
-        vec![UserRole::SuperAdmin, UserRole::Admin],
-        "Conductor actualizado",
-        &format!("{} ha actualizado el conductor con brevete '{}'", auth.user.username, result.nro_brevete),
-        NotificationType::Info,
-        NotificationCategory::Crud,
-        NotificationPriority::Low,
-        Some(auth.user.id),
-    ).await;
-
-    Ok(json_ok(ConductorResponse::from(result)))
+    
+    // Delegar al servicio
+    let updated = state.container.conductor_service
+        .update_conductor(id, request, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("✏️ Handler: Conductor actualizado: {} (ID: {})", updated.nro_brevete, id);
+    Ok(json_ok(updated))
 }
 
+/// DELETE /api/v1/conductores/:id - Eliminar un conductor
 #[instrument(skip(state, auth))]
-pub async fn delete_conductor(State(state): State<AppState>, auth: AuthUser, Path(id): Path<i32>) -> Result<impl IntoResponse, ApplicationError> {
-    // Get conductor info before deleting
-    let conductor = state.container.conductor_repository.find_by_id(id).await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("Conductor {} no encontrado", id)))?;
-
-    if !state.container.conductor_repository.delete(id).await? { 
-        return Err(ApplicationError::NotFound(format!("Conductor {} no encontrado", id))); 
-    }
-
-    // Log activity
-    let _ = state.container.logging_service.log_delete::<crate::domain::entities::Conductor>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Conductor,
-        id,
-        Some(&conductor),
-        None,
-    ).await;
-
-    // Notify admins via SSE broadcast
-    let _ = state.notify_roles_with_broadcast(
-        vec![UserRole::SuperAdmin, UserRole::Admin],
-        "Conductor eliminado",
-        &format!("{} ha eliminado el conductor con brevete '{}'", auth.user.username, conductor.nro_brevete),
-        NotificationType::Warning,
-        NotificationCategory::Crud,
-        NotificationPriority::Normal,
-        Some(auth.user.id),
-    ).await;
-
+pub async fn delete_conductor(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Delegar al servicio
+    state.container.conductor_service
+        .delete_conductor(id, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("🗑️ Handler: Conductor eliminado (ID: {})", id);
     Ok(json_deleted())
 }
 
+/// GET /api/v1/transportes/:transporte_id/conductores - Listar conductores por transporte
 #[instrument(skip(state, _auth))]
-pub async fn list_conductores_by_transporte(State(state): State<AppState>, _auth: AuthUser, Path(transporte_id): Path<i32>) -> Result<impl IntoResponse, ApplicationError> {
-    let conductores = state.container.conductor_repository.find_by_transporte(transporte_id).await?;
-    Ok(json_ok(conductores.into_iter().map(ConductorResponse::from).collect::<Vec<_>>()))
+pub async fn list_conductores_by_transporte(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(transporte_id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    let conductores = state.container.conductor_service.list_by_transporte(transporte_id).await?;
+    Ok(json_ok(conductores))
 }
 
+/// GET /api/v1/conductores/available - Listar conductores disponibles
 #[instrument(skip(state, _auth))]
-pub async fn list_conductores_available(State(state): State<AppState>, _auth: AuthUser) -> Result<impl IntoResponse, ApplicationError> {
-    let conductores = state.container.conductor_repository.list_available().await?;
-    Ok(json_ok(conductores.into_iter().map(ConductorResponse::from).collect::<Vec<_>>()))
+pub async fn list_conductores_available(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+) -> Result<impl IntoResponse, ApplicationError> {
+    let conductores = state.container.conductor_service.list_available().await?;
+    Ok(json_ok(conductores))
 }

@@ -2,22 +2,24 @@ use axum::{extract::{Path, Query, State}, response::IntoResponse, Json};
 use tracing::{info, instrument};
 use validator::Validate;
 
-use crate::application::dtos::{CreateVehiculoRequest, UpdateVehiculoRequest, VehiculoResponse, VehiculoListResponse};
-use crate::domain::entities::{EntityType, UserRole, NotificationType, NotificationCategory, NotificationPriority};
+use crate::application::dtos::{CreateVehiculoRequest, UpdateVehiculoRequest, VehiculoListResponse};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use super::common::{PaginationParams, json_ok, json_created, json_deleted};
 
+/// GET /api/v1/vehiculos - Listar vehículos con paginación
 #[instrument(skip(state, _auth))]
 pub async fn list_vehiculos(
-    State(state): State<AppState>, _auth: AuthUser, Query(params): Query<PaginationParams>,
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let page = params.page;
     let page_size = params.page_size;
     let offset = (page - 1) * page_size;
     
-    let (items, total) = state.container.vehiculo_repository.list_with_details(page_size, offset).await?;
+    let (items, total) = state.container.vehiculo_service.list_vehiculos(page_size, offset).await?;
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as i64;
     
     Ok(json_ok(VehiculoListResponse {
@@ -29,120 +31,89 @@ pub async fn list_vehiculos(
     }))
 }
 
+/// GET /api/v1/vehiculos/:id - Obtener un vehículo por ID
 #[instrument(skip(state, _auth))]
-pub async fn get_vehiculo(State(state): State<AppState>, _auth: AuthUser, Path(id): Path<i32>) -> Result<impl IntoResponse, ApplicationError> {
-    let v = state.container.vehiculo_repository.find_by_id(id).await?.ok_or_else(|| ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)))?;
-    Ok(json_ok(VehiculoResponse::from(v)))
+pub async fn get_vehiculo(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    let vehiculo = state.container.vehiculo_service.get_vehiculo(id).await?;
+    Ok(json_ok(vehiculo))
 }
 
+/// POST /api/v1/vehiculos - Crear un nuevo vehículo
 #[instrument(skip(state, auth, request))]
-pub async fn create_vehiculo(State(state): State<AppState>, auth: AuthUser, Json(request): Json<CreateVehiculoRequest>) -> Result<impl IntoResponse, ApplicationError> {
+pub async fn create_vehiculo(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(request): Json<CreateVehiculoRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Validar request
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
-    if state.container.vehiculo_repository.exists_by_placa(&request.placa).await? {
-        return Err(ApplicationError::Conflict(format!("Placa {} ya existe", request.placa)));
-    }
-    let created = state.container.vehiculo_repository.create(&request.into_entity(Some(auth.user.id))).await?;
-    info!("✅ Vehículo creado: {} (ID: {})", created.placa, created.id);
-
-    // Log activity
-    let _ = state.container.logging_service.log_create::<crate::domain::entities::Vehiculo>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Vehiculo,
-        created.id,
-        &created.placa,
-        Some(&created),
-        None,
-    ).await;
-
-    // Notify admins via SSE broadcast
-    let _ = state.notify_roles_with_broadcast(
-        vec![UserRole::SuperAdmin, UserRole::Admin],
-        "Nuevo vehículo creado",
-        &format!("{} ha creado el vehículo con placa '{}'", auth.user.username, created.placa),
-        NotificationType::Info,
-        NotificationCategory::Crud,
-        NotificationPriority::Low,
-        Some(auth.user.id),
-    ).await;
-
-    Ok(json_created(VehiculoResponse::from(created)))
+    
+    // Delegar al servicio
+    let created = state.container.vehiculo_service
+        .create_vehiculo(request, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("✅ Handler: Vehículo creado: {} (ID: {})", created.placa, created.id);
+    Ok(json_created(created))
 }
 
+/// PUT /api/v1/vehiculos/:id - Actualizar un vehículo
 #[instrument(skip(state, auth, request))]
-pub async fn update_vehiculo(State(state): State<AppState>, auth: AuthUser, Path(id): Path<i32>, Json(request): Json<UpdateVehiculoRequest>) -> Result<impl IntoResponse, ApplicationError> {
+pub async fn update_vehiculo(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+    Json(request): Json<UpdateVehiculoRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Validar request
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
-    let old_v = state.container.vehiculo_repository.find_by_id(id).await?.ok_or_else(|| ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)))?;
-    let result = state.container.vehiculo_repository.update(&request.apply_to(old_v.clone(), Some(auth.user.id))).await?;
-
-    // Log activity
-    let _ = state.container.logging_service.log_update::<crate::domain::entities::Vehiculo>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Vehiculo,
-        result.id,
-        Some(&old_v),
-        Some(&result),
-        None,
-        None,
-    ).await;
-
-    // Notify admins via SSE broadcast
-    let _ = state.notify_roles_with_broadcast(
-        vec![UserRole::SuperAdmin, UserRole::Admin],
-        "Vehículo actualizado",
-        &format!("{} ha actualizado el vehículo con placa '{}'", auth.user.username, result.placa),
-        NotificationType::Info,
-        NotificationCategory::Crud,
-        NotificationPriority::Low,
-        Some(auth.user.id),
-    ).await;
-
-    Ok(json_ok(VehiculoResponse::from(result)))
+    
+    // Delegar al servicio
+    let updated = state.container.vehiculo_service
+        .update_vehiculo(id, request, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("✏️ Handler: Vehículo actualizado: {} (ID: {})", updated.placa, id);
+    Ok(json_ok(updated))
 }
 
+/// DELETE /api/v1/vehiculos/:id - Eliminar un vehículo
 #[instrument(skip(state, auth))]
-pub async fn delete_vehiculo(State(state): State<AppState>, auth: AuthUser, Path(id): Path<i32>) -> Result<impl IntoResponse, ApplicationError> {
-    // Get vehiculo info before deleting
-    let vehiculo = state.container.vehiculo_repository.find_by_id(id).await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)))?;
-
-    if !state.container.vehiculo_repository.delete(id).await? {
-        return Err(ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)));
-    }
-
-    // Log activity
-    let _ = state.container.logging_service.log_delete::<crate::domain::entities::Vehiculo>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Vehiculo,
-        id,
-        Some(&vehiculo),
-        None,
-    ).await;
-
-    // Notify admins via SSE broadcast
-    let _ = state.notify_roles_with_broadcast(
-        vec![UserRole::SuperAdmin, UserRole::Admin],
-        "Vehículo eliminado",
-        &format!("{} ha eliminado el vehículo con placa '{}'", auth.user.username, vehiculo.placa),
-        NotificationType::Warning,
-        NotificationCategory::Crud,
-        NotificationPriority::Normal,
-        Some(auth.user.id),
-    ).await;
-
+pub async fn delete_vehiculo(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Delegar al servicio
+    state.container.vehiculo_service
+        .delete_vehiculo(id, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("🗑️ Handler: Vehículo eliminado (ID: {})", id);
     Ok(json_deleted())
 }
 
+/// GET /api/v1/transportes/:transporte_id/vehiculos - Listar vehículos por transporte
 #[instrument(skip(state, _auth))]
-pub async fn list_vehiculos_by_transporte(State(state): State<AppState>, _auth: AuthUser, Path(transporte_id): Path<i32>) -> Result<impl IntoResponse, ApplicationError> {
-    let vehiculos = state.container.vehiculo_repository.find_by_transporte(transporte_id).await?;
-    Ok(json_ok(vehiculos.into_iter().map(VehiculoResponse::from).collect::<Vec<_>>()))
+pub async fn list_vehiculos_by_transporte(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(transporte_id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    let vehiculos = state.container.vehiculo_service.list_by_transporte(transporte_id).await?;
+    Ok(json_ok(vehiculos))
 }
 
+/// GET /api/v1/vehiculos/available - Listar vehículos disponibles
 #[instrument(skip(state, _auth))]
-pub async fn list_vehiculos_available(State(state): State<AppState>, _auth: AuthUser) -> Result<impl IntoResponse, ApplicationError> {
-    let vehiculos = state.container.vehiculo_repository.list_available().await?;
-    Ok(json_ok(vehiculos.into_iter().map(VehiculoResponse::from).collect::<Vec<_>>()))
+pub async fn list_vehiculos_available(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+) -> Result<impl IntoResponse, ApplicationError> {
+    let vehiculos = state.container.vehiculo_service.list_available().await?;
+    Ok(json_ok(vehiculos))
 }

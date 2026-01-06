@@ -37,6 +37,11 @@ use crate::application::services::{
     FileService,
     PagoService,
     RestauranteService,
+    TransporteService,
+    VehiculoService,
+    ConductorService,
+    EntradaService,
+    GuiaService,
 };
 use crate::application::use_cases::auth::{
     LoginUseCase,
@@ -99,6 +104,11 @@ pub struct DependencyContainer {
     pub file_service: Arc<FileService>,
     pub pago_service: Arc<PagoService>,
     pub restaurante_service: Arc<RestauranteService>,
+    pub transporte_service: Arc<TransporteService>,
+    pub vehiculo_service: Arc<VehiculoService>,
+    pub conductor_service: Arc<ConductorService>,
+    pub entrada_service: Arc<EntradaService>,
+    pub guia_service: Arc<GuiaService>,
     
     // Object Storage (Tigris) - Opcional, puede ser None si no está configurado
     pub tigris_storage: Option<Arc<crate::infrastructure::storage::TigrisStorage>>,
@@ -311,6 +321,41 @@ impl DependencyContainer {
         let restaurante_service = Arc::new(RestauranteService::new(
             restaurante_repository.clone(),
             logging_service.clone(),
+            notification_broadcast_adapter.clone(),
+        ));
+        
+        // ========== Crear servicio - Transporte ==========
+        let transporte_service = Arc::new(TransporteService::new(
+            transporte_repository.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter.clone(),
+        ));
+        
+        // ========== Crear servicio - Vehiculo ==========
+        let vehiculo_service = Arc::new(VehiculoService::new(
+            vehiculo_repository.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter.clone(),
+        ));
+        
+        // ========== Crear servicio - Conductor ==========
+        let conductor_service = Arc::new(ConductorService::new(
+            conductor_repository.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter.clone(),
+        ));
+        
+        // ========== Crear servicio - Entrada ==========
+        let entrada_service = Arc::new(EntradaService::new(
+            entrada_repository.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter.clone(),
+        ));
+        
+        // ========== Crear servicio - Guia ==========
+        let guia_service = Arc::new(GuiaService::new(
+            guia_repository.clone(),
+            logging_service.clone(),
             notification_broadcast_adapter,
         ));
         
@@ -331,6 +376,11 @@ impl DependencyContainer {
             file_service,
             pago_service,
             restaurante_service,
+            transporte_service,
+            vehiculo_service,
+            conductor_service,
+            entrada_service,
+            guia_service,
             // Repositories
             user_repository,
             persona_repository,

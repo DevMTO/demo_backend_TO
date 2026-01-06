@@ -20,8 +20,6 @@ pub trait GuiaRepositoryPort: Send + Sync {
     async fn list_with_persona(&self, limit: i64, offset: i64) -> Result<(Vec<GuiaListItemDto>, i64), ApplicationError>;
     
     // Específicos de Guia
-    async fn find_by_carnet(&self, nro_carnet: &str) -> Result<Option<Guia>, ApplicationError>;
-    async fn exists_by_carnet(&self, nro_carnet: &str) -> Result<bool, ApplicationError>;
     async fn list_available(&self) -> Result<Vec<Guia>, ApplicationError>;
     async fn find_by_idioma(&self, idioma: &str) -> Result<Vec<Guia>, ApplicationError>;
     async fn find_by_especialidad(&self, especialidad: &str) -> Result<Vec<Guia>, ApplicationError>;

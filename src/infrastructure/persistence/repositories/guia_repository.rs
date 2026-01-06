@@ -83,19 +83,7 @@ impl GuiaRepositoryPort for PostgresGuiaRepository {
         let data = self.list(limit, offset).await?;
         Ok(PaginatedResult::new(data, total, limit, offset))
     }
-    
-    async fn find_by_carnet(&self, nro_carnet: &str) -> Result<Option<Guia>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        let result = guias::table.filter(guias::nro_carnet.eq(nro_carnet))
-            .first::<GuiaModel>(&mut conn).await.optional()
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(result.map(Into::into))
-    }
-    
-    async fn exists_by_carnet(&self, nro_carnet: &str) -> Result<bool, ApplicationError> {
-        Ok(self.find_by_carnet(nro_carnet).await?.is_some())
-    }
-    
+
     async fn list_available(&self) -> Result<Vec<Guia>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let results = guias::table.filter(guias::status.eq("disponible"))
