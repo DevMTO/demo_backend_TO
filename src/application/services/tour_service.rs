@@ -316,6 +316,9 @@ impl TourService {
         if request.duracion_dias.as_ref().map(|d| Some(*d) != old.duracion_dias).unwrap_or(false) {
             changed.push("duracion_dias".to_string());
         }
+        if request.tipo_tour.as_ref().map(|t| Some(t.clone()) != old.tipo_tour).unwrap_or(false) {
+            changed.push("tipo_tour".to_string());
+        }
         if request.is_active.as_ref().map(|a| *a != old.is_active).unwrap_or(false) {
             changed.push("is_active".to_string());
         }

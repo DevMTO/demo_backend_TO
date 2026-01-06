@@ -26,6 +26,7 @@ pub struct TourResponse {
     pub duracion_dias: Option<i32>,
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
+    pub tipo_tour: Option<String>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -45,6 +46,7 @@ impl From<Tour> for TourResponse {
             precio_base: t.precio_base,
             duracion_dias: t.duracion_dias,
             media: t.media,
+            tipo_tour: t.tipo_tour,
             is_active: t.is_active,
             created_at: t.created_at,
             updated_at: t.updated_at,
@@ -83,6 +85,9 @@ pub struct CreateTourRequest {
     
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
+    
+    #[validate(length(max = 100))]
+    pub tipo_tour: Option<String>,
 }
 
 impl CreateTourRequest {
@@ -100,6 +105,7 @@ impl CreateTourRequest {
             precio_base: BigDecimal::try_from(self.precio_base).unwrap_or_default(),
             duracion_dias: self.duracion_dias,
             media: self.media,
+            tipo_tour: self.tipo_tour,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -141,6 +147,9 @@ pub struct UpdateTourRequest {
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
     
+    #[validate(length(max = 100))]
+    pub tipo_tour: Option<String>,
+    
     pub is_active: Option<bool>,
 }
 
@@ -175,6 +184,9 @@ impl UpdateTourRequest {
         }
         if let Some(media) = self.media {
             tour.media = Some(media);
+        }
+        if let Some(tipo_tour) = self.tipo_tour {
+            tour.tipo_tour = Some(tipo_tour);
         }
         if let Some(is_active) = self.is_active {
             tour.is_active = is_active;

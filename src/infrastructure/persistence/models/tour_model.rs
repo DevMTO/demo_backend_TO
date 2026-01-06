@@ -27,6 +27,7 @@ pub struct TourModel {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub tipo_tour: Option<String>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -42,6 +43,7 @@ pub struct NewTourModel<'a> {
     pub precio_base: BigDecimal,
     pub duracion_dias: Option<i32>,
     pub media: Option<JsonValue>,
+    pub tipo_tour: Option<&'a str>,
     pub is_active: bool,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
@@ -60,6 +62,7 @@ pub struct UpdateTourModel<'a> {
     pub precio_base: Option<BigDecimal>,
     pub duracion_dias: Option<Option<i32>>,
     pub media: Option<Option<JsonValue>>,
+    pub tipo_tour: Option<Option<&'a str>>,
     pub is_active: Option<bool>,
     pub updated_by: Option<i32>,
 }
@@ -78,6 +81,7 @@ impl From<TourModel> for Tour {
             precio_base: model.precio_base,
             duracion_dias: model.duracion_dias,
             media: model.media,
+            tipo_tour: model.tipo_tour,
             is_active: model.is_active,
             created_at: model.created_at,
             updated_at: model.updated_at,
@@ -100,6 +104,7 @@ impl<'a> From<&'a Tour> for NewTourModel<'a> {
             precio_base: tour.precio_base.clone(),
             duracion_dias: tour.duracion_dias,
             media: tour.media.clone(),
+            tipo_tour: tour.tipo_tour.as_deref(),
             is_active: tour.is_active,
             created_by: tour.created_by,
             updated_by: tour.updated_by,

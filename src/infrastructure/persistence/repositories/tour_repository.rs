@@ -62,6 +62,7 @@ impl TourRepositoryPort for PostgresTourRepository {
             precio_base: Some(tour.precio_base.clone()),
             duracion_dias: Some(tour.duracion_dias),
             media: Some(tour.media.clone()),
+            tipo_tour: Some(tour.tipo_tour.as_deref()),
             is_active: Some(tour.is_active),
             updated_by: tour.updated_by,
         };

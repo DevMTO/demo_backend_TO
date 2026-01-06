@@ -320,6 +320,8 @@ diesel::table! {
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+        #[max_length = 100]
+        tipo_tour -> Nullable<Varchar>,
     }
 }
 
