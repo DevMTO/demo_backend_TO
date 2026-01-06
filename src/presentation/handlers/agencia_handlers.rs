@@ -3,18 +3,14 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use tracing::{info, warn, instrument};
+use tracing::instrument;
 use validator::Validate;
 
 use crate::application::dtos::{
     CreateAgenciaRequest, UpdateAgenciaRequest, UpdateAgenciaInterfazRequest, 
-    AgenciaResponse, AgenciaListItemDto,
+    AgenciaResponse,
 };
-
-use crate::domain::entities::{
-    Agencia, EntityType, UserRole,
-    NotificationType, NotificationCategory, NotificationPriority,
-};
+use crate::domain::entities::{Agencia, EntityType, UserRole};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
@@ -36,15 +32,14 @@ pub async fn list_agencias(
     
     let page = params.page;
     let page_size = params.page_size;
-    let offset = (page - 1) * page_size;
-    let limit = page_size;
     
-    let (items, total) = state.container.agencia_repository
-        .list_with_encargado(limit, offset)
+    // Delegar TODA la lógica al servicio
+    let (items, total) = state.container.agencia_service
+        .list_agencias(page, page_size)
         .await?;
     
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as i64;
-    let response: PaginatedResponse<AgenciaListItemDto> = PaginatedResponse {
+    let response = PaginatedResponse {
         items,
         pagination: PaginationInfo {
             page,
@@ -68,186 +63,98 @@ pub async fn get_agencia(
         return Err(ApplicationError::Forbidden("No tienes permisos para ver esta agencia".to_string()));
     }
     
-    let agencia = state.container.agencia_repository
-        .find_by_id(id)
-        .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id)))?;
+    // Delegar TODA la lógica al servicio
+    let response = state.container.agencia_service
+        .get_agencia(id)
+        .await?;
     
-    let response: AgenciaResponse = agencia.into();
     Ok(json_ok(response))
 }
 
 /// Obtener la agencia del usuario actual
-/// 
-/// Busca primero por id_entidad si el usuario es de una agencia,
-/// o por encargado si el usuario es el responsable de una agencia.
 #[instrument(skip(state, auth))]
 pub async fn get_mi_agencia(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("🏢 Buscando agencia para usuario '{}' (id_persona: {:?}, id_entidad: {:?}, role: {:?})", 
-        auth.user.username, auth.user.id_persona, auth.user.id_entidad, auth.user.role);
+    // Delegar TODA la lógica al servicio
+    let response = state.container.agencia_service
+        .get_mi_agencia(
+            &auth.user.role,
+            auth.user.id_entidad,
+            auth.user.id_persona,
+            &auth.user.username,
+        )
+        .await?;
     
-    let mut agencia: Option<Agencia> = None;
-    
-    // Verificar si el usuario tiene rol de agencia
-    let is_agencia_user = auth.user.role == UserRole::Agencias;
-    
-    // Primero intentar por id_entidad si el usuario está relacionado con una agencia
-    if is_agencia_user {
-        if let Some(id_entidad) = auth.user.id_entidad {
-            agencia = state.container.agencia_repository
-                .find_by_id(id_entidad)
-                .await?;
-            if agencia.is_some() {
-                info!("✅ Agencia encontrada por id_entidad: {}", id_entidad);
-            }
-        }
-    }
-    
-    // Si no se encontró, buscar por encargado (id_persona)
-    if agencia.is_none() {
-        if let Some(persona_id) = auth.user.id_persona {
-            agencia = state.container.agencia_repository
-                .find_by_encargado(persona_id)
-                .await?;
-            if agencia.is_some() {
-                info!("✅ Agencia encontrada por encargado (persona_id: {})", persona_id);
-            }
-        }
-    }
-    
-    match agencia {
-        Some(a) => {
-            let response: AgenciaResponse = a.into();
-            Ok(json_ok(response))
-        }
-        None => {
-            info!("ℹ️ Usuario '{}' no tiene agencia asociada", auth.user.username);
-            Err(ApplicationError::NotFound("No tienes una agencia asociada".to_string()))
-        }
-    }
+    Ok(json_ok(response))
 }
 
-/// Actualizar mi propia agencia
-/// 
-/// Permite a usuarios de tipo Agencia o encargados actualizar su agencia.
-/// Solo pueden actualizar: paleta_colores, direccion, telefono.
-/// No pueden modificar: ruc, nombre, encargado, estado.
+/// Actualizar mi propia agencia (campos limitados)
 #[instrument(skip(state, auth, request))]
 pub async fn update_mi_agencia(
     State(state): State<AppState>,
     auth: AuthUser,
     Json(request): Json<UpdateAgenciaRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("🏢 Usuario '{}' intenta actualizar su agencia", auth.user.username);
-    
-    // Buscar la agencia del usuario
-    let mut agencia: Option<Agencia> = None;
-    
-    // Verificar si el usuario tiene rol de agencia
-    let is_agencia_user = auth.user.role == UserRole::Agencias;
-    
-    // Intentar por id_entidad si el usuario está relacionado con una agencia
-    if is_agencia_user {
-        if let Some(id_entidad) = auth.user.id_entidad {
-            agencia = state.container.agencia_repository
-                .find_by_id(id_entidad)
-                .await?;
-        }
-    }
-    
-    // Si no se encontró, buscar por encargado (id_persona)
-    if agencia.is_none() {
-        if let Some(persona_id) = auth.user.id_persona {
-            agencia = state.container.agencia_repository
-                .find_by_encargado(persona_id)
-                .await?;
-        }
-    }
-    
-    let agencia = agencia.ok_or_else(|| {
-        ApplicationError::NotFound("No tienes una agencia asociada".to_string())
-    })?;
-    
-    let agencia_id = agencia.id;
+    // Primero obtener mi agencia para saber su ID
+    let mi_agencia = state.container.agencia_service
+        .get_mi_agencia(
+            &auth.user.role,
+            auth.user.id_entidad,
+            auth.user.id_persona,
+            &auth.user.username,
+        )
+        .await?;
     
     // Crear un request limitado: solo permitir ciertos campos
     let limited_request = UpdateAgenciaRequest {
-        nombre: None, // No puede cambiar nombre
-        ruc: None, // No puede cambiar RUC
+        nombre: None,
+        ruc: None,
         direccion: request.direccion,
         telefono: request.telefono,
         correo: request.correo,
-        encargado: None, // No puede cambiar encargado
+        encargado: None,
         paleta_colores: request.paleta_colores,
-        media: request.media, // Puede actualizar media (logo, etc.)
-        is_active: None, // No puede cambiar estado
+        media: request.media,
+        is_active: None,
     };
     
-    // Usar el caso de uso para actualizar
-    let response = state.container.update_agencia_use_case
-        .execute(agencia_id, limited_request, auth.user.id)
+    // Delegar al servicio
+    let response = state.container.agencia_service
+        .update_agencia(
+            mi_agencia.id,
+            limited_request,
+            auth.user.id,
+            Some(auth.user.username.clone()),
+        )
         .await?;
-    
-    // Logging del evento
-    if let Err(e) = state.container.logging_service.log_update::<Agencia>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Agencia,
-        response.id,
-        None::<&Agencia>,
-        None::<&Agencia>,
-        Some(vec!["paleta_colores".to_string(), "direccion".to_string(), "telefono".to_string()]),
-        None,
-    ).await {
-        warn!("⚠️ Error al registrar log de actualización de agencia: {}", e);
-    }
-    
-    info!("✅ Agencia '{}' actualizada por su encargado/usuario {}", response.nombre, auth.user.username);
     
     Ok(json_ok(response))
 }
 
 /// Actualizar solo la interfaz de mi agencia (logo y paleta de colores)
-/// 
-/// Endpoint PATCH que permite actualizar solo logo y paleta_colores.
 #[instrument(skip(state, auth, request))]
 pub async fn patch_mi_agencia_interfaz(
     State(state): State<AppState>,
     auth: AuthUser,
     Json(request): Json<UpdateAgenciaInterfazRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("🎨 Usuario '{}' actualiza interfaz de su agencia", auth.user.username);
+    // Primero obtener mi agencia
+    let mi_agencia = state.container.agencia_service
+        .get_mi_agencia(
+            &auth.user.role,
+            auth.user.id_entidad,
+            auth.user.id_persona,
+            &auth.user.username,
+        )
+        .await?;
     
-    // Buscar la agencia del usuario
-    let mut agencia: Option<Agencia> = None;
-    
-    // Verificar si el usuario tiene rol de agencia
-    let is_agencia_user = auth.user.role == UserRole::Agencias;
-    
-    if is_agencia_user {
-        if let Some(id_entidad) = auth.user.id_entidad {
-            agencia = state.container.agencia_repository
-                .find_by_id(id_entidad)
-                .await?;
-        }
-    }
-    
-    if agencia.is_none() {
-        if let Some(persona_id) = auth.user.id_persona {
-            agencia = state.container.agencia_repository
-                .find_by_encargado(persona_id)
-                .await?;
-        }
-    }
-    
-    let old_agencia = agencia.ok_or_else(|| {
-        ApplicationError::NotFound("No tienes una agencia asociada".to_string())
-    })?;
-    
-    let agencia_id = old_agencia.id;
+    // Para la interfaz, usamos el repositorio directamente ya que es una operación muy específica
+    let old_agencia = state.container.agencia_repository
+        .find_by_id(mi_agencia.id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound("Agencia no encontrada".to_string()))?;
     
     // Aplicar cambios solo de interfaz
     let updated = request.apply_to(old_agencia.clone(), Some(auth.user.id));
@@ -258,14 +165,12 @@ pub async fn patch_mi_agencia_interfaz(
         Some(auth.user.id),
         Some(auth.user.username.clone()),
         EntityType::Agencia,
-        agencia_id,
+        mi_agencia.id,
         Some(&old_agencia),
         Some(&result),
         Some(vec!["paleta_colores".to_string(), "media".to_string()]),
         None,
     ).await;
-    
-    info!("✅ Interfaz de agencia '{}' actualizada", result.nombre);
     
     Ok(json_ok(AgenciaResponse::from(result)))
 }
@@ -283,36 +188,10 @@ pub async fn create_agencia(
     
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
-    // Usar el caso de uso para crear la agencia
-    let response = state.container.create_agencia_use_case
-        .execute(request, auth.user.id)
+    // Delegar TODA la lógica al servicio (validaciones, logging, notificaciones)
+    let response = state.container.agencia_service
+        .create_agencia(request, auth.user.id, Some(auth.user.username.clone()))
         .await?;
-    
-    // Logging del evento
-    if let Err(e) = state.container.logging_service.log_create::<Agencia>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Agencia,
-        response.id,
-        &response.nombre,
-        None::<&Agencia>,
-        None,
-    ).await {
-        warn!("⚠️ Error al registrar log de creación de agencia: {}", e);
-    }
-    
-    // Notificación a admins con broadcast SSE
-    if let Err(e) = state.notify_roles_with_broadcast(
-        vec![UserRole::SuperAdmin, UserRole::Admin],
-        "Nueva agencia creada",
-        &format!("Se ha creado la agencia '{}' (RUC: {})", response.nombre, response.ruc),
-        NotificationType::Info,
-        NotificationCategory::Crud,
-        NotificationPriority::Low,
-        Some(auth.user.id),
-    ).await {
-        warn!("⚠️ Error al enviar notificación de agencia creada: {}", e);
-    }
     
     Ok(json_created(response))
 }
@@ -331,39 +210,10 @@ pub async fn update_agencia(
     
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
-    // Usar el caso de uso para actualizar
-    let response = state.container.update_agencia_use_case
-        .execute(id, request, auth.user.id)
+    // Delegar TODA la lógica al servicio (validaciones, logging, notificaciones)
+    let response = state.container.agencia_service
+        .update_agencia(id, request, auth.user.id, Some(auth.user.username.clone()))
         .await?;
-    
-    // Logging del evento
-    if let Err(e) = state.container.logging_service.log_update::<Agencia>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Agencia,
-        response.id,
-        None::<&Agencia>,
-        None::<&Agencia>,
-        None,
-        None,
-    ).await {
-        warn!("⚠️ Error al registrar log de actualización de agencia: {}", e);
-    }
-    
-    // Notificación a admins con broadcast SSE
-    if let Err(e) = state.notify_roles_with_broadcast(
-        vec![UserRole::SuperAdmin, UserRole::Admin],
-        "Agencia actualizada",
-        &format!("La agencia '{}' ha sido actualizada por {}", response.nombre, auth.user.username),
-        NotificationType::Info,
-        NotificationCategory::Crud,
-        NotificationPriority::Low,
-        Some(auth.user.id),
-    ).await {
-        warn!("⚠️ Error al enviar notificación de agencia actualizada: {}", e);
-    }
-    
-    info!("✅ Agencia actualizada: {} (ID: {})", response.nombre, response.id);
     
     Ok(json_ok(response))
 }
@@ -379,43 +229,10 @@ pub async fn delete_agencia(
         return Err(ApplicationError::Forbidden("No tienes permisos para desactivar agencias".to_string()));
     }
     
-    // Obtener agencia antes de desactivar
-    let agencia = state.container.agencia_repository
-        .find_by_id(id)
-        .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id)))?;
-    
-    // Usar el caso de uso para desactivar
-    state.container.deactivate_agencia_use_case
-        .execute(id, auth.user.id)
+    // Delegar TODA la lógica al servicio (validaciones, logging, notificaciones)
+    state.container.agencia_service
+        .delete_agencia(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
-    
-    // Logging del evento
-    if let Err(e) = state.container.logging_service.log_delete::<Agencia>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Agencia,
-        id,
-        Some(&agencia),
-        None,
-    ).await {
-        warn!("⚠️ Error al registrar log de desactivación de agencia: {}", e);
-    }
-    
-    // Notificación a admins con broadcast SSE
-    if let Err(e) = state.notify_roles_with_broadcast(
-        vec![UserRole::SuperAdmin, UserRole::Admin],
-        "Agencia desactivada",
-        &format!("La agencia '{}' ha sido desactivada por {}", agencia.nombre, auth.user.username),
-        NotificationType::Warning,
-        NotificationCategory::Crud,
-        NotificationPriority::Normal,
-        Some(auth.user.id),
-    ).await {
-        warn!("⚠️ Error al enviar notificación de agencia desactivada: {}", e);
-    }
-    
-    info!("🗑️ Agencia desactivada: {} (ID: {})", agencia.nombre, id);
     
     Ok(json_message("Agencia desactivada correctamente"))
 }
@@ -431,45 +248,10 @@ pub async fn restore_agencia(
         return Err(ApplicationError::Forbidden("No tienes permisos para restaurar agencias".to_string()));
     }
     
-    // Usar el caso de uso para restaurar
-    state.container.restore_agencia_use_case
-        .execute(id, auth.user.id)
+    // Delegar TODA la lógica al servicio (validaciones, logging, notificaciones)
+    let _response = state.container.agencia_service
+        .restore_agencia(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
-    
-    // Obtener agencia restaurada
-    let agencia = state.container.agencia_repository
-        .find_by_id(id)
-        .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id)))?;
-    
-    // Logging del evento
-    if let Err(e) = state.container.logging_service.log_update::<Agencia>(
-        Some(auth.user.id),
-        Some(auth.user.username.clone()),
-        EntityType::Agencia,
-        id,
-        None::<&Agencia>,
-        None::<&Agencia>,
-        Some(vec!["is_active".to_string()]),
-        None,
-    ).await {
-        warn!("⚠️ Error al registrar log de restauración de agencia: {}", e);
-    }
-    
-    // Notificación a admins con broadcast SSE
-    if let Err(e) = state.notify_roles_with_broadcast(
-        vec![UserRole::SuperAdmin, UserRole::Admin],
-        "Agencia restaurada",
-        &format!("La agencia '{}' ha sido restaurada por {}", agencia.nombre, auth.user.username),
-        NotificationType::Success,
-        NotificationCategory::Crud,
-        NotificationPriority::Low,
-        Some(auth.user.id),
-    ).await {
-        warn!("⚠️ Error al enviar notificación de agencia restaurada: {}", e);
-    }
-    
-    info!("✅ Agencia restaurada: {} (ID: {})", agencia.nombre, id);
     
     Ok(json_message("Agencia restaurada correctamente"))
 }
@@ -485,11 +267,10 @@ pub async fn get_agencia_by_ruc(
         return Err(ApplicationError::Forbidden("No tienes permisos para buscar agencias".to_string()));
     }
     
-    let agencia = state.container.agencia_repository
-        .find_by_ruc(&ruc)
-        .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("Agencia con RUC {} no encontrada", ruc)))?;
+    // Delegar TODA la lógica al servicio
+    let response = state.container.agencia_service
+        .get_agencia_by_ruc(&ruc)
+        .await?;
     
-    let response: AgenciaResponse = agencia.into();
     Ok(json_ok(response))
 }

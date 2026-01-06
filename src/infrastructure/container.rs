@@ -30,38 +30,18 @@ use crate::infrastructure::persistence::repositories::{
 use crate::application::services::{
     LoggingService,
     NotificationService,
+    UserService,
+    AgenciaService,
+    PersonaService,
+    TourService,
+    FileService,
+    PagoService,
+    RestauranteService,
 };
 use crate::application::use_cases::auth::{
     LoginUseCase,
     LogoutUseCase,
     VerifySessionUseCase,
-};
-use crate::application::use_cases::persona::{
-    CreatePersonaUseCase,
-    UpdatePersonaUseCase,
-    SearchPersonasUseCase,
-};
-use crate::application::use_cases::agencia::{
-    CreateAgenciaUseCase,
-    UpdateAgenciaUseCase,
-    DeactivateAgenciaUseCase,
-    RestoreAgenciaUseCase,
-};
-use crate::application::use_cases::tour::{
-    CreateTourUseCase,
-    UpdateTourUseCase,
-    SearchToursUseCase,
-    DeactivateTourUseCase,
-    RestoreTourUseCase,
-};
-use crate::application::use_cases::file::{
-    CreateFileUseCase,
-    UpdateFileUseCase,
-    SearchFilesUseCase,
-};
-use crate::application::use_cases::pago::{
-    RegisterPagoUseCase,
-    UpdatePagoUseCase,
 };
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::{
@@ -101,33 +81,6 @@ pub struct DependencyContainer {
     pub logout_use_case: Arc<LogoutUseCase>,
     pub verify_session_use_case: Arc<VerifySessionUseCase>,
     
-    // Use Cases - Persona
-    pub create_persona_use_case: Arc<CreatePersonaUseCase>,
-    pub update_persona_use_case: Arc<UpdatePersonaUseCase>,
-    pub search_personas_use_case: Arc<SearchPersonasUseCase>,
-    
-    // Use Cases - Agencia
-    pub create_agencia_use_case: Arc<CreateAgenciaUseCase>,
-    pub update_agencia_use_case: Arc<UpdateAgenciaUseCase>,
-    pub deactivate_agencia_use_case: Arc<DeactivateAgenciaUseCase>,
-    pub restore_agencia_use_case: Arc<RestoreAgenciaUseCase>,
-    
-    // Use Cases - Tour
-    pub create_tour_use_case: Arc<CreateTourUseCase>,
-    pub update_tour_use_case: Arc<UpdateTourUseCase>,
-    pub search_tours_use_case: Arc<SearchToursUseCase>,
-    pub deactivate_tour_use_case: Arc<DeactivateTourUseCase>,
-    pub restore_tour_use_case: Arc<RestoreTourUseCase>,
-    
-    // Use Cases - File
-    pub create_file_use_case: Arc<CreateFileUseCase>,
-    pub update_file_use_case: Arc<UpdateFileUseCase>,
-    pub search_files_use_case: Arc<SearchFilesUseCase>,
-    
-    // Use Cases - Pago
-    pub register_pago_use_case: Arc<RegisterPagoUseCase>,
-    pub update_pago_use_case: Arc<UpdatePagoUseCase>,
-    
     // Session Manager para middleware
     pub session_manager: Arc<dyn SessionManagerPort>,
     
@@ -137,6 +90,15 @@ pub struct DependencyContainer {
     // System Services (Logging & Notifications)
     pub logging_service: Arc<LoggingService>,
     pub notification_service: Arc<NotificationService>,
+    
+    // Business Services
+    pub user_service: Arc<UserService>,
+    pub agencia_service: Arc<AgenciaService>,
+    pub persona_service: Arc<PersonaService>,
+    pub tour_service: Arc<TourService>,
+    pub file_service: Arc<FileService>,
+    pub pago_service: Arc<PagoService>,
+    pub restaurante_service: Arc<RestauranteService>,
     
     // Object Storage (Tigris) - Opcional, puede ser None si no está configurado
     pub tigris_storage: Option<Arc<crate::infrastructure::storage::TigrisStorage>>,
@@ -173,9 +135,16 @@ pub struct DependencyContainer {
     pub cookie_http_only: bool,
     pub cookie_max_age_hours: i64,
 }
+use crate::application::ports::NotificationServicePort;
+use crate::infrastructure::NotificationBroadcastAdapter;
+use crate::infrastructure::sse::NotificationBroadcaster;
 
 impl DependencyContainer {
-    pub fn new(db_pool: DatabasePool, config: AppConfig) -> Result<Self, ApplicationError> {
+    pub fn new(
+        db_pool: DatabasePool, 
+        config: AppConfig,
+        broadcaster: Arc<NotificationBroadcaster>,
+    ) -> Result<Self, ApplicationError> {
         // Validar configuración de seguridad
         config.validate_security()
             .map_err(|e| ApplicationError::Configuration(e.to_string()))?;
@@ -269,6 +238,35 @@ impl DependencyContainer {
             notification_repository.clone()
         ));
         
+        // Crear adaptador de notificaciones con broadcast SSE
+        let notification_broadcast_adapter: Arc<dyn NotificationServicePort> = Arc::new(
+            NotificationBroadcastAdapter::new(
+                notification_service.clone(),
+                notification_repository.clone(),
+                broadcaster,
+            )
+        );
+        
+        // Crear servicios de negocio
+        let user_service = Arc::new(UserService::new(
+            user_repository.clone(),
+            persona_repository.clone(),
+            password_hasher.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter.clone(),
+        ));
+        
+        let agencia_service = Arc::new(AgenciaService::new(
+            agencia_repository.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter.clone(),
+        ));
+        
+        let persona_service = Arc::new(PersonaService::new(
+            persona_repository.clone(),
+            logging_service.clone(),
+        ));
+        
         // ========== Crear casos de uso - Auth ==========
         let login_use_case = Arc::new(LoginUseCase::new(
             user_repository.clone(),
@@ -287,66 +285,33 @@ impl DependencyContainer {
             session_manager.clone(),
         ));
         
-        // ========== Crear casos de uso - Persona ==========
-        let create_persona_use_case = Arc::new(CreatePersonaUseCase::new(
-            persona_repository.clone()
-        ));
-        let update_persona_use_case = Arc::new(UpdatePersonaUseCase::new(
-            persona_repository.clone()
-        ));
-        let search_personas_use_case = Arc::new(SearchPersonasUseCase::new(
-            persona_repository.clone()
+        // ========== Crear servicio - Tour ==========
+        let tour_service = Arc::new(TourService::new(
+            tour_repository.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter.clone(),
         ));
         
-        // ========== Crear casos de uso - Agencia ==========
-        let create_agencia_use_case = Arc::new(CreateAgenciaUseCase::new(
-            agencia_repository.clone()
-        ));
-        let update_agencia_use_case = Arc::new(UpdateAgenciaUseCase::new(
-            agencia_repository.clone()
-        ));
-        let deactivate_agencia_use_case = Arc::new(DeactivateAgenciaUseCase::new(
-            agencia_repository.clone()
-        ));
-        let restore_agencia_use_case = Arc::new(RestoreAgenciaUseCase::new(
-            agencia_repository.clone()
+        // ========== Crear servicio - File ==========
+        let file_service = Arc::new(FileService::new(
+            file_repository.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter.clone(),
         ));
         
-        // ========== Crear casos de uso - Tour ==========
-        let create_tour_use_case = Arc::new(CreateTourUseCase::new(
-            tour_repository.clone()
-        ));
-        let update_tour_use_case = Arc::new(UpdateTourUseCase::new(
-            tour_repository.clone()
-        ));
-        let search_tours_use_case = Arc::new(SearchToursUseCase::new(
-            tour_repository.clone()
-        ));
-        let deactivate_tour_use_case = Arc::new(DeactivateTourUseCase::new(
-            tour_repository.clone()
-        ));
-        let restore_tour_use_case = Arc::new(RestoreTourUseCase::new(
-            tour_repository.clone()
-        ));
-        
-        // ========== Crear casos de uso - File ==========
-        let create_file_use_case = Arc::new(CreateFileUseCase::new(
-            file_repository.clone()
-        ));
-        let update_file_use_case = Arc::new(UpdateFileUseCase::new(
-            file_repository.clone()
-        ));
-        let search_files_use_case = Arc::new(SearchFilesUseCase::new(
-            file_repository.clone()
-        ));
-        
-        // ========== Crear casos de uso - Pago ==========
-        let register_pago_use_case = Arc::new(RegisterPagoUseCase::new(
+        // ========== Crear servicio - Pago ==========
+        let pago_service = Arc::new(PagoService::new(
             pago_repository.clone(),
-            file_repository.clone()
+            file_repository.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter.clone(),
         ));
-        let update_pago_use_case = Arc::new(UpdatePagoUseCase::new(
-            pago_repository.clone()
+        
+        // ========== Crear servicio - Restaurante ==========
+        let restaurante_service = Arc::new(RestauranteService::new(
+            restaurante_repository.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter,
         ));
         
         Ok(Self {
@@ -354,33 +319,18 @@ impl DependencyContainer {
             login_use_case,
             logout_use_case,
             verify_session_use_case,
-            // Persona use cases
-            create_persona_use_case,
-            update_persona_use_case,
-            search_personas_use_case,
-            // Agencia use cases
-            create_agencia_use_case,
-            update_agencia_use_case,
-            deactivate_agencia_use_case,
-            restore_agencia_use_case,
-            // Tour use cases
-            create_tour_use_case,
-            update_tour_use_case,
-            search_tours_use_case,
-            deactivate_tour_use_case,
-            restore_tour_use_case,
-            // File use cases
-            create_file_use_case,
-            update_file_use_case,
-            search_files_use_case,
-            // Pago use cases
-            register_pago_use_case,
-            update_pago_use_case,
             // Services
             session_manager,
             password_hasher,
             logging_service,
             notification_service,
+            user_service,
+            agencia_service,
+            persona_service,
+            tour_service,
+            file_service,
+            pago_service,
+            restaurante_service,
             // Repositories
             user_repository,
             persona_repository,

@@ -8,6 +8,7 @@ pub mod session_manager;
 // System ports
 pub mod activity_log_repository;
 pub mod notification_repository;
+pub mod notification_service;
 
 // Business entity ports
 pub mod persona_repository;
@@ -32,6 +33,7 @@ pub use session_manager::{SessionManagerPort, SessionTokenData};
 // Re-exports system
 pub use activity_log_repository::{ActivityLogRepositoryPort, ActivityLogFilters, CountByType};
 pub use notification_repository::{NotificationRepositoryPort, NotificationFilters, PriorityCount, CleanupResult};
+pub use notification_service::NotificationServicePort;
 
 // Re-exports business entities
 pub use persona_repository::PersonaRepositoryPort;

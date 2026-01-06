@@ -52,8 +52,12 @@ async fn main() -> anyhow::Result<()> {
     db_pool.run_migrations().await?;
     tracing::info!("✅ Database migrations completed");
     
+    // Crear broadcaster de notificaciones (necesario antes del container)
+    let broadcaster = Arc::new(infrastructure::sse::NotificationBroadcaster::new());
+    tracing::info!("✅ Notification broadcaster initialized");
+    
     // Crear contenedor de dependencias
-    let mut container = DependencyContainer::new(db_pool, config.clone())?;
+    let mut container = DependencyContainer::new(db_pool, config.clone(), broadcaster.clone())?;
     
     // Inicializar storage de Tigris (async, opcional)
     container.init_storage().await;
@@ -62,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("✅ Dependency container initialized");
     
     // Crear router con todas las rutas
-    let app = create_router(container, &config);
+    let app = create_router(container, broadcaster, &config);
     
     // Configurar dirección del servidor
     let addr = SocketAddr::from(([127, 0, 0, 1], config.port));

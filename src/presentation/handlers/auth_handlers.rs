@@ -270,37 +270,26 @@ pub async fn update_profile_handler(
     let id_persona = auth_user.user.id_persona
         .ok_or_else(|| ApplicationError::BadRequest("Usuario no tiene persona asociada".to_string()))?;
     
-    // Obtener la persona actual
-    let mut persona = state.container.persona_repository
-        .find_by_id(id_persona)
-        .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("Persona con ID {} no encontrada", id_persona)))?;
+    // Convertir a UpdatePersonaRequest y usar el servicio
+    let update_request = crate::application::dtos::UpdatePersonaRequest {
+        nombre: request.nombre,
+        apellidos: request.apellidos,
+        tipo_documento: None,
+        nro_documento: None,
+        telefono: request.telefono,
+        correo: request.correo,
+        fecha_nacimiento: request.fecha_nacimiento,
+    };
     
-    // Actualizar solo los campos que vienen en el request
-    if let Some(nombre) = request.nombre {
-        persona.nombre = nombre;
-    }
-    if let Some(apellidos) = request.apellidos {
-        persona.apellidos = apellidos;
-    }
-    // Para telefono y correo, actualizamos incluso si es None (permitir borrar)
-    if request.telefono.is_some() || request.correo.is_some() {
-        if request.telefono.is_some() {
-            persona.telefono = request.telefono;
-        }
-        if request.correo.is_some() {
-            persona.correo = request.correo;
-        }
-    }
-    if let Some(fecha) = request.fecha_nacimiento {
-        persona.fecha_nacimiento = Some(fecha);
-    }
-    
-    persona.updated_by = Some(auth_user.user.id);
-    persona.updated_at = chrono::Utc::now();
-    
-    // Guardar cambios
-    let updated = state.container.persona_repository.update(&persona).await?;
+    // Usar PersonaService (que incluye logging)
+    let updated = state.container.persona_service
+        .update_persona(
+            id_persona,
+            update_request,
+            auth_user.user.id,
+            Some(auth_user.user.username.clone()),
+        )
+        .await?;
     
     // Construir respuesta
     let user_info = AuthUserInfo {
@@ -315,7 +304,7 @@ pub async fn update_profile_handler(
     
     let persona_info = PersonaProfileInfo {
         id: updated.id,
-        tipo_documento: updated.tipo_documento.to_string(),
+        tipo_documento: updated.tipo_documento,
         nro_documento: updated.nro_documento,
         nombre: updated.nombre,
         apellidos: updated.apellidos,

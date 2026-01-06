@@ -15,10 +15,14 @@ pub trait TourRepositoryPort: Send + Sync {
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Tour>, ApplicationError>;
     async fn count(&self) -> Result<i64, ApplicationError>;
     async fn list_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Tour>, ApplicationError>;
+    async fn list_all_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Tour>, ApplicationError>;
     
     // Soft delete
     async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
     async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
+    
+    // Búsqueda
+    async fn search(&self, query: &str) -> Result<Vec<Tour>, ApplicationError>;
     
     // Específicos de Tour
     async fn find_by_nombre(&self, nombre: &str) -> Result<Vec<Tour>, ApplicationError>;

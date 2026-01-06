@@ -472,8 +472,8 @@ async fn clear_agencia_media(
         is_active: None,
     };
     
-    state.container.update_agencia_use_case
-        .execute(agencia_id, request, updated_by)
+    state.container.agencia_service
+        .update_agencia(agencia_id, request, updated_by, None)
         .await?;
     
     Ok(())
@@ -558,8 +558,8 @@ async fn update_agencia_media(
         is_active: None,
     };
     
-    state.container.update_agencia_use_case
-        .execute(agencia_id, request, updated_by)
+    state.container.agencia_service
+        .update_agencia(agencia_id, request, updated_by, None)
         .await?;
     
     Ok(())

@@ -109,55 +109,13 @@ impl AppState {
 
         Ok(())
     }
-
-    /// Notificar a un usuario específico y enviar por SSE
-    pub async fn notify_user_with_broadcast(
-        &self,
-        user_id: i32,
-        title: &str,
-        message: &str,
-        notification_type: NotificationType,
-        category: NotificationCategory,
-        priority: NotificationPriority,
-        created_by: Option<i32>,
-    ) -> Result<(), crate::domain::errors::ApplicationError> {
-        // 1. Crear notificación en DB
-        let notification = self.container.notification_service.notify_user(
-            user_id,
-            title,
-            message,
-            notification_type.clone(),
-            category.clone(),
-            priority.clone(),
-            created_by,
-        ).await?;
-
-        // 2. Enviar por SSE al usuario
-        let dto = UserNotificationDto {
-            id: notification.id,
-            title: notification.title,
-            message: notification.message,
-            notification_type: notification.notification_type.to_string(),
-            category: notification.category.to_string(),
-            priority: notification.priority.to_string(),
-            entity_type: notification.entity_type.clone(),
-            entity_id: notification.entity_id,
-            metadata: notification.metadata.clone(),
-            is_read: false,
-            read_at: None,
-            is_dismissed: false,
-            created_at: notification.created_at,
-        };
-
-        let event = SseEvent::NewNotification(dto);
-        self.broadcaster.send_to_user(user_id, event).await;
-
-        Ok(())
-    }
 }
 
-pub fn create_router(container: Arc<DependencyContainer>, config: &AppConfig) -> Router {
-    let broadcaster = Arc::new(NotificationBroadcaster::new());
+pub fn create_router(
+    container: Arc<DependencyContainer>, 
+    broadcaster: Arc<NotificationBroadcaster>,
+    config: &AppConfig
+) -> Router {
     let state = AppState { container, broadcaster };
     
     // Configurar CORS

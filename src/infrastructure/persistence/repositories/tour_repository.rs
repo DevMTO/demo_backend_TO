@@ -113,6 +113,29 @@ impl TourRepositoryPort for PostgresTourRepository {
         Ok(PaginatedResult::new(data, total, limit, offset))
     }
     
+    async fn list_all_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Tour>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let limit = options.limit.unwrap_or(50);
+        let offset = options.offset.unwrap_or(0);
+        
+        let total = tours::table
+            .count()
+            .get_result::<i64>(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let results = tours::table
+            .order(tours::nombre.asc())
+            .limit(limit)
+            .offset(offset)
+            .load::<TourModel>(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let data = results.into_iter().map(Into::into).collect();
+        Ok(PaginatedResult::new(data, total, limit, offset))
+    }
+    
     async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let affected = diesel::update(tours::table.filter(tours::id.eq(id)))
@@ -131,6 +154,18 @@ impl TourRepositoryPort for PostgresTourRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         Ok(affected > 0)
+    }
+    
+    async fn search(&self, query: &str) -> Result<Vec<Tour>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let results = tours::table
+            .filter(tours::nombre.ilike(format!("%{}%", query)))
+            .filter(tours::is_active.eq(true))
+            .order(tours::nombre.asc())
+            .load::<TourModel>(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(results.into_iter().map(Into::into).collect())
     }
     
     async fn find_by_nombre(&self, nombre: &str) -> Result<Vec<Tour>, ApplicationError> {

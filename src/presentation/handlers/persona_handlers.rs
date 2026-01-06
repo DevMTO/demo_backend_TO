@@ -1,3 +1,12 @@
+//! Persona Handlers - Endpoints HTTP para gestión de personas
+//!
+//! Los handlers solo manejan preocupaciones HTTP:
+//! - Validación de requests
+//! - Extracción de parámetros
+//! - Conversión de respuestas
+//!
+//! La lógica de negocio está en PersonaService
+
 use axum::{
     extract::{Path, Query, State},
     response::IntoResponse,
@@ -17,6 +26,7 @@ use super::common::{
     json_ok, json_created, json_deleted,
 };
 
+/// Listar personas con paginación
 #[instrument(skip(state, _auth))]
 pub async fn list_personas(
     State(state): State<AppState>,
@@ -26,19 +36,16 @@ pub async fn list_personas(
     debug!("📋 Listando personas - página: {}, tamaño: {}", params.page, params.page_size);
     
     let options = params.to_options();
-    let result = state.container.persona_repository
-        .list_paginated(options.clone())
+    let (items, total, total_pages) = state.container.persona_service
+        .list_personas(options)
         .await?;
     
-    let page = result.current_page();
-    let page_size = result.limit;
-    let total_pages = result.pages();
     let response: PaginatedResponse<PersonaResponse> = PaginatedResponse {
-        items: result.data.into_iter().map(Into::into).collect(),
+        items,
         pagination: PaginationInfo {
-            page,
-            page_size,
-            total: result.total,
+            page: params.page,
+            page_size: params.page_size,
+            total,
             total_pages,
         },
     };
@@ -46,6 +53,7 @@ pub async fn list_personas(
     Ok(json_ok(response))
 }
 
+/// Obtener persona por ID
 #[instrument(skip(state, _auth))]
 pub async fn get_persona(
     State(state): State<AppState>,
@@ -54,15 +62,14 @@ pub async fn get_persona(
 ) -> Result<impl IntoResponse, ApplicationError> {
     debug!("🔍 Buscando persona ID: {}", id);
     
-    let persona = state.container.persona_repository
-        .find_by_id(id)
-        .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("Persona con ID {} no encontrada", id)))?;
+    let persona = state.container.persona_service
+        .get_persona(id)
+        .await?;
     
-    let response: PersonaResponse = persona.into();
-    Ok(json_ok(response))
+    Ok(json_ok(persona))
 }
 
+/// Crear nueva persona
 #[instrument(skip(state, auth, request))]
 pub async fn create_persona(
     State(state): State<AppState>,
@@ -75,9 +82,13 @@ pub async fn create_persona(
     
     info!("📝 Creando persona: {} {}", request.nombre, request.apellidos);
     
-    // Usar el caso de uso para crear la persona
-    let response = state.container.create_persona_use_case
-        .execute(request, auth.user.id)
+    // Delegar al servicio
+    let response = state.container.persona_service
+        .create_persona(
+            request,
+            auth.user.id,
+            Some(auth.user.username.clone()),
+        )
         .await?;
     
     info!("✅ Persona creada: {} (ID: {})", response.nombre, response.id);
@@ -85,6 +96,7 @@ pub async fn create_persona(
     Ok(json_created(response))
 }
 
+/// Actualizar persona existente
 #[instrument(skip(state, auth, request))]
 pub async fn update_persona(
     State(state): State<AppState>,
@@ -98,9 +110,14 @@ pub async fn update_persona(
     
     debug!("📝 Actualizando persona ID: {}", id);
     
-    // Usar el caso de uso para actualizar
-    let response = state.container.update_persona_use_case
-        .execute(id, request, auth.user.id)
+    // Delegar al servicio
+    let response = state.container.persona_service
+        .update_persona(
+            id,
+            request,
+            auth.user.id,
+            Some(auth.user.username.clone()),
+        )
         .await?;
     
     info!("✅ Persona actualizada: {} (ID: {})", response.nombre, response.id);
@@ -108,19 +125,23 @@ pub async fn update_persona(
     Ok(json_ok(response))
 }
 
-#[instrument(skip(state, _auth))]
+/// Eliminar persona
+#[instrument(skip(state, auth))]
 pub async fn delete_persona(
     State(state): State<AppState>,
-    _auth: AuthUser,
+    auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     debug!("🗑️ Eliminando persona ID: {}", id);
     
-    let deleted = state.container.persona_repository.delete(id).await?;
-    
-    if !deleted {
-        return Err(ApplicationError::NotFound(format!("Persona con ID {} no encontrada", id)));
-    }
+    // Delegar al servicio
+    state.container.persona_service
+        .delete_persona(
+            id,
+            auth.user.id,
+            Some(auth.user.username.clone()),
+        )
+        .await?;
     
     info!("✅ Persona eliminada ID: {}", id);
     Ok(json_deleted())
@@ -131,6 +152,7 @@ pub struct SearchQuery {
     pub q: String,
 }
 
+/// Buscar personas por texto
 #[instrument(skip(state, _auth))]
 pub async fn search_personas(
     State(state): State<AppState>,
@@ -139,9 +161,9 @@ pub async fn search_personas(
 ) -> Result<impl IntoResponse, ApplicationError> {
     debug!("🔍 Buscando personas: {}", query.q);
     
-    // Usar el caso de uso para buscar
-    let response = state.container.search_personas_use_case
-        .execute(&query.q)
+    // Delegar al servicio
+    let response = state.container.persona_service
+        .search_personas(&query.q)
         .await?;
     
     Ok(json_ok(response))
