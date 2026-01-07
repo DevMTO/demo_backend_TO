@@ -239,6 +239,7 @@ pub async fn add_pasajero_to_file(
             request.id_persona, 
             request.asiento.as_deref(),
             request.tipo_pasajero.as_deref(),
+            request.nacionalidad.as_deref(),
             request.notas.as_deref(),
             Some(auth.user.id),
         )
@@ -328,6 +329,7 @@ pub async fn create_pasajero_with_persona(
             persona_id,
             request.asiento.as_deref(),
             request.tipo_pasajero.as_deref(),
+            request.nacionalidad.as_deref(),
             request.notas.as_deref(),
             Some(auth.user.id),
         )

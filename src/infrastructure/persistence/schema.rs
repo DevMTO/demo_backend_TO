@@ -122,6 +122,8 @@ diesel::table! {
         notas -> Nullable<Text>,
         created_at -> Timestamptz,
         created_by -> Nullable<Int4>,
+        #[max_length = 60]
+        nacionalidad -> Nullable<Varchar>,
     }
 }
 

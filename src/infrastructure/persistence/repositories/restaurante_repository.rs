@@ -139,22 +139,20 @@ impl RestauranteRepositoryPort for PostgresRestauranteRepository {
     async fn list_with_encargado(&self, limit: i64, offset: i64) -> Result<(Vec<RestauranteListItemDto>, i64), ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
-        // Count total
+        // Count total (todos, activos e inactivos)
         let total = restaurantes::table
-            .filter(restaurantes::is_active.eq(true))
             .count()
             .get_result::<i64>(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        // LEFT JOIN with personas to get encargado_nombre
+        // LEFT JOIN with personas to get encargado_nombre (todos, activos e inactivos)
         let results: Vec<(RestauranteModel, Option<(String, String)>)> = restaurantes::table
             .left_join(personas::table.on(restaurantes::encargado.eq(personas::id.nullable())))
             .select((
                 RestauranteModel::as_select(),
                 (personas::nombre, personas::apellidos).nullable()
             ))
-            .filter(restaurantes::is_active.eq(true))
             .order(restaurantes::nombre.asc())
             .limit(limit)
             .offset(offset)

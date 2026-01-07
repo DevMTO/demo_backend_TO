@@ -37,7 +37,7 @@ pub trait FileGuiaRepositoryPort: Send + Sync {
 
 #[async_trait]
 pub trait FilePasajeroRepositoryPort: Send + Sync {
-    async fn add(&self, id_file: i32, id_persona: i32, asiento: Option<&str>, tipo_pasajero: Option<&str>, notas: Option<&str>, created_by: Option<i32>) -> Result<FilePasajeroModel, ApplicationError>;
+    async fn add(&self, id_file: i32, id_persona: i32, asiento: Option<&str>, tipo_pasajero: Option<&str>, nacionalidad: Option<&str>, notas: Option<&str>, created_by: Option<i32>) -> Result<FilePasajeroModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn find_by_file(&self, id_file: i32) -> Result<Vec<FilePasajeroModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FilePasajeroModel>, ApplicationError>;
@@ -233,7 +233,7 @@ impl PostgresFilePasajeroRepository {
 #[async_trait]
 impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
     #[instrument(skip(self))]
-    async fn add(&self, id_file: i32, id_persona: i32, asiento: Option<&str>, tipo_pasajero: Option<&str>, notas: Option<&str>, created_by: Option<i32>) -> Result<FilePasajeroModel, ApplicationError> {
+    async fn add(&self, id_file: i32, id_persona: i32, asiento: Option<&str>, tipo_pasajero: Option<&str>, nacionalidad: Option<&str>, notas: Option<&str>, created_by: Option<i32>) -> Result<FilePasajeroModel, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let new_record = NewFilePasajeroModel {
@@ -243,6 +243,7 @@ impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
             tipo_pasajero,
             notas,
             created_by,
+            nacionalidad,
         };
         
         let result = diesel::insert_into(file_pasajeros::table)

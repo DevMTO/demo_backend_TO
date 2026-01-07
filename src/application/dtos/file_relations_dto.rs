@@ -110,6 +110,7 @@ pub struct FilePasajeroResponse {
     pub asiento: Option<String>,
     pub tipo_pasajero: Option<String>,
     pub notas: Option<String>,
+    pub nacionalidad: Option<String>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     // Datos del pasajero relacionado
@@ -127,6 +128,7 @@ impl From<FilePasajeroModel> for FilePasajeroResponse {
             asiento: m.asiento,
             tipo_pasajero: m.tipo_pasajero,
             notas: m.notas,
+            nacionalidad: m.nacionalidad,
             created_at: m.created_at,
             created_by: m.created_by,
             pasajero_nombre: None,
@@ -145,6 +147,8 @@ pub struct AddPasajeroToFileRequest {
     pub asiento: Option<String>,
     #[validate(length(max = 30))]
     pub tipo_pasajero: Option<String>, // "adulto", "niño", "infante"
+    #[validate(length(max = 60))]
+    pub nacionalidad: Option<String>,
     pub notas: Option<String>,
 }
 
@@ -189,6 +193,9 @@ pub struct CreatePasajeroWithPersonaRequest {
     
     #[validate(length(max = 30))]
     pub tipo_pasajero: Option<String>, // "adulto", "niño", "infante"
+    
+    #[validate(length(max = 60))]
+    pub nacionalidad: Option<String>,
     
     pub notas: Option<String>,
 }

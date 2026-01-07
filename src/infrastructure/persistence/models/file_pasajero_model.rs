@@ -17,6 +17,7 @@ pub struct FilePasajeroModel {
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
+    pub nacionalidad: Option<String>,
 }
 
 /// Modelo insertable para crear file_pasajeros
@@ -29,4 +30,5 @@ pub struct NewFilePasajeroModel<'a> {
     pub tipo_pasajero: Option<&'a str>,
     pub notas: Option<&'a str>,
     pub created_by: Option<i32>,
+    pub nacionalidad: Option<&'a str>,
 }
