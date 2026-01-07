@@ -3,11 +3,11 @@ use serde::Deserialize;
 use tracing::{info, instrument};
 use validator::Validate;
 
-use crate::application::dtos::{CreateVehiculoRequest, UpdateVehiculoRequest, VehiculoListResponse};
+use crate::application::dtos::{CreateVehiculoRequest, UpdateVehiculoRequest};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
-use super::common::{json_ok, json_created, json_deleted};
+use super::common::{json_ok, json_created, json_deleted, create_paginated_response};
 
 /// Query params para listar vehículos
 #[derive(Debug, Deserialize)]
@@ -43,15 +43,8 @@ pub async fn list_vehiculos(
         state.container.vehiculo_service.list_vehiculos(page_size, offset).await?
     };
     
-    let total_pages = ((total as f64) / (page_size as f64)).ceil() as i64;
-    
-    Ok(json_ok(VehiculoListResponse {
-        items,
-        total,
-        page,
-        page_size,
-        total_pages,
-    }))
+    let response = create_paginated_response(items, total, page, page_size);
+    Ok(json_ok(response))
 }
 
 /// GET /api/v1/vehiculos/:id - Obtener un vehículo por ID

@@ -384,3 +384,86 @@ pub struct VehiculoDisponibilidadResponse {
     pub files_asignados: Vec<i32>, // IDs de files donde está asignado
     pub puede_asignar_mas: bool,
 }
+
+// ==================== MY FILES (Para usuarios autenticados) ====================
+
+/// File asignado a un guía con todos los detalles necesarios
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct MyFileAsGuiaDto {
+    // Info del file
+    pub file_id: i32,
+    pub file_code: Option<String>,
+    pub fecha_inicio: String,
+    pub fecha_fin: String,
+    pub lugar_recojo: Option<String>,
+    pub hora_recojo: Option<String>,
+    pub status: String,
+    pub nro_pasajeros: i32,
+    // Info del tour
+    pub tour_id: i32,
+    pub tour_nombre: String,
+    pub tour_lugar_inicio: String,
+    pub tour_lugar_fin: String,
+    // Info de la agencia
+    pub agencia_id: i32,
+    pub agencia_nombre: String,
+    // Rol del guía en este file
+    pub rol_guia: Option<String>,
+    pub asignado_at: DateTime<Utc>,
+}
+
+/// File asignado a un conductor/vehículo con todos los detalles
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct MyFileAsConductorDto {
+    // Info del file
+    pub file_id: i32,
+    pub file_code: Option<String>,
+    pub fecha_inicio: String,
+    pub fecha_fin: String,
+    pub lugar_recojo: Option<String>,
+    pub hora_recojo: Option<String>,
+    pub status: String,
+    pub nro_pasajeros: i32,
+    // Info del tour
+    pub tour_id: i32,
+    pub tour_nombre: String,
+    pub tour_lugar_inicio: String,
+    pub tour_lugar_fin: String,
+    // Info de la agencia
+    pub agencia_id: i32,
+    pub agencia_nombre: String,
+    // Info del vehículo asignado
+    pub vehiculo_id: i32,
+    pub vehiculo_nombre: String,
+    pub vehiculo_placa: String,
+    pub vehiculo_capacidad: i32,
+    pub asignado_at: DateTime<Utc>,
+}
+
+/// File asignado a un restaurante con todos los detalles
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct MyFileAsRestauranteDto {
+    // Info del file
+    pub file_id: i32,
+    pub file_code: Option<String>,
+    pub fecha_inicio: String,
+    pub fecha_fin: String,
+    pub status: String,
+    pub nro_pasajeros: i32,
+    // Info del tour
+    pub tour_id: i32,
+    pub tour_nombre: String,
+    // Info de la agencia
+    pub agencia_id: i32,
+    pub agencia_nombre: String,
+    // Info del servicio del restaurante
+    pub tipo_servicio: Option<String>,
+    pub dia: Option<i32>,
+    pub asignado_at: DateTime<Utc>,
+}

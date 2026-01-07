@@ -42,6 +42,8 @@ use crate::application::services::{
     ConductorService,
     EntradaService,
     GuiaService,
+    MyFilesService,
+    PostgresMyFilesRepository,
 };
 use crate::application::use_cases::auth::{
     LoginUseCase,
@@ -109,6 +111,7 @@ pub struct DependencyContainer {
     pub conductor_service: Arc<ConductorService>,
     pub entrada_service: Arc<EntradaService>,
     pub guia_service: Arc<GuiaService>,
+    pub my_files_service: Arc<MyFilesService>,
     
     // Object Storage (Tigris) - Opcional, puede ser None si no está configurado
     pub tigris_storage: Option<Arc<crate::infrastructure::storage::TigrisStorage>>,
@@ -237,7 +240,7 @@ impl DependencyContainer {
             PostgresFileRestauranteRepository::new(db_pool.clone())
         );
         let file_vehiculo_repository: Arc<dyn FileVehiculoRepositoryPort> = Arc::new(
-            PostgresFileVehiculoRepository::new(db_pool)
+            PostgresFileVehiculoRepository::new(db_pool.clone())
         );
         
         // Crear servicios de sistema
@@ -359,6 +362,10 @@ impl DependencyContainer {
             notification_broadcast_adapter,
         ));
         
+        // ========== Crear servicio - MyFiles ==========
+        let my_files_repository = Arc::new(PostgresMyFilesRepository::new(db_pool.clone()));
+        let my_files_service = Arc::new(MyFilesService::new(my_files_repository));
+        
         Ok(Self {
             // Auth use cases
             login_use_case,
@@ -381,6 +388,7 @@ impl DependencyContainer {
             conductor_service,
             entrada_service,
             guia_service,
+            my_files_service,
             // Repositories
             user_repository,
             persona_repository,

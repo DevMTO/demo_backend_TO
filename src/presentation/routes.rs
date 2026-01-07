@@ -36,6 +36,7 @@ use super::handlers::{
     entrada_handlers,
     file_handlers,
     file_relations_handlers,
+    my_files_handlers,
     pago_handlers,
     activity_log_handlers,
     notification_handlers,
@@ -261,6 +262,13 @@ pub fn create_router(
         .route("/transporte/{transporte_id}/logo", post(storage_handlers::upload_transporte_logo))
         .route("/proxy/{*file_path}", get(storage_handlers::proxy_file));
 
+    // === My Files Routes (para guías, conductores, restaurantes) ===
+    // Cada usuario ve solo los files donde está asignado
+    let my_files_routes = Router::new()
+        .route("/guia", get(my_files_handlers::get_my_files_as_guia))
+        .route("/conductor", get(my_files_handlers::get_my_files_as_conductor))
+        .route("/restaurante", get(my_files_handlers::get_my_files_as_restaurante));
+
     // ========== RUTAS PROTEGIDAS ==========
     // Todas las rutas CRUD requieren autenticación vía cookie de sesión
     let protected_routes = Router::new()
@@ -279,6 +287,7 @@ pub fn create_router(
         .nest("/logs", activity_log_routes)
         .nest("/notifications", notification_routes)
         .nest("/storage", storage_routes)
+        .nest("/my-files", my_files_routes)
         .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
     // Router principal con capas de seguridad

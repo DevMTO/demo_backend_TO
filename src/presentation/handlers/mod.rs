@@ -12,6 +12,7 @@ pub mod restaurante_handlers;
 pub mod entrada_handlers;
 pub mod file_handlers;
 pub mod file_relations_handlers;
+pub mod my_files_handlers;
 pub mod pago_handlers;
 pub mod activity_log_handlers;
 pub mod notification_handlers;
