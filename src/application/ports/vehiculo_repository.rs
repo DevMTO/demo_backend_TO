@@ -23,6 +23,7 @@ pub trait VehiculoRepositoryPort: Send + Sync {
     async fn find_by_placa(&self, placa: &str) -> Result<Option<Vehiculo>, ApplicationError>;
     async fn exists_by_placa(&self, placa: &str) -> Result<bool, ApplicationError>;
     async fn find_by_transporte(&self, id_transporte: i32) -> Result<Vec<Vehiculo>, ApplicationError>;
+    async fn find_by_transporte_with_details(&self, id_transporte: i32) -> Result<Vec<VehiculoListItemDto>, ApplicationError>;
     async fn list_available(&self) -> Result<Vec<Vehiculo>, ApplicationError>;
     async fn update_status(&self, id: i32, status: &str) -> Result<bool, ApplicationError>;
 }

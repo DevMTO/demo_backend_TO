@@ -69,10 +69,10 @@ impl VehiculoService {
 
     /// Listar vehículos por transporte
     #[instrument(skip(self))]
-    pub async fn list_by_transporte(&self, transporte_id: i32) -> Result<Vec<VehiculoResponse>, ApplicationError> {
-        let vehiculos = self.vehiculo_repository.find_by_transporte(transporte_id).await?;
+    pub async fn list_by_transporte(&self, transporte_id: i32) -> Result<Vec<VehiculoListItemDto>, ApplicationError> {
+        let vehiculos = self.vehiculo_repository.find_by_transporte_with_details(transporte_id).await?;
         info!("🚐 Encontrados {} vehículos para transporte {}", vehiculos.len(), transporte_id);
-        Ok(vehiculos.into_iter().map(VehiculoResponse::from).collect())
+        Ok(vehiculos)
     }
 
     /// Listar vehículos disponibles

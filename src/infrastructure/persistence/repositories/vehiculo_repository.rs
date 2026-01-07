@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tracing::{info, instrument};
@@ -149,6 +150,50 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
             .load::<VehiculoModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         Ok(results.into_iter().map(Into::into).collect())
+    }
+    
+    async fn find_by_transporte_with_details(&self, id_transporte: i32) -> Result<Vec<VehiculoListItemDto>, ApplicationError> {
+        use crate::infrastructure::persistence::schema::{vehiculos, transportes};
+        
+        let mut conn = self.pool.get_connection().await?;
+        let results = vehiculos::table
+            .inner_join(transportes::table)
+            .filter(vehiculos::id_transporte.eq(id_transporte))
+            .select((
+                vehiculos::id,
+                vehiculos::id_transporte,
+                vehiculos::nombre,
+                vehiculos::modelo,
+                vehiculos::placa,
+                vehiculos::capacidad,
+                vehiculos::status,
+                vehiculos::is_active,
+                vehiculos::created_at,
+                vehiculos::updated_at,
+                transportes::nombre,
+            ))
+            .load::<(i32, i32, String, Option<String>, String, i32, String, bool, chrono::NaiveDateTime, chrono::NaiveDateTime, String)>(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        Ok(results
+            .into_iter()
+            .map(|(id, id_transporte, nombre, modelo, placa, capacidad, status, is_active, created_at, updated_at, transporte_nombre)| {
+                VehiculoListItemDto {
+                    id,
+                    id_transporte,
+                    transporte_nombre: Some(transporte_nombre),
+                    nombre,
+                    modelo,
+                    placa,
+                    capacidad,
+                    status,
+                    is_active,
+                    created_at: DateTime::from_naive_utc_and_offset(created_at, Utc),
+                    updated_at: DateTime::from_naive_utc_and_offset(updated_at, Utc),
+                }
+            })
+            .collect())
     }
     
     async fn list_available(&self) -> Result<Vec<Vehiculo>, ApplicationError> {

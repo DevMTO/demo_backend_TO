@@ -1,4 +1,5 @@
 use axum::{extract::{Path, Query, State}, response::IntoResponse, Json};
+use serde::Deserialize;
 use tracing::{info, instrument};
 use validator::Validate;
 
@@ -6,20 +7,42 @@ use crate::application::dtos::{CreateVehiculoRequest, UpdateVehiculoRequest, Veh
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
-use super::common::{PaginationParams, json_ok, json_created, json_deleted};
+use super::common::{json_ok, json_created, json_deleted};
 
-/// GET /api/v1/vehiculos - Listar vehículos con paginación
+/// Query params para listar vehículos
+#[derive(Debug, Deserialize)]
+pub struct VehiculosQueryParams {
+    #[serde(default = "default_page")]
+    pub page: i64,
+    #[serde(default = "default_page_size")]
+    pub page_size: i64,
+    /// Filtrar por transporte específico
+    pub id_transporte: Option<i32>,
+}
+
+fn default_page() -> i64 { 1 }
+fn default_page_size() -> i64 { 20 }
+
+/// GET /api/v1/vehiculos - Listar vehículos con paginación y filtro opcional por transporte
 #[instrument(skip(state, _auth))]
 pub async fn list_vehiculos(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Query(params): Query<PaginationParams>,
+    Query(params): Query<VehiculosQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let page = params.page;
     let page_size = params.page_size;
     let offset = (page - 1) * page_size;
     
-    let (items, total) = state.container.vehiculo_service.list_vehiculos(page_size, offset).await?;
+    // Si hay filtro por transporte, usar el método específico
+    let (items, total) = if let Some(transporte_id) = params.id_transporte {
+        let vehiculos = state.container.vehiculo_service.list_by_transporte(transporte_id).await?;
+        let total = vehiculos.len() as i64;
+        (vehiculos, total)
+    } else {
+        state.container.vehiculo_service.list_vehiculos(page_size, offset).await?
+    };
+    
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as i64;
     
     Ok(json_ok(VehiculoListResponse {
