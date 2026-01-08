@@ -216,6 +216,17 @@ impl TigrisStorage {
         let timestamp = chrono::Utc::now().timestamp();
         format!("transportes/{}/{}-{}.{}", transporte_id, file_type, timestamp, extension)
     }
+    
+    /// Genera un path único para un archivo de tour
+    /// 
+    /// # Arguments
+    /// * `tour_id` - ID del tour
+    /// * `file_type` - Tipo de archivo (image, cover, gallery)
+    /// * `extension` - Extensión del archivo (png, jpg, etc)
+    pub fn generate_tour_path(tour_id: i32, file_type: &str, extension: &str) -> String {
+        let timestamp = chrono::Utc::now().timestamp();
+        format!("tours/{}/{}-{}.{}", tour_id, file_type, timestamp, extension)
+    }
 }
 
 /// Tipos de archivos permitidos para agencias

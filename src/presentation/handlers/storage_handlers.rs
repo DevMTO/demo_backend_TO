@@ -739,3 +739,184 @@ async fn update_transporte_media(
     
     Ok(())
 }
+
+/// Subir imagen de tour
+/// 
+/// POST /api/v1/storage/tour/{tour_id}/image
+pub async fn upload_tour_image(
+    State(state): State<AppState>,
+    auth_user: AuthUser,
+    Path(tour_id): Path<i32>,
+    mut multipart: Multipart,
+) -> Result<Json<UploadResponse>, (StatusCode, Json<StorageErrorResponse>)> {
+    info!("📤 Subiendo imagen para tour {}", tour_id);
+    
+    // Verificar que el storage está configurado
+    let storage = state.container.tigris_storage.as_ref()
+        .ok_or_else(|| {
+            error!("❌ Storage no configurado");
+            (StatusCode::SERVICE_UNAVAILABLE, Json(StorageErrorResponse {
+                success: false,
+                error: "Storage no disponible".to_string(),
+            }))
+        })?;
+    
+    // Verificar permisos: SuperAdmin, Admin o Agencias pueden subir imágenes de tours
+    let can_upload = auth_user.user.role == UserRole::SuperAdmin 
+        || auth_user.user.role == UserRole::Admin
+        || auth_user.user.role == UserRole::Agencias;
+    
+    if !can_upload {
+        warn!("⚠️ Usuario {} no tiene permisos para subir imagen de tour {}", 
+            auth_user.user.username, tour_id);
+        return Err((StatusCode::FORBIDDEN, Json(StorageErrorResponse {
+            success: false,
+            error: "No tienes permisos para modificar este tour".to_string(),
+        })));
+    }
+    
+    // Verificar que el tour existe
+    let _tour = state.container.tour_repository
+        .find_by_id(tour_id)
+        .await
+        .map_err(|e| {
+            error!("❌ Error buscando tour: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(StorageErrorResponse {
+                success: false,
+                error: "Error verificando tour".to_string(),
+            }))
+        })?
+        .ok_or_else(|| {
+            (StatusCode::NOT_FOUND, Json(StorageErrorResponse {
+                success: false,
+                error: "Tour no encontrado".to_string(),
+            }))
+        })?;
+    
+    // Procesar archivo del multipart
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        error!("❌ Error procesando multipart: {}", e);
+        (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
+            success: false,
+            error: format!("Error procesando archivo: {}", e),
+        }))
+    })? {
+        let content_type = field.content_type()
+            .map(|ct| ct.to_string())
+            .unwrap_or_default();
+        
+        // Validar tipo de archivo
+        if let Err(e) = validate_content_type(&content_type) {
+            return Err((StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
+                success: false,
+                error: e,
+            })));
+        }
+        
+        // Leer bytes del archivo
+        let data = field.bytes().await.map_err(|e| {
+            error!("❌ Error leyendo archivo: {}", e);
+            (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
+                success: false,
+                error: format!("Error leyendo archivo: {}", e),
+            }))
+        })?;
+        
+        // Validar tamaño
+        if data.len() > MAX_FILE_SIZE {
+            return Err((StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
+                success: false,
+                error: format!("Archivo muy grande. Máximo: {} MB", MAX_FILE_SIZE / 1024 / 1024),
+            })));
+        }
+        
+        // Generar path y subir
+        let extension = extension_from_content_type(&content_type);
+        let path = TigrisStorage::generate_tour_path(tour_id, "image", extension);
+        
+        let url = storage.upload(&path, &data, &content_type).await.map_err(|e| {
+            error!("❌ Error subiendo a Tigris: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(StorageErrorResponse {
+                success: false,
+                error: format!("Error subiendo archivo: {}", e),
+            }))
+        })?;
+        
+        // Actualizar el tour con la nueva URL de la imagen
+        if let Err(e) = update_tour_media(
+            &state, 
+            tour_id, 
+            "image", 
+            &path,
+            auth_user.user.id,
+        ).await {
+            warn!("⚠️ Error actualizando media de tour: {}", e);
+        }
+        
+        info!("✅ Imagen de tour subida: {}", url);
+        
+        return Ok(Json(UploadResponse {
+            success: true,
+            url,
+            path,
+            message: "Imagen subida correctamente".to_string(),
+        }));
+    }
+    
+    Err((StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
+        success: false,
+        error: "No se recibió ningún archivo".to_string(),
+    })))
+}
+
+/// Actualiza el campo media de un tour
+async fn update_tour_media(
+    state: &AppState,
+    tour_id: i32,
+    field: &str,
+    path: &str,
+    updated_by: i32,
+) -> Result<(), ApplicationError> {
+    use crate::application::dtos::UpdateTourRequest;
+    use serde_json::json;
+    
+    // Obtener tour actual
+    let tour = state.container.tour_repository
+        .find_by_id(tour_id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound("Tour no encontrado".to_string()))?;
+    
+    // Parsear media actual o crear nuevo
+    let current_media = tour.media.clone().unwrap_or(json!({}));
+    let mut media: serde_json::Value = if current_media.is_string() {
+        serde_json::from_str(current_media.as_str().unwrap_or("{}")).unwrap_or(json!({}))
+    } else {
+        current_media
+    };
+    
+    // Actualizar campo
+    media[field] = json!(path);
+    
+    // Construir request de actualización
+    let request = UpdateTourRequest {
+        nombre: None,
+        lugar_inicio: None,
+        lugar_fin: None,
+        hora_inicio: None,
+        hora_fin: None,
+        detalles: None,
+        itinerario: None,
+        precio_base: None,
+        duracion_dias: None,
+        media: Some(media),
+        tipo_tour: None,
+        is_active: None,
+    };
+    
+    // Aplicar la actualización usando el servicio
+    state.container.tour_service
+        .update_tour(tour_id, request, updated_by, None)
+        .await?;
+    
+    Ok(())
+}

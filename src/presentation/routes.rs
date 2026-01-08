@@ -260,6 +260,7 @@ pub fn create_router(
         .route("/agencia/{agencia_id}/logo", post(storage_handlers::upload_agencia_logo).delete(storage_handlers::delete_agencia_logo))
         .route("/agencia/{agencia_id}/banner", post(storage_handlers::upload_agencia_banner).delete(storage_handlers::delete_agencia_banner))
         .route("/transporte/{transporte_id}/logo", post(storage_handlers::upload_transporte_logo))
+        .route("/tour/{tour_id}/image", post(storage_handlers::upload_tour_image))
         .route("/proxy/{*file_path}", get(storage_handlers::proxy_file));
 
     // === My Files Routes (para guías, conductores, restaurantes) ===
