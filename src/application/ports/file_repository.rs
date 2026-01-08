@@ -20,4 +20,7 @@ pub trait FileRepositoryPort: Send + Sync {
     async fn find_by_date_range(&self, from: NaiveDate, to: NaiveDate) -> Result<Vec<File>, ApplicationError>;
     async fn find_upcoming(&self) -> Result<Vec<File>, ApplicationError>;
     async fn find_pending_payment(&self) -> Result<Vec<File>, ApplicationError>;
+    
+    /// Actualiza el contador nro_pasajeros basándose en file_pasajeros
+    async fn update_pasajeros_count(&self, file_id: i32) -> Result<i32, ApplicationError>;
 }

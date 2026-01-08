@@ -245,6 +245,9 @@ pub async fn add_pasajero_to_file(
         )
         .await?;
     
+    // Actualizar conteo de pasajeros en el file
+    state.container.file_repository.update_pasajeros_count(file_id).await?;
+    
     Ok(json_created(FilePasajeroResponse::from(result)))
 }
 
@@ -265,6 +268,10 @@ pub async fn remove_file_pasajero(
     }
     
     state.container.file_pasajero_repository.remove(pasajero_asig_id).await?;
+    
+    // Actualizar conteo de pasajeros en el file
+    state.container.file_repository.update_pasajeros_count(file_id).await?;
+    
     Ok(json_deleted())
 }
 
@@ -334,6 +341,9 @@ pub async fn create_pasajero_with_persona(
             Some(auth.user.id),
         )
         .await?;
+    
+    // Actualizar conteo de pasajeros en el file
+    state.container.file_repository.update_pasajeros_count(file_id).await?;
     
     let mut pasajero_response = FilePasajeroResponse::from(pasajero_result);
     pasajero_response.pasajero_nombre = Some(persona_nombre.clone());
