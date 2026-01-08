@@ -33,6 +33,8 @@ pub struct UserSession {
     pub created_at: DateTime<Utc>,
     /// Fecha de última actualización
     pub updated_at: DateTime<Utc>,
+    /// Si es una sesión "recordada" (no tiene idle timeout)
+    pub remember_me: bool,
 }
 
 impl UserSession {
@@ -61,7 +63,14 @@ impl UserSession {
             revoked_reason: None,
             created_at: now,
             updated_at: now,
+            remember_me: false,
         }
+    }
+    
+    /// Crear sesión con remember_me (sin idle timeout)
+    pub fn with_remember_me(mut self, remember: bool) -> Self {
+        self.remember_me = remember;
+        self
     }
     
     /// Crear sesión con refresh token

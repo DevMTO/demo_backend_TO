@@ -21,11 +21,13 @@ pub trait SessionManagerPort: Send + Sync {
     fn verify_token(&self, token: &str, stored_hash: &str) -> Result<bool, ApplicationError>;
     
     /// Crear una nueva sesión para un usuario
+    /// Si `remember_me` es true, la sesión no expirará por inactividad
     fn create_session(
         &self,
         user_id: i32,
         user_agent: Option<String>,
         ip_address: Option<String>,
+        remember_me: bool,
     ) -> Result<(UserSession, SessionTokenData), ApplicationError>;
     
     /// Validar que una sesión es válida (activa, no expirada, no idle)

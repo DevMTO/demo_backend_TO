@@ -24,6 +24,7 @@ pub struct SessionModel {
     pub revoked_reason: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub remember_me: bool,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -41,6 +42,7 @@ pub struct NewSessionModel<'a> {
     pub last_activity: Option<DateTime<Utc>>,
     pub revoked_at: Option<DateTime<Utc>>,
     pub revoked_reason: Option<&'a str>,
+    pub remember_me: bool,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -76,6 +78,7 @@ impl From<SessionModel> for UserSession {
             revoked_reason: model.revoked_reason,
             created_at: model.created_at,
             updated_at: model.updated_at,
+            remember_me: model.remember_me,
         }
     }
 }
@@ -95,6 +98,7 @@ impl<'a> From<&'a UserSession> for NewSessionModel<'a> {
             last_activity: session.last_activity,
             revoked_at: session.revoked_at,
             revoked_reason: session.revoked_reason.as_deref(),
+            remember_me: session.remember_me,
         }
     }
 }

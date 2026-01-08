@@ -4,7 +4,7 @@ use axum::{
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use tower_cookies::Cookies;
-use tracing::debug;
+use tracing::info;
 
 use crate::domain::{entities::User, errors::ApplicationError};
 use crate::presentation::routes::AppState;
@@ -37,7 +37,7 @@ impl FromRequestParts<AppState> for AuthUser {
         if let Some(ref new_token) = verification.new_token {
             // Intentar obtener el Cookies manager de las extensiones
             if let Some(cookies) = parts.extensions.get::<Cookies>() {
-                debug!("🔄 Token rotado automáticamente, actualizando cookie...");
+                info!("🔄 Token rotado automáticamente para sesión {}, actualizando cookie...", verification.session_id);
                 let session_cookie = create_session_cookie_for_rotation(
                     new_token,
                     state.container.cookie_max_age_hours,

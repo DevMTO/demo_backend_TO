@@ -51,7 +51,12 @@ impl VerifySessionUseCase {
             .ok_or_else(|| ApplicationError::SessionRequired)?;
         
         // 3. Verificar que la sesión sea válida (activa, no expirada, no idle)
-        self.session_manager.validate_session(&session)?;
+        // Si falla, invalidamos la sesión para evitar reutilización
+        if let Err(validation_error) = self.session_manager.validate_session(&session) {
+            // Invalidar la sesión en la base de datos
+            let _ = self.session_repository.revoke(session.id, "session_invalid").await;
+            return Err(validation_error);
+        }
         
         // 4. Obtener el usuario
         let user = self.user_repository

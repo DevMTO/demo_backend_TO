@@ -4,6 +4,7 @@ use hmac::{Hmac, Mac};
 use rand::RngCore;
 use sha2::Sha256;
 use subtle::ConstantTimeEq;
+use tracing::{debug, warn};
 
 use crate::application::ports::{SessionManagerPort, SessionTokenData};
 use crate::config::AppConfig;
@@ -79,16 +80,24 @@ impl SessionManagerPort for SecureSessionManager {
         user_id: i32,
         user_agent: Option<String>,
         ip_address: Option<String>,
+        remember_me: bool,
     ) -> Result<(UserSession, SessionTokenData), ApplicationError> {
         let session_token = self.generate_token()?;
         let now = Utc::now();
+        
+        // Si remember_me, extender la duración de la sesión a 30 días
+        let expiration_hours = if remember_me {
+            30 * 24 // 30 días
+        } else {
+            self.session_expiration_hours
+        };
 
         let session = UserSession {
             id: 0,
             user_id,
             token_hash: session_token.token_hash.clone(),
             refresh_token_hash: None,
-            expires_at: now + Duration::hours(self.session_expiration_hours),
+            expires_at: now + Duration::hours(expiration_hours),
             refresh_expires_at: None,
             ip_address,
             user_agent,
@@ -99,38 +108,66 @@ impl SessionManagerPort for SecureSessionManager {
             revoked_reason: None,
             created_at: now,
             updated_at: now,
+            remember_me,
         };
 
         Ok((session, session_token))
     }
 
     fn validate_session(&self, session: &UserSession) -> Result<(), ApplicationError> {
+        debug!(
+            "🔍 Validando sesión {} - is_active: {}, remember_me: {}, expires_at: {}, last_activity: {:?}",
+            session.id, session.is_active, session.remember_me, session.expires_at, session.last_activity
+        );
+        
         if !session.is_active {
+            warn!("❌ Sesión {} no está activa", session.id);
             return Err(ApplicationError::Authentication("Session is not active".to_string()));
         }
         if self.is_expired(session) {
+            warn!("❌ Sesión {} ha expirado (expires_at: {})", session.id, session.expires_at);
             return Err(ApplicationError::Authentication("Session has expired".to_string()));
         }
-        if self.is_idle_timeout(session) {
-            return Err(ApplicationError::Authentication("Session idle timeout".to_string()));
+        // Solo verificar idle timeout si NO es una sesión "recordada"
+        if !session.remember_me {
+            if self.is_idle_timeout(session) {
+                warn!(
+                    "❌ Sesión {} idle timeout (last_activity: {:?}, timeout: {} min, remember_me: {})",
+                    session.id, session.last_activity, self.idle_timeout_minutes, session.remember_me
+                );
+                return Err(ApplicationError::Authentication("Session idle timeout".to_string()));
+            }
+        } else {
+            debug!("✅ Sesión {} tiene remember_me=true, saltando idle timeout check", session.id);
         }
+        
+        debug!("✅ Sesión {} válida", session.id);
         Ok(())
     }
 
     fn should_rotate_token(&self, session: &UserSession) -> bool {
         if let Some(last_activity) = session.last_activity {
             let rotation_threshold = Duration::minutes(self.rotation_interval_minutes);
-            Utc::now() - last_activity > rotation_threshold
+            let should_rotate = Utc::now() - last_activity > rotation_threshold;
+            if should_rotate {
+                debug!(
+                    "🔄 Sesión {} necesita rotación de token (last_activity: {}, threshold: {} min)",
+                    session.id, last_activity, self.rotation_interval_minutes
+                );
+            }
+            should_rotate
         } else {
             false
         }
     }
 
     fn rotate_token(&self, session: &mut UserSession) -> Result<SessionTokenData, ApplicationError> {
+        debug!("🔄 Rotando token para sesión {}", session.id);
         let new_token = self.generate_token()?;
         session.token_hash = new_token.token_hash.clone();
         session.updated_at = Utc::now();
         session.last_activity = Some(Utc::now());
+        debug!("✅ Token rotado exitosamente para sesión {}", session.id);
         Ok(new_token)
     }
 

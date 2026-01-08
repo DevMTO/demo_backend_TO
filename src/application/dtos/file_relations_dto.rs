@@ -408,15 +408,23 @@ pub struct MyFileAsGuiaDto {
     pub hora_recojo: Option<String>,
     pub status: String,
     pub nro_pasajeros: i32,
-    // Info del tour
+    pub turno_tour: Option<String>,
+    pub notas: Option<String>,
+    // Info del tour (ampliada)
     pub tour_id: i32,
     pub tour_nombre: String,
     pub tour_lugar_inicio: String,
     pub tour_lugar_fin: String,
+    pub tour_duracion_horas: Option<i32>,
+    pub tour_tipo: Option<String>,
     // Info de la agencia
     pub agencia_id: i32,
     pub agencia_nombre: String,
-    // Rol del guía en este file
+    pub agencia_telefono: Option<String>,
+    // Info del guía (este guía asignado)
+    pub guia_id: i32,
+    pub guia_nombre: String,
+    pub guia_nro_carnet: String,
     pub rol_guia: Option<String>,
     pub asignado_at: DateTime<Utc>,
 }

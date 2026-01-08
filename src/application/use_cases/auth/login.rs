@@ -120,11 +120,12 @@ impl LoginUseCase {
         }
         
         // 5. Crear sesión con token opaco
-        debug!("🎫 Creando nueva sesión...");
+        debug!("🎫 Creando nueva sesión (remember_me: {})...", request.remember_me);
         let (session, token_data) = self.session_manager.create_session(
             user.id,
             user_agent,
             ip_address,
+            request.remember_me,
         )?;
         
         // 6. Guardar sesión en BD

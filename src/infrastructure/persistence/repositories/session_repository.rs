@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use tracing::debug;
 
 use crate::application::ports::SessionRepositoryPort;
 use crate::domain::{entities::UserSession, errors::ApplicationError};
@@ -59,6 +60,13 @@ impl SessionRepositoryPort for PostgresSessionRepository {
             .await
             .optional()
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        if let Some(ref session) = result {
+            debug!(
+                "📦 Sesión cargada de DB: id={}, user_id={}, remember_me={}, expires_at={}",
+                session.id, session.user_id, session.remember_me, session.expires_at
+            );
+        }
         
         Ok(result.map(Into::into))
     }

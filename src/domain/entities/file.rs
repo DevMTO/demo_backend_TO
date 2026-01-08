@@ -60,6 +60,7 @@ pub struct File {
     pub monto_pagado: BigDecimal,
     pub nro_pasajeros: i32,
     pub file_code: Option<String>,
+    pub turno_tour: Option<String>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -84,6 +85,7 @@ impl File {
             monto_pagado: BigDecimal::from(0),
             nro_pasajeros: 0,
             file_code: None, // Será asignado después de insertar
+            turno_tour: None,
             is_active: true,
             created_at: now,
             updated_at: now,

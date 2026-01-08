@@ -45,6 +45,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         let mut conn = self.pool.get_connection().await?;
         
         // SQL con JOIN eficiente: guias -> file_guias -> files -> tours -> agencias
+        // Incluye más información del tour, agencia y guía
         let query = diesel::sql_query(r#"
             SELECT 
                 f.id as file_id,
@@ -55,15 +56,24 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
                 f.hora_recojo::text as hora_recojo,
                 f.status,
                 f.nro_pasajeros,
+                f.turno_tour,
+                f.notas,
                 t.id as tour_id,
                 t.nombre as tour_nombre,
                 t.lugar_inicio as tour_lugar_inicio,
                 t.lugar_fin as tour_lugar_fin,
+                t.duracion_horas as tour_duracion_horas,
+                t.tipo as tour_tipo,
                 a.id as agencia_id,
                 a.nombre as agencia_nombre,
+                a.telefono as agencia_telefono,
+                g.id as guia_id,
+                CONCAT(p.nombre, ' ', p.apellidos) as guia_nombre,
+                g.nro_carnet as guia_nro_carnet,
                 fg.rol as rol_guia,
                 fg.created_at as asignado_at
             FROM guias g
+            INNER JOIN personas p ON p.id = g.id_persona
             INNER JOIN file_guias fg ON fg.id_guia = g.id
             INNER JOIN files f ON f.id = fg.id_file
             INNER JOIN tours t ON t.id = f.id_tour
@@ -92,6 +102,10 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             status: String,
             #[diesel(sql_type = Integer)]
             nro_pasajeros: i32,
+            #[diesel(sql_type = Nullable<Text>)]
+            turno_tour: Option<String>,
+            #[diesel(sql_type = Nullable<Text>)]
+            notas: Option<String>,
             #[diesel(sql_type = Integer)]
             tour_id: i32,
             #[diesel(sql_type = Text)]
@@ -100,10 +114,22 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             tour_lugar_inicio: String,
             #[diesel(sql_type = Text)]
             tour_lugar_fin: String,
+            #[diesel(sql_type = Nullable<Integer>)]
+            tour_duracion_horas: Option<i32>,
+            #[diesel(sql_type = Nullable<Text>)]
+            tour_tipo: Option<String>,
             #[diesel(sql_type = Integer)]
             agencia_id: i32,
             #[diesel(sql_type = Text)]
             agencia_nombre: String,
+            #[diesel(sql_type = Nullable<Text>)]
+            agencia_telefono: Option<String>,
+            #[diesel(sql_type = Integer)]
+            guia_id: i32,
+            #[diesel(sql_type = Text)]
+            guia_nombre: String,
+            #[diesel(sql_type = Text)]
+            guia_nro_carnet: String,
             #[diesel(sql_type = Nullable<Text>)]
             rol_guia: Option<String>,
             #[diesel(sql_type = Timestamptz)]
@@ -124,12 +150,20 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             hora_recojo: r.hora_recojo,
             status: r.status,
             nro_pasajeros: r.nro_pasajeros,
+            turno_tour: r.turno_tour,
+            notas: r.notas,
             tour_id: r.tour_id,
             tour_nombre: r.tour_nombre,
             tour_lugar_inicio: r.tour_lugar_inicio,
             tour_lugar_fin: r.tour_lugar_fin,
+            tour_duracion_horas: r.tour_duracion_horas,
+            tour_tipo: r.tour_tipo,
             agencia_id: r.agencia_id,
             agencia_nombre: r.agencia_nombre,
+            agencia_telefono: r.agencia_telefono,
+            guia_id: r.guia_id,
+            guia_nombre: r.guia_nombre,
+            guia_nro_carnet: r.guia_nro_carnet,
             rol_guia: r.rol_guia,
             asignado_at: r.asignado_at,
         }).collect();

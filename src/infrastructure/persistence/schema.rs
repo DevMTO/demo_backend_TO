@@ -174,6 +174,8 @@ diesel::table! {
         nro_pasajeros -> Int4,
         #[max_length = 50]
         file_code -> Nullable<Varchar>,
+        #[max_length = 30]
+        turno_tour -> Nullable<Varchar>,
     }
 }
 
@@ -372,6 +374,7 @@ diesel::table! {
         revoked_reason -> Nullable<Varchar>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        remember_me -> Bool,
     }
 }
 

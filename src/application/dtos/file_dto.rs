@@ -27,6 +27,7 @@ pub struct FileResponse {
     pub saldo_pendiente: BigDecimal,
     pub nro_pasajeros: i32,
     pub file_code: Option<String>,
+    pub turno_tour: Option<String>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -50,6 +51,7 @@ impl From<File> for FileResponse {
             saldo_pendiente: saldo,
             nro_pasajeros: f.nro_pasajeros,
             file_code: f.file_code,
+            turno_tour: f.turno_tour,
             is_active: f.is_active,
             created_at: f.created_at,
             updated_at: f.updated_at,
@@ -84,6 +86,9 @@ pub struct CreateFileRequest {
     
     #[validate(length(max = 50))]
     pub file_code: Option<String>,
+    
+    #[validate(length(max = 30))]
+    pub turno_tour: Option<String>,
 }
 
 impl CreateFileRequest {
@@ -103,6 +108,7 @@ impl CreateFileRequest {
             monto_pagado: BigDecimal::from(0),
             nro_pasajeros: self.nro_pasajeros.unwrap_or(0),
             file_code: self.file_code,
+            turno_tour: self.turno_tour,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -146,6 +152,9 @@ pub struct UpdateFileRequest {
     #[validate(length(max = 50))]
     pub file_code: Option<String>,
     
+    #[validate(length(max = 30))]
+    pub turno_tour: Option<String>,
+    
     pub is_active: Option<bool>,
 }
 
@@ -186,6 +195,9 @@ impl UpdateFileRequest {
         }
         if let Some(file_code) = self.file_code {
             file.file_code = Some(file_code);
+        }
+        if let Some(turno_tour) = self.turno_tour {
+            file.turno_tour = Some(turno_tour);
         }
         if let Some(is_active) = self.is_active {
             file.is_active = is_active;

@@ -27,19 +27,19 @@ pub async fn login_handler(
     cookies: Cookies,
     Json(request): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("🔐 Intento de login para: {}", request.identifier);
+    info!("🔐 Intento de login para: {} (remember_me: {})", request.identifier, request.remember_me);
     
     // Extraer IP y User-Agent del request
     let ip_address = None;
     let user_agent = None;
     
     // Ejecutar caso de uso
-    debug!("Ejecutando LoginUseCase...");
+    debug!("Ejecutando LoginUseCase (remember_me: {})...", request.remember_me);
     let output = match state.container.login_use_case
         .execute(request.clone(), ip_address.clone(), user_agent.clone())
         .await {
             Ok(output) => {
-                info!("✅ Login exitoso para usuario: {} (id: {})", output.user_info.username, output.user_info.id);
+                info!("✅ Login exitoso para usuario: {} (id: {}, remember_me: {})", output.user_info.username, output.user_info.id, request.remember_me);
                 
                 // Logging del login exitoso
                 if let Err(e) = state.container.logging_service.log_login(
