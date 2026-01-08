@@ -4,9 +4,12 @@
 use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::Utc;
-use tracing::{info, instrument};
+use tracing::{info, instrument, warn};
 
-use crate::application::dtos::{MyFileAsGuiaDto, MyFileAsConductorDto, MyFileAsRestauranteDto};
+use crate::application::dtos::{
+    MyFileAsGuiaDto, MyFileAsConductorDto, MyFileAsRestauranteDto,
+    ConfirmAssignmentResponse,
+};
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::database::DatabasePool;
 
@@ -21,6 +24,24 @@ pub trait MyFilesRepositoryPort: Send + Sync {
     
     /// Obtiene files asignados a un restaurante (por id del restaurante)
     async fn find_files_for_restaurante(&self, id_restaurante: i32) -> Result<Vec<MyFileAsRestauranteDto>, ApplicationError>;
+    
+    /// Confirma o rechaza la asignación de un guía a un file
+    async fn confirm_guia_assignment(
+        &self, 
+        id_persona: i32, 
+        file_id: i32, 
+        aceptar: bool, 
+        motivo_rechazo: Option<String>
+    ) -> Result<ConfirmAssignmentResponse, ApplicationError>;
+    
+    /// Confirma o rechaza la asignación de un conductor a un file
+    async fn confirm_conductor_assignment(
+        &self, 
+        id_persona: i32, 
+        file_id: i32, 
+        aceptar: bool, 
+        motivo_rechazo: Option<String>
+    ) -> Result<ConfirmAssignmentResponse, ApplicationError>;
 }
 
 /// Implementación del repositorio usando raw SQL para JOINs eficientes
@@ -45,7 +66,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         let mut conn = self.pool.get_connection().await?;
         
         // SQL con JOIN eficiente: guias -> file_guias -> files -> tours -> agencias
-        // Incluye más información del tour, agencia y guía
+        // Incluye más información del tour, agencia, guía y estado de confirmación
         let query = diesel::sql_query(r#"
             SELECT 
                 f.id as file_id,
@@ -62,8 +83,8 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
                 t.nombre as tour_nombre,
                 t.lugar_inicio as tour_lugar_inicio,
                 t.lugar_fin as tour_lugar_fin,
-                t.duracion_horas as tour_duracion_horas,
-                t.tipo as tour_tipo,
+                t.duracion_dias as tour_duracion_horas,
+                t.tipo_tour as tour_tipo,
                 a.id as agencia_id,
                 a.nombre as agencia_nombre,
                 a.telefono as agencia_telefono,
@@ -71,7 +92,10 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
                 CONCAT(p.nombre, ' ', p.apellidos) as guia_nombre,
                 g.nro_carnet as guia_nro_carnet,
                 fg.rol as rol_guia,
-                fg.created_at as asignado_at
+                fg.created_at as asignado_at,
+                fg.estado_confirmacion,
+                fg.confirmado_at,
+                fg.motivo_rechazo
             FROM guias g
             INNER JOIN personas p ON p.id = g.id_persona
             INNER JOIN file_guias fg ON fg.id_guia = g.id
@@ -134,6 +158,12 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             rol_guia: Option<String>,
             #[diesel(sql_type = Timestamptz)]
             asignado_at: chrono::DateTime<Utc>,
+            #[diesel(sql_type = Text)]
+            estado_confirmacion: String,
+            #[diesel(sql_type = Nullable<Timestamptz>)]
+            confirmado_at: Option<chrono::DateTime<Utc>>,
+            #[diesel(sql_type = Nullable<Text>)]
+            motivo_rechazo: Option<String>,
         }
         
         let rows: Vec<RawRow> = query
@@ -166,6 +196,9 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             guia_nro_carnet: r.guia_nro_carnet,
             rol_guia: r.rol_guia,
             asignado_at: r.asignado_at,
+            estado_confirmacion: r.estado_confirmacion,
+            confirmado_at: r.confirmado_at,
+            motivo_rechazo: r.motivo_rechazo,
         }).collect();
         
         info!("📋 Encontrados {} files para guía (persona: {})", results.len(), id_persona);
@@ -181,6 +214,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         let mut conn = self.pool.get_connection().await?;
         
         // SQL con JOIN eficiente: conductores -> file_vehiculos -> files -> tours -> agencias, vehiculos
+        // Incluye estado de confirmación
         let query = diesel::sql_query(r#"
             SELECT 
                 f.id as file_id,
@@ -201,7 +235,10 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
                 v.nombre as vehiculo_nombre,
                 v.placa as vehiculo_placa,
                 v.capacidad as vehiculo_capacidad,
-                fv.created_at as asignado_at
+                fv.created_at as asignado_at,
+                fv.estado_confirmacion,
+                fv.confirmado_at,
+                fv.motivo_rechazo
             FROM conductores c
             INNER JOIN file_vehiculos fv ON fv.id_conductor = c.id
             INNER JOIN vehiculos v ON v.id = fv.id_vehiculo
@@ -254,6 +291,12 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             vehiculo_capacidad: i32,
             #[diesel(sql_type = Timestamptz)]
             asignado_at: chrono::DateTime<Utc>,
+            #[diesel(sql_type = Text)]
+            estado_confirmacion: String,
+            #[diesel(sql_type = Nullable<Timestamptz>)]
+            confirmado_at: Option<chrono::DateTime<Utc>>,
+            #[diesel(sql_type = Nullable<Text>)]
+            motivo_rechazo: Option<String>,
         }
         
         let rows: Vec<RawRow> = query
@@ -281,6 +324,9 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             vehiculo_placa: r.vehiculo_placa,
             vehiculo_capacidad: r.vehiculo_capacidad,
             asignado_at: r.asignado_at,
+            estado_confirmacion: r.estado_confirmacion,
+            confirmado_at: r.confirmado_at,
+            motivo_rechazo: r.motivo_rechazo,
         }).collect();
         
         info!("📋 Encontrados {} files para conductor (persona: {})", results.len(), id_persona);
@@ -375,6 +421,151 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         info!("📋 Encontrados {} files para restaurante: {}", results.len(), id_restaurante);
         Ok(results)
     }
+    
+    #[instrument(skip(self))]
+    async fn confirm_guia_assignment(
+        &self, 
+        id_persona: i32, 
+        file_id: i32, 
+        aceptar: bool, 
+        motivo_rechazo: Option<String>
+    ) -> Result<ConfirmAssignmentResponse, ApplicationError> {
+        use diesel::prelude::*;
+        use diesel_async::RunQueryDsl;
+        use diesel::sql_types::{Integer, Text, Nullable};
+        
+        let mut conn = self.pool.get_connection().await?;
+        
+        let estado = if aceptar { "aceptado" } else { "rechazado" };
+        let now = Utc::now();
+        
+        // Actualizar el estado de confirmación usando raw SQL
+        // Solo permite actualizar si el guía está asignado al file
+        let query = diesel::sql_query(r#"
+            UPDATE file_guias fg
+            SET 
+                estado_confirmacion = $1,
+                confirmado_at = $2,
+                motivo_rechazo = $3
+            FROM guias g
+            WHERE fg.id_guia = g.id
+              AND g.id_persona = $4
+              AND fg.id_file = $5
+              AND fg.estado_confirmacion = 'pendiente'
+            RETURNING fg.id
+        "#)
+        .bind::<Text, _>(estado)
+        .bind::<diesel::sql_types::Timestamptz, _>(now)
+        .bind::<Nullable<Text>, _>(motivo_rechazo.as_deref())
+        .bind::<Integer, _>(id_persona)
+        .bind::<Integer, _>(file_id);
+        
+        #[derive(QueryableByName)]
+        #[allow(dead_code)]
+        struct UpdatedRow {
+            #[diesel(sql_type = Integer)]
+            id: i32,
+        }
+        
+        let result: Vec<UpdatedRow> = query
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando confirmación: {}", e)))?;
+        
+        if result.is_empty() {
+            // Puede ser que ya fue confirmado o el guía no está asignado
+            warn!("⚠️ No se encontró asignación pendiente para guía (persona: {}) en file {}", id_persona, file_id);
+            return Err(ApplicationError::NotFound(
+                "No se encontró asignación pendiente o ya fue procesada".to_string()
+            ));
+        }
+        
+        info!("✅ Guía (persona: {}) {} asignación al file {}", 
+              id_persona, if aceptar { "aceptó" } else { "rechazó" }, file_id);
+        
+        Ok(ConfirmAssignmentResponse {
+            success: true,
+            mensaje: if aceptar {
+                "Asignación aceptada correctamente".to_string()
+            } else {
+                "Asignación rechazada correctamente".to_string()
+            },
+            estado_confirmacion: estado.to_string(),
+            confirmado_at: Some(now),
+        })
+    }
+    
+    #[instrument(skip(self))]
+    async fn confirm_conductor_assignment(
+        &self, 
+        id_persona: i32, 
+        file_id: i32, 
+        aceptar: bool, 
+        motivo_rechazo: Option<String>
+    ) -> Result<ConfirmAssignmentResponse, ApplicationError> {
+        use diesel::prelude::*;
+        use diesel_async::RunQueryDsl;
+        use diesel::sql_types::{Integer, Text, Nullable};
+        
+        let mut conn = self.pool.get_connection().await?;
+        
+        let estado = if aceptar { "aceptado" } else { "rechazado" };
+        let now = Utc::now();
+        
+        // Actualizar el estado de confirmación usando raw SQL
+        // Solo permite actualizar si el conductor está asignado al file (via file_vehiculos)
+        let query = diesel::sql_query(r#"
+            UPDATE file_vehiculos fv
+            SET 
+                estado_confirmacion = $1,
+                confirmado_at = $2,
+                motivo_rechazo = $3
+            FROM conductores c
+            WHERE fv.id_conductor = c.id
+              AND c.id_persona = $4
+              AND fv.id_file = $5
+              AND fv.estado_confirmacion = 'pendiente'
+            RETURNING fv.id
+        "#)
+        .bind::<Text, _>(estado)
+        .bind::<diesel::sql_types::Timestamptz, _>(now)
+        .bind::<Nullable<Text>, _>(motivo_rechazo.as_deref())
+        .bind::<Integer, _>(id_persona)
+        .bind::<Integer, _>(file_id);
+        
+        #[derive(QueryableByName)]
+        #[allow(dead_code)]
+        struct UpdatedRow {
+            #[diesel(sql_type = Integer)]
+            id: i32,
+        }
+        
+        let result: Vec<UpdatedRow> = query
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando confirmación: {}", e)))?;
+        
+        if result.is_empty() {
+            warn!("⚠️ No se encontró asignación pendiente para conductor (persona: {}) en file {}", id_persona, file_id);
+            return Err(ApplicationError::NotFound(
+                "No se encontró asignación pendiente o ya fue procesada".to_string()
+            ));
+        }
+        
+        info!("✅ Conductor (persona: {}) {} asignación al file {}", 
+              id_persona, if aceptar { "aceptó" } else { "rechazó" }, file_id);
+        
+        Ok(ConfirmAssignmentResponse {
+            success: true,
+            mensaje: if aceptar {
+                "Asignación aceptada correctamente".to_string()
+            } else {
+                "Asignación rechazada correctamente".to_string()
+            },
+            estado_confirmacion: estado.to_string(),
+            confirmado_at: Some(now),
+        })
+    }
 }
 
 /// Servicio de alto nivel para "mis files"
@@ -400,5 +591,27 @@ impl MyFilesService {
     /// Obtiene files para un restaurante usando su id_restaurante (id_entidad del user)
     pub async fn get_my_files_as_restaurante(&self, id_restaurante: i32) -> Result<Vec<MyFileAsRestauranteDto>, ApplicationError> {
         self.repository.find_files_for_restaurante(id_restaurante).await
+    }
+    
+    /// Un guía confirma/rechaza su asignación a un file
+    pub async fn confirm_guia_assignment(
+        &self, 
+        id_persona: i32, 
+        file_id: i32, 
+        aceptar: bool, 
+        motivo_rechazo: Option<String>
+    ) -> Result<ConfirmAssignmentResponse, ApplicationError> {
+        self.repository.confirm_guia_assignment(id_persona, file_id, aceptar, motivo_rechazo).await
+    }
+    
+    /// Un conductor confirma/rechaza su asignación a un file
+    pub async fn confirm_conductor_assignment(
+        &self, 
+        id_persona: i32, 
+        file_id: i32, 
+        aceptar: bool, 
+        motivo_rechazo: Option<String>
+    ) -> Result<ConfirmAssignmentResponse, ApplicationError> {
+        self.repository.confirm_conductor_assignment(id_persona, file_id, aceptar, motivo_rechazo).await
     }
 }

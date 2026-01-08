@@ -427,6 +427,10 @@ pub struct MyFileAsGuiaDto {
     pub guia_nro_carnet: String,
     pub rol_guia: Option<String>,
     pub asignado_at: DateTime<Utc>,
+    // Estado de confirmación de la asignación
+    pub estado_confirmacion: String,  // "pendiente", "aceptado", "rechazado"
+    pub confirmado_at: Option<DateTime<Utc>>,
+    pub motivo_rechazo: Option<String>,
 }
 
 /// File asignado a un conductor/vehículo con todos los detalles
@@ -457,6 +461,10 @@ pub struct MyFileAsConductorDto {
     pub vehiculo_placa: String,
     pub vehiculo_capacidad: i32,
     pub asignado_at: DateTime<Utc>,
+    // Estado de confirmación de la asignación
+    pub estado_confirmacion: String,  // "pendiente", "aceptado", "rechazado"
+    pub confirmado_at: Option<DateTime<Utc>>,
+    pub motivo_rechazo: Option<String>,
 }
 
 /// File asignado a un restaurante con todos los detalles
@@ -481,4 +489,41 @@ pub struct MyFileAsRestauranteDto {
     pub tipo_servicio: Option<String>,
     pub dia: Option<i32>,
     pub asignado_at: DateTime<Utc>,
+}
+
+// ==================== CONFIRMACIÓN DE ASIGNACIONES ====================
+
+/// Request para que un guía confirme/rechace su asignación a un file
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct ConfirmFileGuiaAssignmentRequest {
+    /// true para aceptar, false para rechazar
+    pub aceptar: bool,
+    /// Motivo del rechazo (obligatorio si aceptar=false)
+    #[validate(length(max = 500, message = "El motivo no puede exceder 500 caracteres"))]
+    pub motivo_rechazo: Option<String>,
+}
+
+/// Request para que un conductor confirme/rechace su asignación a un file
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct ConfirmFileVehiculoAssignmentRequest {
+    /// true para aceptar, false para rechazar
+    pub aceptar: bool,
+    /// Motivo del rechazo (obligatorio si aceptar=false)
+    #[validate(length(max = 500, message = "El motivo no puede exceder 500 caracteres"))]
+    pub motivo_rechazo: Option<String>,
+}
+
+/// Response estándar para operaciones de confirmación
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct ConfirmAssignmentResponse {
+    pub success: bool,
+    pub mensaje: String,
+    pub estado_confirmacion: String,
+    pub confirmado_at: Option<DateTime<Utc>>,
 }

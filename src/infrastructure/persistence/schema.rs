@@ -107,6 +107,10 @@ diesel::table! {
         rol -> Nullable<Varchar>,
         created_at -> Timestamptz,
         created_by -> Nullable<Int4>,
+        #[max_length = 20]
+        estado_confirmacion -> Varchar,
+        confirmado_at -> Nullable<Timestamptz>,
+        motivo_rechazo -> Nullable<Text>,
     }
 }
 
@@ -148,6 +152,10 @@ diesel::table! {
         id_conductor -> Nullable<Int4>,
         created_at -> Timestamptz,
         created_by -> Nullable<Int4>,
+        #[max_length = 20]
+        estado_confirmacion -> Varchar,
+        confirmado_at -> Nullable<Timestamptz>,
+        motivo_rechazo -> Nullable<Text>,
     }
 }
 
