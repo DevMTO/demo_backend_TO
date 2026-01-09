@@ -297,7 +297,7 @@ impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
                 fp.nacionalidad,
                 p.nombre as pasajero_nombre,
                 p.apellidos as pasajero_apellidos,
-                p.documento as pasajero_documento
+                p.nro_documento as pasajero_documento
             FROM file_pasajeros fp
             INNER JOIN personas p ON p.id = fp.id_persona
             WHERE fp.id_file = $1

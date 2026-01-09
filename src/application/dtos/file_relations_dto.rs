@@ -150,9 +150,9 @@ impl From<FilePasajeroWithPersonaModel> for FilePasajeroResponse {
             nacionalidad: m.nacionalidad,
             created_at: m.created_at,
             created_by: m.created_by,
-            pasajero_nombre: m.pasajero_nombre,
-            pasajero_apellidos: m.pasajero_apellidos,
-            pasajero_documento: m.pasajero_documento,
+            pasajero_nombre: Some(m.pasajero_nombre),
+            pasajero_apellidos: Some(m.pasajero_apellidos),
+            pasajero_documento: Some(m.pasajero_documento),
         }
     }
 }
