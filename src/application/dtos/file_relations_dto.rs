@@ -4,7 +4,7 @@ use ts_rs::TS;
 use validator::Validate;
 
 use crate::infrastructure::persistence::models::{
-    FileEntradaModel, FileGuiaModel, FilePasajeroModel, 
+    FileEntradaModel, FileGuiaModel, FilePasajeroModel, FilePasajeroWithPersonaModel,
     FileRestauranteModel, FileVehiculoModel
 };
 
@@ -134,6 +134,25 @@ impl From<FilePasajeroModel> for FilePasajeroResponse {
             pasajero_nombre: None,
             pasajero_apellidos: None,
             pasajero_documento: None,
+        }
+    }
+}
+
+impl From<FilePasajeroWithPersonaModel> for FilePasajeroResponse {
+    fn from(m: FilePasajeroWithPersonaModel) -> Self {
+        Self {
+            id: m.id,
+            id_file: m.id_file,
+            id_persona: m.id_persona,
+            asiento: m.asiento,
+            tipo_pasajero: m.tipo_pasajero,
+            notas: m.notas,
+            nacionalidad: m.nacionalidad,
+            created_at: m.created_at,
+            created_by: m.created_by,
+            pasajero_nombre: m.pasajero_nombre,
+            pasajero_apellidos: m.pasajero_apellidos,
+            pasajero_documento: m.pasajero_documento,
         }
     }
 }

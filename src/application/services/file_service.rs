@@ -74,15 +74,40 @@ impl FileService {
     }
 
     /// Crear un nuevo file
+    /// 
+    /// Si el usuario tiene rol "Agencias", se usa su id_entidad como id_agencia automáticamente.
+    /// Si el usuario es SuperAdmin o Admin, debe proporcionar id_agencia en el request.
     #[instrument(skip(self, request))]
     pub async fn create_file(
         &self,
         request: CreateFileRequest,
         created_by: i32,
         created_by_username: Option<String>,
+        user_role: UserRole,
+        user_id_entidad: Option<i32>,
     ) -> Result<FileResponse, ApplicationError> {
-        // Crear entidad de dominio
-        let file = request.into_entity(Some(created_by));
+        // Resolver id_agencia según el rol del usuario
+        let id_agencia_resolved = match user_role {
+            UserRole::Agencias => {
+                // Para agencias, usar su id_entidad automáticamente
+                user_id_entidad.ok_or_else(|| {
+                    ApplicationError::Validation(
+                        "Usuario de agencia sin id_entidad configurado".to_string()
+                    )
+                })?
+            },
+            _ => {
+                // Para superadmin/admin, debe venir en el request
+                request.id_agencia.ok_or_else(|| {
+                    ApplicationError::Validation(
+                        "Debe seleccionar una agencia para crear el file".to_string()
+                    )
+                })?
+            }
+        };
+
+        // Crear entidad de dominio con id_agencia resuelto
+        let file = request.into_entity(Some(created_by), id_agencia_resolved);
         
         // Persistir
         let created = self.file_repository.create(&file).await?;

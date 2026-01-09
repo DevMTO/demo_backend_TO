@@ -201,7 +201,7 @@ pub async fn list_file_pasajeros(
         .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
     
     let pasajeros = state.container.file_pasajero_repository
-        .find_by_file(file_id)
+        .find_by_file_with_persona(file_id)
         .await?;
     
     let responses: Vec<FilePasajeroResponse> = pasajeros.into_iter()

@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use diesel::prelude::*;
+use diesel::sql_types::Integer;
 use diesel_async::RunQueryDsl;
 use tracing::{info, instrument};
 
@@ -9,7 +10,7 @@ use crate::infrastructure::persistence::{
     models::{
         FileEntradaModel, NewFileEntradaModel,
         FileGuiaModel, NewFileGuiaModel,
-        FilePasajeroModel, NewFilePasajeroModel,
+        FilePasajeroModel, FilePasajeroWithPersonaModel, NewFilePasajeroModel,
         FileRestauranteModel, NewFileRestauranteModel,
         FileVehiculoModel, NewFileVehiculoModel,
     },
@@ -40,6 +41,7 @@ pub trait FilePasajeroRepositoryPort: Send + Sync {
     async fn add(&self, id_file: i32, id_persona: i32, asiento: Option<&str>, tipo_pasajero: Option<&str>, nacionalidad: Option<&str>, notas: Option<&str>, created_by: Option<i32>) -> Result<FilePasajeroModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn find_by_file(&self, id_file: i32) -> Result<Vec<FilePasajeroModel>, ApplicationError>;
+    async fn find_by_file_with_persona(&self, id_file: i32) -> Result<Vec<FilePasajeroWithPersonaModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FilePasajeroModel>, ApplicationError>;
     async fn count_by_file(&self, id_file: i32) -> Result<i64, ApplicationError>;
 }
@@ -277,6 +279,35 @@ impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
             .load(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
+    }
+    
+    async fn find_by_file_with_persona(&self, id_file: i32) -> Result<Vec<FilePasajeroWithPersonaModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let query = diesel::sql_query(r#"
+            SELECT 
+                fp.id,
+                fp.id_file,
+                fp.id_persona,
+                fp.asiento,
+                fp.tipo_pasajero,
+                fp.notas,
+                fp.created_at,
+                fp.created_by,
+                fp.nacionalidad,
+                p.nombre as pasajero_nombre,
+                p.apellidos as pasajero_apellidos,
+                p.documento as pasajero_documento
+            FROM file_pasajeros fp
+            INNER JOIN personas p ON p.id = fp.id_persona
+            WHERE fp.id_file = $1
+            ORDER BY fp.created_at ASC
+        "#)
+        .bind::<Integer, _>(id_file);
+        
+        query.load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error obteniendo pasajeros con persona: {}", e)))
     }
     
     async fn find_by_id(&self, id: i32) -> Result<Option<FilePasajeroModel>, ApplicationError> {

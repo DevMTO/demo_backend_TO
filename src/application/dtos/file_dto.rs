@@ -65,7 +65,9 @@ impl From<File> for FileResponse {
 pub struct CreateFileRequest {
     pub id_tour: i32,
     
-    pub id_agencia: i32,
+    /// ID de la agencia - Opcional si el usuario es rol "agencias" (se auto-asigna)
+    /// Requerido si el usuario es superadmin/admin
+    pub id_agencia: Option<i32>,
     
     pub fecha_inicio: NaiveDate,
     
@@ -92,12 +94,14 @@ pub struct CreateFileRequest {
 }
 
 impl CreateFileRequest {
-    pub fn into_entity(self, created_by: Option<i32>) -> File {
+    /// Convierte el request en una entidad File
+    /// `id_agencia_resolved` es el ID de agencia ya resuelto (puede venir del request o del usuario)
+    pub fn into_entity(self, created_by: Option<i32>, id_agencia_resolved: i32) -> File {
         let now = Utc::now();
         File {
             id: 0,
             id_tour: self.id_tour,
-            id_agencia: self.id_agencia,
+            id_agencia: id_agencia_resolved,
             fecha_inicio: self.fecha_inicio,
             fecha_fin: self.fecha_fin,
             lugar_recojo: self.lugar_recojo,
