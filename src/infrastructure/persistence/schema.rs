@@ -425,6 +425,7 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
         is_active -> Bool,
+        capacidad_disponible -> Int4,
     }
 }
 

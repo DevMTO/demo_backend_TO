@@ -21,6 +21,7 @@ pub struct VehiculoModel {
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
     pub is_active: bool,
+    pub capacidad_disponible: i32,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -31,6 +32,7 @@ pub struct NewVehiculoModel<'a> {
     pub modelo: Option<&'a str>,
     pub placa: &'a str,
     pub capacidad: i32,
+    pub capacidad_disponible: i32,
     pub status: &'a str,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
@@ -44,6 +46,7 @@ pub struct UpdateVehiculoModel<'a> {
     pub modelo: Option<Option<&'a str>>,
     pub placa: Option<&'a str>,
     pub capacidad: Option<i32>,
+    pub capacidad_disponible: Option<i32>,
     pub status: Option<&'a str>,
     pub updated_by: Option<i32>,
     pub is_active: Option<bool>,
@@ -58,6 +61,7 @@ impl From<VehiculoModel> for Vehiculo {
             modelo: model.modelo,
             placa: model.placa,
             capacidad: model.capacidad,
+            capacidad_disponible: model.capacidad_disponible,
             status: model.status.parse().unwrap_or_default(),
             is_active: model.is_active,
             created_at: model.created_at,
@@ -76,6 +80,7 @@ impl<'a> From<&'a Vehiculo> for NewVehiculoModel<'a> {
             modelo: v.modelo.as_deref(),
             placa: &v.placa,
             capacidad: v.capacidad,
+            capacidad_disponible: v.capacidad_disponible,
             status: match &v.status {
                 StatusVehiculo::Disponible => "disponible",
                 StatusVehiculo::EnUso => "en_uso",
