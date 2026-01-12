@@ -72,6 +72,7 @@ impl FileRepositoryPort for PostgresFileRepository {
             nro_pasajeros: Some(file.nro_pasajeros),
             file_code: Some(file.file_code.as_deref()),
             turno_tour: Some(file.turno_tour.as_deref()),
+            deadline_confirmacion: Some(file.deadline_confirmacion),
             updated_by: file.updated_by,
         };
         

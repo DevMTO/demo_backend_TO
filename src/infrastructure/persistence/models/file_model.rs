@@ -29,6 +29,7 @@ pub struct FileModel {
     pub nro_pasajeros: i32,
     pub file_code: Option<String>,
     pub turno_tour: Option<String>,
+    pub deadline_confirmacion: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -50,6 +51,7 @@ pub struct NewFileModel<'a> {
     pub nro_pasajeros: i32,
     pub file_code: Option<&'a str>,
     pub turno_tour: Option<&'a str>,
+    pub deadline_confirmacion: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -70,6 +72,7 @@ pub struct UpdateFileModel<'a> {
     pub nro_pasajeros: Option<i32>,
     pub file_code: Option<Option<&'a str>>,
     pub turno_tour: Option<Option<&'a str>>,
+    pub deadline_confirmacion: Option<Option<DateTime<Utc>>>,
 }
 
 impl From<FileModel> for File {
@@ -90,6 +93,7 @@ impl From<FileModel> for File {
             nro_pasajeros: model.nro_pasajeros,
             file_code: model.file_code,
             turno_tour: model.turno_tour,
+            deadline_confirmacion: model.deadline_confirmacion,
             created_at: model.created_at,
             updated_at: model.updated_at,
             created_by: model.created_by,
@@ -117,6 +121,7 @@ impl<'a> From<&'a File> for NewFileModel<'a> {
             nro_pasajeros: f.nro_pasajeros,
             file_code: f.file_code.as_deref(),
             turno_tour: f.turno_tour.as_deref(),
+            deadline_confirmacion: f.deadline_confirmacion,
         }
     }
 }

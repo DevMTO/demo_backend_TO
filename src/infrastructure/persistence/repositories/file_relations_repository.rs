@@ -40,7 +40,6 @@ pub trait FileGuiaRepositoryPort: Send + Sync {
 pub trait FilePasajeroRepositoryPort: Send + Sync {
     async fn add(&self, id_file: i32, id_persona: i32, asiento: Option<&str>, tipo_pasajero: Option<&str>, nacionalidad: Option<&str>, notas: Option<&str>, created_by: Option<i32>) -> Result<FilePasajeroModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FilePasajeroModel>, ApplicationError>;
     async fn find_by_file_with_persona(&self, id_file: i32) -> Result<Vec<FilePasajeroWithPersonaModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FilePasajeroModel>, ApplicationError>;
     async fn count_by_file(&self, id_file: i32) -> Result<i64, ApplicationError>;
@@ -268,17 +267,6 @@ impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
         Ok(affected > 0)
-    }
-    
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FilePasajeroModel>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        
-        file_pasajeros::table
-            .filter(file_pasajeros::id_file.eq(id_file))
-            .select(FilePasajeroModel::as_select())
-            .load(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
     
     async fn find_by_file_with_persona(&self, id_file: i32) -> Result<Vec<FilePasajeroWithPersonaModel>, ApplicationError> {

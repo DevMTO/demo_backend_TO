@@ -225,6 +225,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
                 f.hora_recojo::text as hora_recojo,
                 f.status,
                 f.nro_pasajeros,
+                f.notas,
                 t.id as tour_id,
                 t.nombre as tour_nombre,
                 t.lugar_inicio as tour_lugar_inicio,
@@ -269,6 +270,8 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             status: String,
             #[diesel(sql_type = Integer)]
             nro_pasajeros: i32,
+            #[diesel(sql_type = Nullable<Text>)]
+            notas: Option<String>,
             #[diesel(sql_type = Integer)]
             tour_id: i32,
             #[diesel(sql_type = Text)]
@@ -313,6 +316,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             hora_recojo: r.hora_recojo,
             status: r.status,
             nro_pasajeros: r.nro_pasajeros,
+            notas: r.notas,
             tour_id: r.tour_id,
             tour_nombre: r.tour_nombre,
             tour_lugar_inicio: r.tour_lugar_inicio,
@@ -350,6 +354,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
                 f.fecha_fin::text as fecha_fin,
                 f.status,
                 f.nro_pasajeros,
+                f.notas,
                 t.id as tour_id,
                 t.nombre as tour_nombre,
                 a.id as agencia_id,
@@ -381,6 +386,8 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             status: String,
             #[diesel(sql_type = Integer)]
             nro_pasajeros: i32,
+            #[diesel(sql_type = Nullable<Text>)]
+            notas: Option<String>,
             #[diesel(sql_type = Integer)]
             tour_id: i32,
             #[diesel(sql_type = Text)]
@@ -409,6 +416,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             fecha_fin: r.fecha_fin,
             status: r.status,
             nro_pasajeros: r.nro_pasajeros,
+            notas: r.notas,
             tour_id: r.tour_id,
             tour_nombre: r.tour_nombre,
             agencia_id: r.agencia_id,

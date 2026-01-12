@@ -466,6 +466,7 @@ pub struct MyFileAsConductorDto {
     pub hora_recojo: Option<String>,
     pub status: String,
     pub nro_pasajeros: i32,
+    pub notas: Option<String>,
     // Info del tour
     pub tour_id: i32,
     pub tour_nombre: String,
@@ -498,6 +499,7 @@ pub struct MyFileAsRestauranteDto {
     pub fecha_fin: String,
     pub status: String,
     pub nro_pasajeros: i32,
+    pub notas: Option<String>,
     // Info del tour
     pub tour_id: i32,
     pub tour_nombre: String,

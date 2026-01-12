@@ -28,6 +28,7 @@ pub struct FileResponse {
     pub nro_pasajeros: i32,
     pub file_code: Option<String>,
     pub turno_tour: Option<String>,
+    pub deadline_confirmacion: Option<DateTime<Utc>>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -52,6 +53,7 @@ impl From<File> for FileResponse {
             nro_pasajeros: f.nro_pasajeros,
             file_code: f.file_code,
             turno_tour: f.turno_tour,
+            deadline_confirmacion: f.deadline_confirmacion,
             is_active: f.is_active,
             created_at: f.created_at,
             updated_at: f.updated_at,
@@ -91,6 +93,9 @@ pub struct CreateFileRequest {
     
     #[validate(length(max = 30))]
     pub turno_tour: Option<String>,
+    
+    /// Fecha límite para confirmar el file (opcional)
+    pub deadline_confirmacion: Option<DateTime<Utc>>,
 }
 
 impl CreateFileRequest {
@@ -107,12 +112,13 @@ impl CreateFileRequest {
             lugar_recojo: self.lugar_recojo,
             hora_recojo: self.hora_recojo,
             notas: self.notas,
-            status: "pendiente".to_string(),
+            status: "reservado".to_string(),
             monto_total: BigDecimal::try_from(self.monto_total).unwrap_or_default(),
             monto_pagado: BigDecimal::from(0),
             nro_pasajeros: self.nro_pasajeros.unwrap_or(0),
             file_code: self.file_code,
             turno_tour: self.turno_tour,
+            deadline_confirmacion: self.deadline_confirmacion,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -159,6 +165,8 @@ pub struct UpdateFileRequest {
     #[validate(length(max = 30))]
     pub turno_tour: Option<String>,
     
+    pub deadline_confirmacion: Option<DateTime<Utc>>,
+    
     pub is_active: Option<bool>,
 }
 
@@ -202,6 +210,9 @@ impl UpdateFileRequest {
         }
         if let Some(turno_tour) = self.turno_tour {
             file.turno_tour = Some(turno_tour);
+        }
+        if let Some(deadline_confirmacion) = self.deadline_confirmacion {
+            file.deadline_confirmacion = Some(deadline_confirmacion);
         }
         if let Some(is_active) = self.is_active {
             file.is_active = is_active;

@@ -184,6 +184,7 @@ diesel::table! {
         file_code -> Nullable<Varchar>,
         #[max_length = 30]
         turno_tour -> Nullable<Varchar>,
+        deadline_confirmacion -> Nullable<Timestamptz>,
     }
 }
 
