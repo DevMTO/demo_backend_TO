@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use diesel::sql_types::Integer;
+use diesel::sql_types::{Integer, Nullable, Text, Timestamptz};
 use diesel_async::RunQueryDsl;
 use tracing::{info, instrument};
 
@@ -16,6 +17,63 @@ use crate::infrastructure::persistence::{
     },
     schema::{file_entradas, file_guias, file_pasajeros, file_restaurantes, file_vehiculos},
 };
+
+// ==================== MODELOS EXTENDIDOS ====================
+
+/// Modelo para file_vehiculo con datos extendidos de file, tour, agencia, vehiculo y conductor
+#[derive(Debug, Clone, QueryableByName)]
+pub struct FileVehiculoWithDetailsModel {
+    #[diesel(sql_type = Integer)]
+    pub id: i32,
+    #[diesel(sql_type = Integer)]
+    pub id_file: i32,
+    #[diesel(sql_type = Integer)]
+    pub id_vehiculo: i32,
+    #[diesel(sql_type = Nullable<Integer>)]
+    pub id_conductor: Option<i32>,
+    #[diesel(sql_type = Timestamptz)]
+    pub created_at: DateTime<Utc>,
+    // Datos del file
+    #[diesel(sql_type = Nullable<Text>)]
+    pub file_code: Option<String>,
+    #[diesel(sql_type = Text)]
+    pub file_fecha_inicio: String,
+    #[diesel(sql_type = Text)]
+    pub file_fecha_fin: String,
+    #[diesel(sql_type = Text)]
+    pub file_status: String,
+    #[diesel(sql_type = Integer)]
+    pub file_nro_pasajeros: i32,
+    // Datos del tour
+    #[diesel(sql_type = Integer)]
+    pub tour_id: i32,
+    #[diesel(sql_type = Text)]
+    pub tour_nombre: String,
+    // Datos de la agencia
+    #[diesel(sql_type = Integer)]
+    pub agencia_id: i32,
+    #[diesel(sql_type = Text)]
+    pub agencia_nombre: String,
+    // Datos del vehículo
+    #[diesel(sql_type = Nullable<Text>)]
+    pub vehiculo_nombre: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub vehiculo_placa: Option<String>,
+    #[diesel(sql_type = Nullable<Integer>)]
+    pub vehiculo_capacidad: Option<i32>,
+    // Datos del conductor
+    #[diesel(sql_type = Nullable<Text>)]
+    pub conductor_nombre: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub conductor_brevete: Option<String>,
+    // Datos de confirmación
+    #[diesel(sql_type = Text)]
+    pub estado_confirmacion: String,
+    #[diesel(sql_type = Nullable<Timestamptz>)]
+    pub confirmado_at: Option<DateTime<Utc>>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub motivo_rechazo: Option<String>,
+}
 
 // ==================== TRAITS (PORTS) ====================
 
@@ -58,6 +116,7 @@ pub trait FileVehiculoRepositoryPort: Send + Sync {
     async fn add(&self, id_file: i32, id_vehiculo: i32, id_conductor: Option<i32>, created_by: Option<i32>) -> Result<FileVehiculoModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileVehiculoModel>, ApplicationError>;
+    async fn find_all_with_details(&self) -> Result<Vec<FileVehiculoWithDetailsModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileVehiculoModel>, ApplicationError>;
     async fn find_files_by_vehiculo(&self, id_vehiculo: i32) -> Result<Vec<i32>, ApplicationError>;
     async fn is_vehiculo_assigned(&self, id_vehiculo: i32, id_file: i32) -> Result<bool, ApplicationError>;
@@ -450,6 +509,54 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
             .load(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
+    }
+    
+    #[instrument(skip(self))]
+    async fn find_all_with_details(&self) -> Result<Vec<FileVehiculoWithDetailsModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let query = diesel::sql_query(r#"
+            SELECT 
+                fv.id,
+                fv.id_file,
+                fv.id_vehiculo,
+                fv.id_conductor,
+                fv.created_at,
+                f.file_code,
+                f.fecha_inicio::text as file_fecha_inicio,
+                f.fecha_fin::text as file_fecha_fin,
+                f.status as file_status,
+                f.nro_pasajeros as file_nro_pasajeros,
+                t.id as tour_id,
+                t.nombre as tour_nombre,
+                a.id as agencia_id,
+                a.nombre as agencia_nombre,
+                v.nombre as vehiculo_nombre,
+                v.placa as vehiculo_placa,
+                v.capacidad as vehiculo_capacidad,
+                CASE WHEN c.id IS NOT NULL THEN CONCAT(pc.nombre, ' ', pc.apellidos) ELSE NULL END as conductor_nombre,
+                c.nro_brevete as conductor_brevete,
+                fv.estado_confirmacion,
+                fv.confirmado_at,
+                fv.motivo_rechazo
+            FROM file_vehiculos fv
+            INNER JOIN files f ON f.id = fv.id_file
+            INNER JOIN tours t ON t.id = f.id_tour
+            INNER JOIN agencias a ON a.id = f.id_agencia
+            INNER JOIN vehiculos v ON v.id = fv.id_vehiculo
+            LEFT JOIN conductores c ON c.id = fv.id_conductor
+            LEFT JOIN personas pc ON pc.id = c.id_persona
+            WHERE f.is_active = true
+            ORDER BY f.fecha_inicio DESC, fv.created_at DESC
+        "#);
+        
+        let results = query
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error consultando file_vehiculos: {}", e)))?;
+        
+        info!("✅ Encontrados {} file_vehiculos con detalles", results.len());
+        Ok(results)
     }
     
     async fn find_by_id(&self, id: i32) -> Result<Option<FileVehiculoModel>, ApplicationError> {

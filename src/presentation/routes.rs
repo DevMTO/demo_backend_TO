@@ -272,6 +272,10 @@ pub fn create_router(
         .route("/conductor/{file_id}/confirm", post(my_files_handlers::confirm_conductor_assignment))
         .route("/restaurante", get(my_files_handlers::get_my_files_as_restaurante));
 
+    // === File Vehiculos Routes (listar todas las asignaciones vehículo-file) ===
+    let file_vehiculos_routes = Router::new()
+        .route("/", get(file_relations_handlers::list_all_file_vehiculos));
+
     // ========== RUTAS PROTEGIDAS ==========
     // Todas las rutas CRUD requieren autenticación vía cookie de sesión
     let protected_routes = Router::new()
@@ -286,6 +290,7 @@ pub fn create_router(
         .nest("/restaurantes", restaurante_routes)
         .nest("/entradas", entrada_routes)
         .nest("/files", file_routes)
+        .nest("/file-vehiculos", file_vehiculos_routes)
         .nest("/pagos", pago_routes)
         .nest("/logs", activity_log_routes)
         .nest("/notifications", notification_routes)

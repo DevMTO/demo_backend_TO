@@ -279,6 +279,41 @@ pub struct AssignRestauranteToFileRequest {
 
 // ==================== FILE VEHICULO ====================
 
+/// DTO extendido para listar todos los file_vehiculos con información completa
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct FileVehiculoListItemDto {
+    pub id: i32,
+    pub id_file: i32,
+    pub id_vehiculo: i32,
+    pub id_conductor: Option<i32>,
+    pub created_at: DateTime<Utc>,
+    // Datos del file
+    pub file_code: Option<String>,
+    pub file_fecha_inicio: String,
+    pub file_fecha_fin: String,
+    pub file_status: String,
+    pub file_nro_pasajeros: i32,
+    // Datos del tour
+    pub tour_id: i32,
+    pub tour_nombre: String,
+    // Datos de la agencia
+    pub agencia_id: i32,
+    pub agencia_nombre: String,
+    // Datos del vehículo
+    pub vehiculo_nombre: Option<String>,
+    pub vehiculo_placa: Option<String>,
+    pub vehiculo_capacidad: Option<i32>,
+    // Datos del conductor (si tiene)
+    pub conductor_nombre: Option<String>,
+    pub conductor_brevete: Option<String>,
+    // Datos de confirmación
+    pub estado_confirmacion: String,
+    pub confirmado_at: Option<DateTime<Utc>>,
+    pub motivo_rechazo: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

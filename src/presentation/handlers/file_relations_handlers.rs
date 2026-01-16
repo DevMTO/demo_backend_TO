@@ -6,7 +6,7 @@ use crate::application::dtos::{
     AssignEntradaToFileRequest, AssignGuiaToFileRequest, AddPasajeroToFileRequest,
     AssignRestauranteToFileRequest, AssignVehiculoToFileRequest,
     FileEntradaResponse, FileGuiaResponse, FilePasajeroResponse,
-    FileRestauranteResponse, FileVehiculoResponse,
+    FileRestauranteResponse, FileVehiculoResponse, FileVehiculoListItemDto,
     ResourceStatusUpdateResponse,
 };
 use crate::domain::errors::ApplicationError;
@@ -441,6 +441,46 @@ pub async fn remove_file_restaurante(
 }
 
 // ==================== FILE VEHICULOS ====================
+
+/// Lista TODOS los file_vehiculos con información completa
+#[instrument(skip(state, _auth))]
+pub async fn list_all_file_vehiculos(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+) -> Result<impl IntoResponse, ApplicationError> {
+    let vehiculos = state.container.file_vehiculo_repository
+        .find_all_with_details()
+        .await?;
+    
+    let responses: Vec<FileVehiculoListItemDto> = vehiculos.into_iter()
+        .map(|v| FileVehiculoListItemDto {
+            id: v.id,
+            id_file: v.id_file,
+            id_vehiculo: v.id_vehiculo,
+            id_conductor: v.id_conductor,
+            created_at: v.created_at,
+            file_code: v.file_code,
+            file_fecha_inicio: v.file_fecha_inicio,
+            file_fecha_fin: v.file_fecha_fin,
+            file_status: v.file_status,
+            file_nro_pasajeros: v.file_nro_pasajeros,
+            tour_id: v.tour_id,
+            tour_nombre: v.tour_nombre,
+            agencia_id: v.agencia_id,
+            agencia_nombre: v.agencia_nombre,
+            vehiculo_nombre: v.vehiculo_nombre,
+            vehiculo_placa: v.vehiculo_placa,
+            vehiculo_capacidad: v.vehiculo_capacidad,
+            conductor_nombre: v.conductor_nombre,
+            conductor_brevete: v.conductor_brevete,
+            estado_confirmacion: v.estado_confirmacion,
+            confirmado_at: v.confirmado_at,
+            motivo_rechazo: v.motivo_rechazo,
+        })
+        .collect();
+    
+    Ok(json_ok(responses))
+}
 
 /// Lista los vehículos asignados a un file
 #[instrument(skip(state, _auth))]
