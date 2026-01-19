@@ -6,45 +6,45 @@
 -- Usuario superadmin (Password: admin123)
 INSERT INTO users (username, email, password_hash, role, status)
 VALUES (
-    'admin',
-    'admin@sistema.local',
+    'superadmin',
+    'superadmin@sistema.local',
     '$argon2id$v=19$m=65536,t=3,p=4$/JWssXfsvez6ReA2Ptt7mA$772MdE2wg2ccdUG+n7306wcg0Gd/vifsma2JGvlBB4o',
     'superadmin',
     'activo'
 );
 
--- Usuario subadmin (Password: admin123)
+-- Usuario admin (Password: admin123)
 INSERT INTO users (username, email, password_hash, role, status)
 VALUES (
-    'subadmin',
-    'subadmin@sistema.local',
+    'admin',
+    'admin@sistema.local',
     '$argon2id$v=19$m=65536,t=3,p=4$BWDMiawBsE3COODfedJWAw$OjKLgMtzuypNQMdRMI0bDRDozJ0FKkDeTxMKb5Ga4ro',
-    'subadmin',
+    'admin',
     'activo'
 );
 
--- Usuario operador (Password: usuario123)
+-- Usuario agencia (Password: usuario123)
 INSERT INTO users (username, email, password_hash, role, status)
 VALUES (
-    'operador',
-    'operador@sistema.local',
+    'agencia',
+    'agencia@sistema.local',
     '$argon2id$v=19$m=65536,t=3,p=4$pQn2mpRNvRiTmWlHmZm8Ew$rZIfnmWL3a21uy1IPdZilP2zYN7PjYjfoawPpEFUuTM',
-    'operador',
+    'agencia',
     'activo'
 );
 
--- Usuario viewer (Password: usuario123)
+-- Usuario restaurante (Password: usuario123)
 INSERT INTO users (username, email, password_hash, role, status)
 VALUES (
-    'viewer',
-    'viewer@sistema.local',
+    'restaurante',
+    'restaurante@sistema.local',
     '$argon2id$v=19$m=65536,t=3,p=4$CNf+FSBuQz7G5Qv1dQ36pg$UH7wWB4MHgN6OApyVC6awZM6TQLpRTZg4L+Y59bYIxE',
-    'viewer',
+    'restaurante',
     'activo'
 );
 
 -- ========================================================================
 -- Credenciales de prueba:
--- admin/subadmin: admin123
--- operador/viewer: usuario123
+-- superadmin/admin: admin123
+-- restaurante/agencia: usuario123
 -- ========================================================================

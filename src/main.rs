@@ -69,7 +69,8 @@ async fn main() -> anyhow::Result<()> {
     let app = create_router(container, broadcaster, &config);
     
     // Configurar dirección del servidor
-    let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
+    // Usar 0.0.0.0 para aceptar conexiones desde cualquier interfaz (necesario en Docker/Fly.io)
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     tracing::info!("🌐 Server listening on http://{}", addr);
     
     // Iniciar servidor
