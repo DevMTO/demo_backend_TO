@@ -289,6 +289,7 @@ pub struct FileVehiculoListItemDto {
     pub id_vehiculo: i32,
     pub id_conductor: Option<i32>,
     pub created_at: DateTime<Utc>,
+    pub capacidad_asignada: i32,
     // Datos del file
     pub file_code: Option<String>,
     pub file_fecha_inicio: String,
@@ -308,10 +309,6 @@ pub struct FileVehiculoListItemDto {
     // Datos del conductor (si tiene)
     pub conductor_nombre: Option<String>,
     pub conductor_brevete: Option<String>,
-    // Datos de confirmación
-    pub estado_confirmacion: String,
-    pub confirmado_at: Option<DateTime<Utc>>,
-    pub motivo_rechazo: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -322,6 +319,7 @@ pub struct FileVehiculoResponse {
     pub id_file: i32,
     pub id_vehiculo: i32,
     pub id_conductor: Option<i32>,
+    pub capacidad_asignada: i32,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     // Datos del vehículo relacionado
@@ -340,6 +338,7 @@ impl From<FileVehiculoModel> for FileVehiculoResponse {
             id_file: m.id_file,
             id_vehiculo: m.id_vehiculo,
             id_conductor: m.id_conductor,
+            capacidad_asignada: m.capacidad_asignada,
             created_at: m.created_at,
             created_by: m.created_by,
             vehiculo_nombre: None,
@@ -357,6 +356,8 @@ impl From<FileVehiculoModel> for FileVehiculoResponse {
 pub struct AssignVehiculoToFileRequest {
     pub id_vehiculo: i32,
     pub id_conductor: Option<i32>,
+    #[validate(range(min = 0, message = "Capacidad asignada no puede ser negativa"))]
+    pub capacidad_asignada: Option<i32>,
 }
 
 // ==================== FILE DETALLE COMPLETO ====================

@@ -902,14 +902,13 @@ async fn update_tour_media(
         nombre: None,
         lugar_inicio: None,
         lugar_fin: None,
-        hora_inicio: None,
-        hora_fin: None,
         detalles: None,
         itinerario: None,
         precio_base: None,
         duracion_dias: None,
         media: Some(media),
         tipo_tour: None,
+        horarios: None,
         is_active: None,
     };
     

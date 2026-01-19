@@ -307,11 +307,8 @@ impl TourService {
         if request.lugar_fin.as_ref().map(|l| l != &old.lugar_fin).unwrap_or(false) {
             changed.push("lugar_fin".to_string());
         }
-        if request.hora_inicio.as_ref().map(|h| Some(*h) != old.hora_inicio).unwrap_or(false) {
-            changed.push("hora_inicio".to_string());
-        }
-        if request.hora_fin.as_ref().map(|h| Some(*h) != old.hora_fin).unwrap_or(false) {
-            changed.push("hora_fin".to_string());
+        if request.horarios.is_some() {
+            changed.push("horarios".to_string());
         }
         if request.duracion_dias.as_ref().map(|d| Some(*d) != old.duracion_dias).unwrap_or(false) {
             changed.push("duracion_dias".to_string());

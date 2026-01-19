@@ -48,7 +48,6 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
             modelo: Some(vehiculo.modelo.as_deref()),
             placa: Some(&vehiculo.placa),
             capacidad: Some(vehiculo.capacidad),
-            capacidad_disponible: Some(vehiculo.capacidad_disponible),
             status: Some(&status_str),
             is_active: Some(vehiculo.is_active),
             updated_by: vehiculo.updated_by,
@@ -121,7 +120,6 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
                     modelo: vehiculo.modelo,
                     placa: vehiculo.placa,
                     capacidad: vehiculo.capacidad,
-                    capacidad_disponible: vehiculo.capacidad_disponible,
                     status: vehiculo.status,
                     is_active: vehiculo.is_active,
                     created_at: vehiculo.created_at,
@@ -168,20 +166,19 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
                 vehiculos::modelo,
                 vehiculos::placa,
                 vehiculos::capacidad,
-                vehiculos::capacidad_disponible,
                 vehiculos::status,
                 vehiculos::is_active,
                 vehiculos::created_at,
                 vehiculos::updated_at,
                 transportes::nombre,
             ))
-            .load::<(i32, i32, String, Option<String>, String, i32, i32, String, bool, chrono::NaiveDateTime, chrono::NaiveDateTime, String)>(&mut conn)
+            .load::<(i32, i32, String, Option<String>, String, i32, String, bool, chrono::NaiveDateTime, chrono::NaiveDateTime, String)>(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
         Ok(results
             .into_iter()
-            .map(|(id, id_transporte, nombre, modelo, placa, capacidad, capacidad_disponible, status, is_active, created_at, updated_at, transporte_nombre)| {
+            .map(|(id, id_transporte, nombre, modelo, placa, capacidad, status, is_active, created_at, updated_at, transporte_nombre)| {
                 VehiculoListItemDto {
                     id,
                     id_transporte,
@@ -190,7 +187,6 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
                     modelo,
                     placa,
                     capacidad,
-                    capacidad_disponible,
                     status,
                     is_active,
                     created_at: DateTime::from_naive_utc_and_offset(created_at, Utc),

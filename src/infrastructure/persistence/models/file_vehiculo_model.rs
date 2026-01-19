@@ -15,9 +15,7 @@ pub struct FileVehiculoModel {
     pub id_conductor: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
-    pub estado_confirmacion: String,
-    pub confirmado_at: Option<DateTime<Utc>>,
-    pub motivo_rechazo: Option<String>,
+    pub capacidad_asignada: i32,
 }
 
 /// Modelo insertable para crear file_vehiculos
@@ -28,15 +26,5 @@ pub struct NewFileVehiculoModel {
     pub id_vehiculo: i32,
     pub id_conductor: Option<i32>,
     pub created_by: Option<i32>,
-    // estado_confirmacion usa DEFAULT 'pendiente' en la DB
+    pub capacidad_asignada: i32,
 }
-
-/// Modelo para actualizar estado de confirmación
-#[derive(Debug, Clone, AsChangeset)]
-#[diesel(table_name = file_vehiculos)]
-pub struct UpdateFileVehiculoConfirmacionModel<'a> {
-    pub estado_confirmacion: &'a str,
-    pub confirmado_at: Option<DateTime<Utc>>,
-    pub motivo_rechazo: Option<&'a str>,
-}
-

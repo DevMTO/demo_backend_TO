@@ -459,6 +459,7 @@ pub async fn list_all_file_vehiculos(
             id_vehiculo: v.id_vehiculo,
             id_conductor: v.id_conductor,
             created_at: v.created_at,
+            capacidad_asignada: v.capacidad_asignada,
             file_code: v.file_code,
             file_fecha_inicio: v.file_fecha_inicio,
             file_fecha_fin: v.file_fecha_fin,
@@ -473,9 +474,6 @@ pub async fn list_all_file_vehiculos(
             vehiculo_capacidad: v.vehiculo_capacidad,
             conductor_nombre: v.conductor_nombre,
             conductor_brevete: v.conductor_brevete,
-            estado_confirmacion: v.estado_confirmacion,
-            confirmado_at: v.confirmado_at,
-            motivo_rechazo: v.motivo_rechazo,
         })
         .collect();
     
@@ -550,9 +548,12 @@ pub async fn assign_vehiculo_to_file(
         }
     }
     
+    // Determinar capacidad asignada (por defecto toda la capacidad del vehículo)
+    let capacidad_asignada = request.capacidad_asignada.unwrap_or(vehiculo.capacidad);
+    
     // Asignar el vehículo
     let result = state.container.file_vehiculo_repository
-        .add(file_id, request.id_vehiculo, request.id_conductor, Some(auth.user.id))
+        .add(file_id, request.id_vehiculo, request.id_conductor, capacidad_asignada, Some(auth.user.id))
         .await?;
     
     // Contar pasajeros actuales del file para verificar capacidad

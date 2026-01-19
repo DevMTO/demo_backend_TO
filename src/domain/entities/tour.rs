@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveTime, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use bigdecimal::BigDecimal;
@@ -20,20 +20,36 @@ pub struct DetallesTour {
     pub requisitos: Vec<String>,
 }
 
+/// Estructura para un rango horario (inicio y fin)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RangoHorario {
+    pub start: String,  // "HH:MM"
+    pub end: String,    // "HH:MM"
+}
+
+/// Estructura para los horarios del tour
+/// Puede tener: "full" (día completo), "morning" (mañana), "afternoon" (tarde)
+/// O combinaciones: "morning" + "afternoon" para tours half day con ambos turnos
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HorariosTour {
+    pub full: Option<RangoHorario>,
+    pub morning: Option<RangoHorario>,
+    pub afternoon: Option<RangoHorario>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tour {
     pub id: i32,
     pub nombre: String,
     pub lugar_inicio: String,
     pub lugar_fin: String,
-    pub hora_inicio: Option<NaiveTime>,
-    pub hora_fin: Option<NaiveTime>,
     pub detalles: Option<JsonValue>,
     pub itinerario: Option<JsonValue>,
     pub precio_base: BigDecimal,
     pub duracion_dias: Option<i32>,
     pub media: Option<JsonValue>,
     pub tipo_tour: Option<String>,
+    pub horarios: Option<JsonValue>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -49,14 +65,13 @@ impl Tour {
             nombre,
             lugar_inicio,
             lugar_fin,
-            hora_inicio: None,
-            hora_fin: None,
             detalles: Some(serde_json::json!({})),
             itinerario: Some(serde_json::json!([])),
             precio_base,
             duracion_dias: Some(1),
             media: Some(serde_json::json!({})),
             tipo_tour: Some(String::new()),
+            horarios: Some(serde_json::json!({})),
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -76,6 +91,13 @@ impl Tour {
     pub fn get_detalles(&self) -> DetallesTour {
         self.detalles.as_ref()
             .and_then(|d| serde_json::from_value(d.clone()).ok())
+            .unwrap_or_default()
+    }
+    
+    /// Obtiene los horarios tipados
+    pub fn get_horarios(&self) -> HorariosTour {
+        self.horarios.as_ref()
+            .and_then(|h| serde_json::from_value(h.clone()).ok())
             .unwrap_or_default()
     }
     

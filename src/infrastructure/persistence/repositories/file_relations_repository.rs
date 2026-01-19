@@ -33,6 +33,8 @@ pub struct FileVehiculoWithDetailsModel {
     pub id_conductor: Option<i32>,
     #[diesel(sql_type = Timestamptz)]
     pub created_at: DateTime<Utc>,
+    #[diesel(sql_type = Integer)]
+    pub capacidad_asignada: i32,
     // Datos del file
     #[diesel(sql_type = Nullable<Text>)]
     pub file_code: Option<String>,
@@ -66,13 +68,6 @@ pub struct FileVehiculoWithDetailsModel {
     pub conductor_nombre: Option<String>,
     #[diesel(sql_type = Nullable<Text>)]
     pub conductor_brevete: Option<String>,
-    // Datos de confirmación
-    #[diesel(sql_type = Text)]
-    pub estado_confirmacion: String,
-    #[diesel(sql_type = Nullable<Timestamptz>)]
-    pub confirmado_at: Option<DateTime<Utc>>,
-    #[diesel(sql_type = Nullable<Text>)]
-    pub motivo_rechazo: Option<String>,
 }
 
 // ==================== TRAITS (PORTS) ====================
@@ -113,7 +108,7 @@ pub trait FileRestauranteRepositoryPort: Send + Sync {
 
 #[async_trait]
 pub trait FileVehiculoRepositoryPort: Send + Sync {
-    async fn add(&self, id_file: i32, id_vehiculo: i32, id_conductor: Option<i32>, created_by: Option<i32>) -> Result<FileVehiculoModel, ApplicationError>;
+    async fn add(&self, id_file: i32, id_vehiculo: i32, id_conductor: Option<i32>, capacidad_asignada: i32, created_by: Option<i32>) -> Result<FileVehiculoModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileVehiculoModel>, ApplicationError>;
     async fn find_all_with_details(&self) -> Result<Vec<FileVehiculoWithDetailsModel>, ApplicationError>;
@@ -468,13 +463,14 @@ impl PostgresFileVehiculoRepository {
 #[async_trait]
 impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
     #[instrument(skip(self))]
-    async fn add(&self, id_file: i32, id_vehiculo: i32, id_conductor: Option<i32>, created_by: Option<i32>) -> Result<FileVehiculoModel, ApplicationError> {
+    async fn add(&self, id_file: i32, id_vehiculo: i32, id_conductor: Option<i32>, capacidad_asignada: i32, created_by: Option<i32>) -> Result<FileVehiculoModel, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let new_record = NewFileVehiculoModel {
             id_file,
             id_vehiculo,
             id_conductor,
+            capacidad_asignada,
             created_by,
         };
         
@@ -485,7 +481,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Vehículo asignado a file: file={}, vehiculo={}, conductor={:?}", id_file, id_vehiculo, id_conductor);
+        info!("✅ Vehículo asignado a file: file={}, vehiculo={}, conductor={:?}, capacidad={}", id_file, id_vehiculo, id_conductor, capacidad_asignada);
         Ok(result)
     }
     
@@ -522,6 +518,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
                 fv.id_vehiculo,
                 fv.id_conductor,
                 fv.created_at,
+                fv.capacidad_asignada,
                 f.file_code,
                 f.fecha_inicio::text as file_fecha_inicio,
                 f.fecha_fin::text as file_fecha_fin,
@@ -535,10 +532,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
                 v.placa as vehiculo_placa,
                 v.capacidad as vehiculo_capacidad,
                 CASE WHEN c.id IS NOT NULL THEN CONCAT(pc.nombre, ' ', pc.apellidos) ELSE NULL END as conductor_nombre,
-                c.nro_brevete as conductor_brevete,
-                fv.estado_confirmacion,
-                fv.confirmado_at,
-                fv.motivo_rechazo
+                c.nro_brevete as conductor_brevete
             FROM file_vehiculos fv
             INNER JOIN files f ON f.id = fv.id_file
             INNER JOIN tours t ON t.id = f.id_tour

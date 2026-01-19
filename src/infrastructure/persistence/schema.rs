@@ -152,10 +152,7 @@ diesel::table! {
         id_conductor -> Nullable<Int4>,
         created_at -> Timestamptz,
         created_by -> Nullable<Int4>,
-        #[max_length = 20]
-        estado_confirmacion -> Varchar,
-        confirmado_at -> Nullable<Timestamptz>,
-        motivo_rechazo -> Nullable<Text>,
+        capacidad_asignada -> Int4,
     }
 }
 
@@ -321,8 +318,6 @@ diesel::table! {
         lugar_inicio -> Varchar,
         #[max_length = 200]
         lugar_fin -> Varchar,
-        hora_inicio -> Nullable<Time>,
-        hora_fin -> Nullable<Time>,
         detalles -> Nullable<Jsonb>,
         itinerario -> Nullable<Jsonb>,
         precio_base -> Numeric,
@@ -335,6 +330,7 @@ diesel::table! {
         updated_by -> Nullable<Int4>,
         #[max_length = 100]
         tipo_tour -> Nullable<Varchar>,
+        horarios -> Nullable<Jsonb>,
     }
 }
 
@@ -426,7 +422,6 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
         is_active -> Bool,
-        capacidad_disponible -> Int4,
     }
 }
 

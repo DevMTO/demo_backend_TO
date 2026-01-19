@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveTime, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use bigdecimal::BigDecimal;
@@ -15,8 +15,6 @@ pub struct TourResponse {
     pub nombre: String,
     pub lugar_inicio: String,
     pub lugar_fin: String,
-    pub hora_inicio: Option<NaiveTime>,
-    pub hora_fin: Option<NaiveTime>,
     #[ts(type = "object | null")]
     pub detalles: Option<JsonValue>,
     #[ts(type = "object | null")]
@@ -27,6 +25,9 @@ pub struct TourResponse {
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
     pub tipo_tour: Option<String>,
+    /// Horarios del tour: { "full": {...}, "morning": {...}, "afternoon": {...} }
+    #[ts(type = "object | null")]
+    pub horarios: Option<JsonValue>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -39,14 +40,13 @@ impl From<Tour> for TourResponse {
             nombre: t.nombre,
             lugar_inicio: t.lugar_inicio,
             lugar_fin: t.lugar_fin,
-            hora_inicio: t.hora_inicio,
-            hora_fin: t.hora_fin,
             detalles: t.detalles,
             itinerario: t.itinerario,
             precio_base: t.precio_base,
             duracion_dias: t.duracion_dias,
             media: t.media,
             tipo_tour: t.tipo_tour,
+            horarios: t.horarios,
             is_active: t.is_active,
             created_at: t.created_at,
             updated_at: t.updated_at,
@@ -67,10 +67,6 @@ pub struct CreateTourRequest {
     #[validate(length(min = 2, max = 200))]
     pub lugar_fin: String,
     
-    pub hora_inicio: Option<NaiveTime>,
-    
-    pub hora_fin: Option<NaiveTime>,
-    
     #[ts(type = "object | null")]
     pub detalles: Option<JsonValue>,
     
@@ -88,6 +84,10 @@ pub struct CreateTourRequest {
     
     #[validate(length(max = 100))]
     pub tipo_tour: Option<String>,
+    
+    /// Horarios del tour: { "full": {"start": "HH:MM", "end": "HH:MM"}, "morning": {...}, "afternoon": {...} }
+    #[ts(type = "object | null")]
+    pub horarios: Option<JsonValue>,
 }
 
 impl CreateTourRequest {
@@ -98,14 +98,13 @@ impl CreateTourRequest {
             nombre: self.nombre,
             lugar_inicio: self.lugar_inicio,
             lugar_fin: self.lugar_fin,
-            hora_inicio: self.hora_inicio,
-            hora_fin: self.hora_fin,
             detalles: self.detalles,
             itinerario: self.itinerario,
             precio_base: BigDecimal::try_from(self.precio_base).unwrap_or_default(),
             duracion_dias: self.duracion_dias,
             media: self.media,
             tipo_tour: self.tipo_tour,
+            horarios: self.horarios,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -128,10 +127,6 @@ pub struct UpdateTourRequest {
     #[validate(length(min = 2, max = 200))]
     pub lugar_fin: Option<String>,
     
-    pub hora_inicio: Option<NaiveTime>,
-    
-    pub hora_fin: Option<NaiveTime>,
-    
     #[ts(type = "object | null")]
     pub detalles: Option<JsonValue>,
     
@@ -150,6 +145,10 @@ pub struct UpdateTourRequest {
     #[validate(length(max = 100))]
     pub tipo_tour: Option<String>,
     
+    /// Horarios del tour: { "full": {"start": "HH:MM", "end": "HH:MM"}, "morning": {...}, "afternoon": {...} }
+    #[ts(type = "object | null")]
+    pub horarios: Option<JsonValue>,
+    
     pub is_active: Option<bool>,
 }
 
@@ -163,12 +162,6 @@ impl UpdateTourRequest {
         }
         if let Some(lugar_fin) = self.lugar_fin {
             tour.lugar_fin = lugar_fin;
-        }
-        if let Some(hora_inicio) = self.hora_inicio {
-            tour.hora_inicio = Some(hora_inicio);
-        }
-        if let Some(hora_fin) = self.hora_fin {
-            tour.hora_fin = Some(hora_fin);
         }
         if let Some(detalles) = self.detalles {
             tour.detalles = Some(detalles);
@@ -187,6 +180,9 @@ impl UpdateTourRequest {
         }
         if let Some(tipo_tour) = self.tipo_tour {
             tour.tipo_tour = Some(tipo_tour);
+        }
+        if let Some(horarios) = self.horarios {
+            tour.horarios = Some(horarios);
         }
         if let Some(is_active) = self.is_active {
             tour.is_active = is_active;
