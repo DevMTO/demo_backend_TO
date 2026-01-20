@@ -15,6 +15,7 @@ use crate::application::ports::{
     GuiaRepositoryPort,
     RestauranteRepositoryPort,
     EntradaRepositoryPort,
+    EntradaPrecioRepositoryPort,
     FileRepositoryPort,
     PagoRepositoryPort,
     ActivityLogRepositoryPort,
@@ -42,6 +43,7 @@ use crate::application::services::{
     VehiculoService,
     ConductorService,
     EntradaService,
+    EntradaPrecioService,
     GuiaService,
     MyFilesService,
     PostgresMyFilesRepository,
@@ -66,6 +68,7 @@ use crate::infrastructure::persistence::{
         PostgresGuiaRepository,
         PostgresRestauranteRepository,
         PostgresEntradaRepository,
+        PostgresEntradaPrecioRepository,
         PostgresFileRepository,
         PostgresPagoRepository,
         PostgresActivityLogRepository,
@@ -112,6 +115,7 @@ pub struct DependencyContainer {
     pub vehiculo_service: Arc<VehiculoService>,
     pub conductor_service: Arc<ConductorService>,
     pub entrada_service: Arc<EntradaService>,
+    pub entrada_precio_service: Arc<EntradaPrecioService>,
     pub guia_service: Arc<GuiaService>,
     pub my_files_service: Arc<MyFilesService>,
     
@@ -213,6 +217,9 @@ impl DependencyContainer {
         );
         let entrada_repository: Arc<dyn EntradaRepositoryPort> = Arc::new(
             PostgresEntradaRepository::new(db_pool.clone())
+        );
+        let entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort> = Arc::new(
+            PostgresEntradaPrecioRepository::new(db_pool.clone())
         );
         let file_repository: Arc<dyn FileRepositoryPort> = Arc::new(
             PostgresFileRepository::new(db_pool.clone())
@@ -362,6 +369,11 @@ impl DependencyContainer {
             notification_broadcast_adapter.clone(),
         ));
         
+        // ========== Crear servicio - EntradaPrecio ==========
+        let entrada_precio_service = Arc::new(EntradaPrecioService::new(
+            entrada_precio_repository,
+        ));
+        
         // ========== Crear servicio - Guia ==========
         let guia_service = Arc::new(GuiaService::new(
             guia_repository.clone(),
@@ -394,6 +406,7 @@ impl DependencyContainer {
             vehiculo_service,
             conductor_service,
             entrada_service,
+            entrada_precio_service,
             guia_service,
             my_files_service,
             // Repositories

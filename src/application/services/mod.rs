@@ -14,6 +14,7 @@ pub mod transporte_service;
 pub mod vehiculo_service;
 pub mod conductor_service;
 pub mod entrada_service;
+pub mod entrada_precio_service;
 pub mod guia_service;
 pub mod my_files_service;
 
@@ -30,5 +31,7 @@ pub use transporte_service::TransporteService;
 pub use vehiculo_service::VehiculoService;
 pub use conductor_service::ConductorService;
 pub use entrada_service::EntradaService;
+pub use entrada_precio_service::EntradaPrecioService;
 pub use guia_service::GuiaService;
 pub use my_files_service::{MyFilesService, PostgresMyFilesRepository};
+

@@ -16,6 +16,7 @@ pub mod conductor_model;
 pub mod guia_model;
 pub mod restaurante_model;
 pub mod entrada_model;
+pub mod entrada_precio_model;
 pub mod file_model;
 pub mod pago_model;
 
@@ -45,6 +46,7 @@ pub use conductor_model::*;
 pub use guia_model::*;
 pub use restaurante_model::*;
 pub use entrada_model::*;
+pub use entrada_precio_model::*;
 pub use file_model::*;
 pub use pago_model::*;
 

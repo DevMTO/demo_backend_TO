@@ -34,6 +34,7 @@ use super::handlers::{
     guia_handlers,
     restaurante_handlers,
     entrada_handlers,
+    entrada_precio_handlers,
     file_handlers,
     file_relations_handlers,
     my_files_handlers,
@@ -191,7 +192,21 @@ pub fn create_router(
         .route("/", get(entrada_handlers::list_entradas).post(entrada_handlers::create_entrada))
         .route("/search", get(entrada_handlers::search_entradas))
         .route("/{id}", get(entrada_handlers::get_entrada).put(entrada_handlers::update_entrada).delete(entrada_handlers::delete_entrada))
-        .route("/{id}/restore", patch(entrada_handlers::restore_entrada));
+        .route("/{id}/restore", patch(entrada_handlers::restore_entrada))
+        // Precios de entrada por ID de entrada
+        .route("/{id}/precios", get(entrada_precio_handlers::list_precios_by_entrada))
+        .route("/{id}/precios/tipo/{tipo_precio}", get(entrada_precio_handlers::list_precios_by_tipo))
+        .route("/{id}/precios/batch", post(entrada_precio_handlers::create_precios_batch))
+        .route("/{id}/precios/replace", axum::routing::put(entrada_precio_handlers::replace_all_precios))
+        .route("/{id}/precios/initialize", post(entrada_precio_handlers::initialize_default_precios))
+        .route("/{id}/calcular-precio", get(entrada_precio_handlers::calcular_precio));
+
+    // Rutas directas para entrada-precios (CRUD individual)
+    let entrada_precio_routes = Router::new()
+        .route("/", post(entrada_precio_handlers::create_precio))
+        .route("/{id}", get(entrada_precio_handlers::get_precio)
+            .put(entrada_precio_handlers::update_precio)
+            .delete(entrada_precio_handlers::delete_precio));
 
     let file_routes = Router::new()
         .route("/", get(file_handlers::list_files).post(file_handlers::create_file))
@@ -294,6 +309,7 @@ pub fn create_router(
         .nest("/guias", guia_routes)
         .nest("/restaurantes", restaurante_routes)
         .nest("/entradas", entrada_routes)
+        .nest("/entrada-precios", entrada_precio_routes)
         .nest("/files", file_routes)
         .nest("/file-tours", file_tour_relation_routes)
         .nest("/file-vehiculos", file_vehiculos_routes)

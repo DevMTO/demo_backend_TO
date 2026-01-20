@@ -32,6 +32,12 @@ pub async fn create_entrada(State(state): State<AppState>, auth: AuthUser, Json(
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     let entity = request.into_entity(Some(auth.user.id));
     let created = state.container.entrada_service.create_entrada(&entity, auth.user.id, &auth.user.username).await?;
+    
+    // Inicializar precios por defecto para la nueva entrada
+    let _ = state.container.entrada_precio_service
+        .initialize_default_precios(created.id, Some(auth.user.id))
+        .await;
+    
     Ok(json_created(EntradaResponse::from(created)))
 }
 
@@ -57,16 +63,15 @@ pub async fn restore_entrada(State(state): State<AppState>, auth: AuthUser, Path
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub struct EntradaSearchQuery { pub tipo: Option<String>, pub ruta: Option<String> }
+pub struct EntradaSearchQuery { pub ruta: Option<String> }
 
 #[instrument(skip(state, _auth))]
 pub async fn search_entradas(State(state): State<AppState>, _auth: AuthUser, Query(query): Query<EntradaSearchQuery>) -> Result<impl IntoResponse, ApplicationError> {
-    let entradas = if let Some(tipo) = query.tipo {
-        state.container.entrada_service.search_by_tipo(&tipo).await?
-    } else if let Some(ruta) = query.ruta {
+    let entradas = if let Some(ruta) = query.ruta {
         state.container.entrada_service.search_by_ruta(&ruta).await?
     } else {
         state.container.entrada_service.list_entradas(Default::default()).await?.data
     };
     Ok(json_ok(entradas.into_iter().map(EntradaResponse::from).collect::<Vec<_>>()))
 }
+

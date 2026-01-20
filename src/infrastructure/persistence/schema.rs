@@ -69,15 +69,30 @@ diesel::table! {
 }
 
 diesel::table! {
+    entrada_precios (id) {
+        id -> Int4,
+        id_entrada -> Int4,
+        #[max_length = 30]
+        tipo_precio -> Varchar,
+        edad_minima -> Int4,
+        edad_maxima -> Nullable<Int4>,
+        precio -> Numeric,
+        #[max_length = 100]
+        descripcion -> Nullable<Varchar>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
     entradas (id) {
         id -> Int4,
         #[max_length = 200]
         nombre -> Varchar,
-        precio -> Numeric,
         #[max_length = 200]
         ruta -> Nullable<Varchar>,
-        #[max_length = 50]
-        tipo -> Varchar,
         descripcion -> Nullable<Text>,
         is_active -> Bool,
         created_at -> Timestamptz,
@@ -444,6 +459,7 @@ diesel::joinable!(activity_logs -> users (user_id));
 diesel::joinable!(agencias -> personas (encargado));
 diesel::joinable!(conductores -> personas (id_persona));
 diesel::joinable!(conductores -> transportes (id_transporte));
+diesel::joinable!(entrada_precios -> entradas (id_entrada));
 diesel::joinable!(file_entradas -> entradas (id_entrada));
 diesel::joinable!(file_entradas -> file_tours (id_file_tour));
 diesel::joinable!(file_entradas -> users (created_by));
@@ -477,6 +493,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     activity_logs,
     agencias,
     conductores,
+    entrada_precios,
     entradas,
     file_entradas,
     file_guias,

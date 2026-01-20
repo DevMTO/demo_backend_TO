@@ -20,6 +20,7 @@ pub mod conductor_repository;
 pub mod guia_repository;
 pub mod restaurante_repository;
 pub mod entrada_repository;
+pub mod entrada_precio_repository;
 pub mod file_repository;
 pub mod pago_repository;
 
@@ -45,5 +46,6 @@ pub use conductor_repository::ConductorRepositoryPort;
 pub use guia_repository::GuiaRepositoryPort;
 pub use restaurante_repository::RestauranteRepositoryPort;
 pub use entrada_repository::EntradaRepositoryPort;
+pub use entrada_precio_repository::EntradaPrecioRepositoryPort;
 pub use file_repository::FileRepositoryPort;
 pub use pago_repository::PagoRepositoryPort;

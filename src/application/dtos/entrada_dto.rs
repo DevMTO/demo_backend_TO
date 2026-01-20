@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use bigdecimal::BigDecimal;
 use ts_rs::TS;
 use validator::Validate;
 
@@ -12,10 +11,7 @@ use crate::domain::entities::Entrada;
 pub struct EntradaResponse {
     pub id: i32,
     pub nombre: String,
-    #[ts(type = "string")]
-    pub precio: BigDecimal,
     pub ruta: Option<String>,
-    pub tipo: String,
     pub descripcion: Option<String>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
@@ -27,9 +23,7 @@ impl From<Entrada> for EntradaResponse {
         Self {
             id: e.id,
             nombre: e.nombre,
-            precio: e.precio,
             ruta: e.ruta,
-            tipo: e.tipo,
             descripcion: e.descripcion,
             is_active: e.is_active,
             created_at: e.created_at,
@@ -45,14 +39,8 @@ pub struct CreateEntradaRequest {
     #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
     pub nombre: String,
     
-    #[validate(range(min = 0.0, message = "Precio debe ser positivo"))]
-    pub precio: f64,
-    
     #[validate(length(max = 200))]
     pub ruta: Option<String>,
-    
-    #[validate(length(min = 2, max = 50, message = "Tipo debe tener entre 2 y 50 caracteres"))]
-    pub tipo: String,
     
     pub descripcion: Option<String>,
 }
@@ -63,9 +51,7 @@ impl CreateEntradaRequest {
         Entrada {
             id: 0,
             nombre: self.nombre,
-            precio: BigDecimal::try_from(self.precio).unwrap_or_default(),
             ruta: self.ruta,
-            tipo: self.tipo,
             descripcion: self.descripcion,
             is_active: true,
             created_at: now,
@@ -83,14 +69,8 @@ pub struct UpdateEntradaRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
     
-    #[validate(range(min = 0.0))]
-    pub precio: Option<f64>,
-    
     #[validate(length(max = 200))]
     pub ruta: Option<String>,
-    
-    #[validate(length(min = 2, max = 50))]
-    pub tipo: Option<String>,
     
     pub descripcion: Option<String>,
     
@@ -102,14 +82,8 @@ impl UpdateEntradaRequest {
         if let Some(nombre) = self.nombre {
             entrada.nombre = nombre;
         }
-        if let Some(precio) = self.precio {
-            entrada.precio = BigDecimal::try_from(precio).unwrap_or_default();
-        }
         if let Some(ruta) = self.ruta {
             entrada.ruta = Some(ruta);
-        }
-        if let Some(tipo) = self.tipo {
-            entrada.tipo = tipo;
         }
         if let Some(descripcion) = self.descripcion {
             entrada.descripcion = Some(descripcion);

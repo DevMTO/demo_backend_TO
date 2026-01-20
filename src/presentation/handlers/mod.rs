@@ -10,6 +10,7 @@ pub mod conductor_handlers;
 pub mod guia_handlers;
 pub mod restaurante_handlers;
 pub mod entrada_handlers;
+pub mod entrada_precio_handlers;
 pub mod file_handlers;
 pub mod file_relations_handlers;
 pub mod my_files_handlers;
@@ -19,3 +20,4 @@ pub mod notification_handlers;
 pub mod storage_handlers;
 
 pub use auth_handlers::{login_handler, logout_handler, verify_session_handler, health_check, get_profile_handler, update_profile_handler};
+

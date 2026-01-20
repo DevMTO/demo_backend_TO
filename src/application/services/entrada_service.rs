@@ -51,11 +51,6 @@ impl EntradaService {
             .ok_or_else(|| ApplicationError::NotFound(format!("Entrada {} no encontrada", id)))
     }
 
-    /// Search entradas by tipo
-    pub async fn search_by_tipo(&self, tipo: &str) -> Result<Vec<Entrada>, ApplicationError> {
-        self.entrada_repository.find_by_tipo(tipo).await
-    }
-
     /// Search entradas by ruta
     pub async fn search_by_ruta(&self, ruta: &str) -> Result<Vec<Entrada>, ApplicationError> {
         self.entrada_repository.find_by_ruta(ruta).await
@@ -145,13 +140,6 @@ impl EntradaService {
             )
             .await;
 
-        // Determine notification priority based on changes
-        let priority = if changed_fields.contains(&"precio".to_string()) {
-            NotificationPriority::Normal
-        } else {
-            NotificationPriority::Low
-        };
-
         // Notify admins via SSE broadcast
         let _ = self
             .notification_service
@@ -164,7 +152,7 @@ impl EntradaService {
                 ),
                 NotificationType::Info,
                 NotificationCategory::Crud,
-                priority,
+                NotificationPriority::Low,
                 Some(actor_id),
             )
             .await;
@@ -299,14 +287,8 @@ impl EntradaService {
         if old.descripcion != new.descripcion {
             changed.push("descripcion".to_string());
         }
-        if old.tipo != new.tipo {
-            changed.push("tipo".to_string());
-        }
         if old.ruta != new.ruta {
             changed.push("ruta".to_string());
-        }
-        if old.precio != new.precio {
-            changed.push("precio".to_string());
         }
         if old.is_active != new.is_active {
             changed.push("is_active".to_string());
@@ -315,3 +297,4 @@ impl EntradaService {
         changed
     }
 }
+

@@ -41,7 +41,8 @@ pub async fn list_file_tour_entradas(
         let mut response = FileEntradaResponse::from(e.clone());
         if let Ok(Some(entrada)) = state.container.entrada_repository.find_by_id(e.id_entrada).await {
             response.entrada_nombre = Some(entrada.nombre);
-            response.entrada_precio = Some(entrada.precio.to_string());
+            // El precio ahora se obtiene de entrada_precios
+            response.entrada_precio = None;
         }
         responses.push(response);
     }
