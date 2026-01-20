@@ -8,7 +8,7 @@ use crate::application::dtos::{
     AssignRestauranteToFileTourRequest, AssignVehiculoToFileRequest,
     FileEntradaResponse, FileGuiaResponse, FilePasajeroResponse,
     FileRestauranteResponse, FileVehiculoResponse, FileVehiculoListItemDto,
-    ResourceStatusUpdateResponse,
+    ResourceStatusUpdateResponse, FileTourDto,
 };
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::{StatusGuia, StatusConductor};
@@ -186,6 +186,51 @@ pub async fn remove_file_guia(
     // TODO: Verificar si el guía tiene otras asignaciones activas antes de cambiar su status
     
     Ok(json_deleted())
+}
+
+// ==================== FILE TOURS ====================
+
+/// Lista los tours asignados a un file
+#[instrument(skip(state, _auth))]
+pub async fn list_file_tours(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(file_id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el file existe
+    state.container.file_repository
+        .find_by_id(file_id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+    
+    // Obtener tours con información completa (INNER JOIN)
+    let tours = state.container.file_tour_repository
+        .find_by_file_with_tour(file_id)
+        .await?;
+    
+    // Convertir a DTOs
+    let responses: Vec<FileTourDto> = tours.into_iter()
+        .map(|t| FileTourDto {
+            id: t.id,
+            id_tour: t.id_tour,
+            orden: t.orden,
+            precio_aplicado: t.precio_aplicado.clone(),
+            notas: t.notas,
+            fecha_tour: t.fecha_tour,
+            turno_tour: t.turno_tour,
+            lugar_recojo: t.lugar_recojo,
+            hora_recojo: t.hora_recojo,
+            tour_nombre: Some(t.tour_nombre),
+            tour_lugar_inicio: Some(t.tour_lugar_inicio),
+            tour_lugar_fin: Some(t.tour_lugar_fin),
+            tour_precio_base: Some(t.tour_precio_base),
+            tour_duracion_dias: t.tour_duracion_dias,
+            tour_tipo: t.tour_tipo,
+            tour_is_active: Some(t.tour_is_active),
+        })
+        .collect();
+    
+    Ok(json_ok(responses))
 }
 
 // ==================== FILE PASAJEROS ====================

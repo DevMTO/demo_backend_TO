@@ -210,7 +210,9 @@ pub fn create_router(
         // File Relations - Vehículos
         .route("/{id}/vehiculos", get(file_relations_handlers::list_file_vehiculos).post(file_relations_handlers::assign_vehiculo_to_file))
         .route("/{id}/vehiculos/{vehiculo_id}", axum::routing::delete(file_relations_handlers::remove_file_vehiculo))
-        .route("/{id}/vehiculos/{vehiculo_id}/status", axum::routing::put(file_relations_handlers::update_vehiculo_status));
+        .route("/{id}/vehiculos/{vehiculo_id}/status", axum::routing::put(file_relations_handlers::update_vehiculo_status))
+        // File Relations - Tours (lista los tours asignados al file)
+        .route("/{id}/tours", get(file_relations_handlers::list_file_tours));
     
     // File Tour relations (entradas y restaurantes ahora vinculados a file_tours)
     let file_tour_relation_routes = Router::new()
