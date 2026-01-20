@@ -25,6 +25,14 @@ pub struct FileTourDto {
     /// Fecha específica del tour (puede ser diferente para cada tour del file)
     pub fecha_tour: Option<NaiveDate>,
     
+    // === Campos de recojo por tour ===
+    /// Turno del tour: manana, tarde, noche
+    pub turno_tour: Option<String>,
+    /// Lugar de recojo para este tour específico
+    pub lugar_recojo: Option<String>,
+    /// Hora de recojo para este tour específico
+    pub hora_recojo: Option<NaiveTime>,
+    
     // === Información del tour (INNER JOIN) ===
     /// Nombre del tour
     pub tour_nombre: Option<String>,
@@ -56,6 +64,14 @@ pub struct FileTourInput {
     pub notas: Option<String>,
     /// Fecha específica del tour (si es diferente a la fecha del file)
     pub fecha_tour: Option<NaiveDate>,
+    /// Turno del tour: manana, tarde, noche
+    #[validate(length(max = 30))]
+    pub turno_tour: Option<String>,
+    /// Lugar de recojo para este tour específico
+    #[validate(length(max = 200))]
+    pub lugar_recojo: Option<String>,
+    /// Hora de recojo para este tour específico
+    pub hora_recojo: Option<NaiveTime>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -64,6 +80,7 @@ pub struct FileTourInput {
 pub struct FileResponse {
     pub id: i32,
     /// Tours asignados al file (puede ser múltiples)
+    /// Cada tour contiene turno_tour, lugar_recojo, hora_recojo
     pub tours: Vec<FileTourDto>,
     /// ID del tour principal (primer tour por orden) - para compatibilidad
     #[ts(type = "number | null")]
@@ -71,8 +88,7 @@ pub struct FileResponse {
     pub id_agencia: i32,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
-    pub lugar_recojo: Option<String>,
-    pub hora_recojo: Option<NaiveTime>,
+    // Nota: lugar_recojo, hora_recojo, turno_tour ahora están en cada tour (FileTourDto)
     pub notas: Option<String>,
     pub status: String,
     #[ts(type = "string")]
@@ -83,7 +99,6 @@ pub struct FileResponse {
     pub saldo_pendiente: BigDecimal,
     pub nro_pasajeros: i32,
     pub file_code: Option<String>,
-    pub turno_tour: Option<String>,
     pub deadline_confirmacion: Option<DateTime<Utc>>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
@@ -103,8 +118,7 @@ impl FileResponse {
             id_agencia: f.id_agencia,
             fecha_inicio: f.fecha_inicio,
             fecha_fin: f.fecha_fin,
-            lugar_recojo: f.lugar_recojo,
-            hora_recojo: f.hora_recojo,
+            // lugar_recojo, hora_recojo, turno_tour ahora están en FileTourDto
             notas: f.notas,
             status: f.status,
             monto_total: f.monto_total,
@@ -112,7 +126,6 @@ impl FileResponse {
             saldo_pendiente: saldo,
             nro_pasajeros: f.nro_pasajeros,
             file_code: f.file_code,
-            turno_tour: f.turno_tour,
             deadline_confirmacion: f.deadline_confirmacion,
             is_active: f.is_active,
             created_at: f.created_at,
@@ -133,6 +146,7 @@ impl From<File> for FileResponse {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateFileRequest {
     /// Tours a asignar al file (puede ser uno o múltiples)
+    /// Cada tour puede tener su propio turno_tour, lugar_recojo, hora_recojo
     /// Opcional si se usa id_tour (compatibilidad)
     pub tours: Option<Vec<FileTourInput>>,
     
@@ -148,10 +162,7 @@ pub struct CreateFileRequest {
     
     pub fecha_fin: NaiveDate,
     
-    #[validate(length(max = 200))]
-    pub lugar_recojo: Option<String>,
-    
-    pub hora_recojo: Option<NaiveTime>,
+    // Nota: lugar_recojo, hora_recojo, turno_tour ahora están en FileTourInput (por tour)
     
     pub notas: Option<String>,
     
@@ -163,9 +174,6 @@ pub struct CreateFileRequest {
     
     #[validate(length(max = 50))]
     pub file_code: Option<String>,
-    
-    #[validate(length(max = 30))]
-    pub turno_tour: Option<String>,
     
     /// Fecha límite para confirmar el file (opcional)
     pub deadline_confirmacion: Option<DateTime<Utc>>,
@@ -189,6 +197,9 @@ impl CreateFileRequest {
                 precio_aplicado: None,
                 notas: None,
                 fecha_tour: None,
+                turno_tour: None,
+                lugar_recojo: None,
+                hora_recojo: None,
             }]
         } else {
             vec![]
@@ -204,15 +215,13 @@ impl CreateFileRequest {
             id_agencia: id_agencia_resolved,
             fecha_inicio: self.fecha_inicio,
             fecha_fin: self.fecha_fin,
-            lugar_recojo: self.lugar_recojo,
-            hora_recojo: self.hora_recojo,
+            // lugar_recojo, hora_recojo, turno_tour ahora están en file_tours
             notas: self.notas,
             status: "reservado".to_string(),
             monto_total: BigDecimal::try_from(self.monto_total).unwrap_or_default(),
             monto_pagado: BigDecimal::from(0),
             nro_pasajeros: self.nro_pasajeros.unwrap_or(0),
             file_code: self.file_code,
-            turno_tour: self.turno_tour,
             deadline_confirmacion: self.deadline_confirmacion,
             is_active: true,
             created_at: now,
@@ -229,6 +238,7 @@ impl CreateFileRequest {
 pub struct UpdateFileRequest {
     /// Tours a actualizar/reemplazar (opcional)
     /// Si se especifica, reemplaza todos los tours existentes
+    /// Cada tour puede tener su propio turno_tour, lugar_recojo, hora_recojo
     pub tours: Option<Vec<FileTourInput>>,
     
     /// ID de tour único (para compatibilidad) - se ignora si se especifica `tours`
@@ -240,10 +250,7 @@ pub struct UpdateFileRequest {
     
     pub fecha_fin: Option<NaiveDate>,
     
-    #[validate(length(max = 200))]
-    pub lugar_recojo: Option<String>,
-    
-    pub hora_recojo: Option<NaiveTime>,
+    // Nota: lugar_recojo, hora_recojo, turno_tour ahora están en FileTourInput (por tour)
     
     pub notas: Option<String>,
     
@@ -261,9 +268,6 @@ pub struct UpdateFileRequest {
     
     #[validate(length(max = 50))]
     pub file_code: Option<String>,
-    
-    #[validate(length(max = 30))]
-    pub turno_tour: Option<String>,
     
     pub deadline_confirmacion: Option<DateTime<Utc>>,
     
@@ -286,6 +290,9 @@ impl UpdateFileRequest {
                 precio_aplicado: None,
                 notas: None,
                 fecha_tour: None,
+                turno_tour: None,
+                lugar_recojo: None,
+                hora_recojo: None,
             }]);
         }
         None
@@ -302,12 +309,7 @@ impl UpdateFileRequest {
         if let Some(fecha_fin) = self.fecha_fin {
             file.fecha_fin = fecha_fin;
         }
-        if let Some(lugar_recojo) = self.lugar_recojo {
-            file.lugar_recojo = Some(lugar_recojo);
-        }
-        if let Some(hora_recojo) = self.hora_recojo {
-            file.hora_recojo = Some(hora_recojo);
-        }
+        // Nota: lugar_recojo, hora_recojo, turno_tour ahora se manejan en file_tours
         if let Some(notas) = self.notas {
             file.notas = Some(notas);
         }
@@ -325,9 +327,6 @@ impl UpdateFileRequest {
         }
         if let Some(file_code) = self.file_code {
             file.file_code = Some(file_code);
-        }
-        if let Some(turno_tour) = self.turno_tour {
-            file.turno_tour = Some(turno_tour);
         }
         if let Some(deadline_confirmacion) = self.deadline_confirmacion {
             file.deadline_confirmacion = Some(deadline_confirmacion);

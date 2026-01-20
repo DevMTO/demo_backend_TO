@@ -63,6 +63,7 @@ impl TourRepositoryPort for PostgresTourRepository {
             media: Some(tour.media.clone()),
             tipo_tour: Some(tour.tipo_tour.as_deref()),
             is_active: Some(tour.is_active),
+            tiene_restaurante: Some(tour.tiene_restaurante),
             updated_by: tour.updated_by,
         };
         let result = diesel::update(tours::table.filter(tours::id.eq(tour.id)))

@@ -55,6 +55,7 @@ pub struct Tour {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub tiene_restaurante: bool,  // Nuevo campo
 }
 
 impl Tour {
@@ -77,6 +78,7 @@ impl Tour {
             updated_at: now,
             created_by: None,
             updated_by: None,
+            tiene_restaurante: false,  // Nuevo campo
         }
     }
     

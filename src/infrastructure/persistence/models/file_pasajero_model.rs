@@ -12,24 +12,26 @@ use crate::infrastructure::persistence::schema::file_pasajeros;
 pub struct FilePasajeroModel {
     pub id: i32,
     pub id_file: i32,
-    pub id_persona: i32,
+    pub id_persona: Option<i32>,  // Ahora nullable - pasajeros pueden no tener persona registrada
     pub asiento: Option<String>,
     pub tipo_pasajero: Option<String>,
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub nacionalidad: Option<String>,
+    pub edad: Option<i32>,  // Nueva columna
 }
 
 /// Modelo con datos de persona incluidos (para queries con JOIN)
+/// Nota: id_persona ahora puede ser NULL, así que el JOIN debe ser LEFT
 #[derive(Debug, Clone, QueryableByName)]
 pub struct FilePasajeroWithPersonaModel {
     #[diesel(sql_type = Integer)]
     pub id: i32,
     #[diesel(sql_type = Integer)]
     pub id_file: i32,
-    #[diesel(sql_type = Integer)]
-    pub id_persona: i32,
+    #[diesel(sql_type = Nullable<Integer>)]
+    pub id_persona: Option<i32>,  // Ahora nullable
     #[diesel(sql_type = Nullable<Text>)]
     pub asiento: Option<String>,
     #[diesel(sql_type = Nullable<Text>)]
@@ -42,13 +44,15 @@ pub struct FilePasajeroWithPersonaModel {
     pub created_by: Option<i32>,
     #[diesel(sql_type = Nullable<Text>)]
     pub nacionalidad: Option<String>,
-    // Datos de persona (INNER JOIN = siempre existen)
-    #[diesel(sql_type = Text)]
-    pub pasajero_nombre: String,
-    #[diesel(sql_type = Text)]
-    pub pasajero_apellidos: String,
-    #[diesel(sql_type = Text)]
-    pub pasajero_documento: String,
+    #[diesel(sql_type = Nullable<Integer>)]
+    pub edad: Option<i32>,  // Nueva columna
+    // Datos de persona (LEFT JOIN = pueden ser NULL)
+    #[diesel(sql_type = Nullable<Text>)]
+    pub pasajero_nombre: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub pasajero_apellidos: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub pasajero_documento: Option<String>,
 }
 
 /// Modelo insertable para crear file_pasajeros
@@ -56,10 +60,12 @@ pub struct FilePasajeroWithPersonaModel {
 #[diesel(table_name = file_pasajeros)]
 pub struct NewFilePasajeroModel<'a> {
     pub id_file: i32,
-    pub id_persona: i32,
+    pub id_persona: Option<i32>,  // Ahora nullable
     pub asiento: Option<&'a str>,
     pub tipo_pasajero: Option<&'a str>,
     pub notas: Option<&'a str>,
     pub created_by: Option<i32>,
     pub nacionalidad: Option<&'a str>,
+    pub edad: Option<i32>,  // Nueva columna
 }
+

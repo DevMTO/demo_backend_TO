@@ -111,14 +111,17 @@ pub struct AssignGuiaToFileRequest {
 pub struct FilePasajeroResponse {
     pub id: i32,
     pub id_file: i32,
-    pub id_persona: i32,
+    /// ID de persona (opcional para pasajeros anónimos)
+    pub id_persona: Option<i32>,
     pub asiento: Option<String>,
     pub tipo_pasajero: Option<String>,
     pub notas: Option<String>,
     pub nacionalidad: Option<String>,
+    /// Edad del pasajero al momento del viaje
+    pub edad: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
-    // Datos del pasajero relacionado
+    // Datos del pasajero relacionado (pueden ser None si id_persona es None)
     pub pasajero_nombre: Option<String>,
     pub pasajero_apellidos: Option<String>,
     pub pasajero_documento: Option<String>,
@@ -134,6 +137,7 @@ impl From<FilePasajeroModel> for FilePasajeroResponse {
             tipo_pasajero: m.tipo_pasajero,
             notas: m.notas,
             nacionalidad: m.nacionalidad,
+            edad: m.edad,
             created_at: m.created_at,
             created_by: m.created_by,
             pasajero_nombre: None,
@@ -153,11 +157,12 @@ impl From<FilePasajeroWithPersonaModel> for FilePasajeroResponse {
             tipo_pasajero: m.tipo_pasajero,
             notas: m.notas,
             nacionalidad: m.nacionalidad,
+            edad: m.edad,
             created_at: m.created_at,
             created_by: m.created_by,
-            pasajero_nombre: Some(m.pasajero_nombre),
-            pasajero_apellidos: Some(m.pasajero_apellidos),
-            pasajero_documento: Some(m.pasajero_documento),
+            pasajero_nombre: m.pasajero_nombre,
+            pasajero_apellidos: m.pasajero_apellidos,
+            pasajero_documento: m.pasajero_documento,
         }
     }
 }
@@ -166,13 +171,17 @@ impl From<FilePasajeroWithPersonaModel> for FilePasajeroResponse {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct AddPasajeroToFileRequest {
-    pub id_persona: i32,
+    /// ID de persona (opcional para pasajeros anónimos)
+    pub id_persona: Option<i32>,
     #[validate(length(max = 10))]
     pub asiento: Option<String>,
     #[validate(length(max = 30))]
-    pub tipo_pasajero: Option<String>, // "adulto", "niño", "infante"
+    pub tipo_pasajero: Option<String>, // "adulto", "niño", "infante", "tercera_edad"
     #[validate(length(max = 60))]
     pub nacionalidad: Option<String>,
+    /// Edad del pasajero al momento del viaje
+    #[validate(range(min = 0, max = 120))]
+    pub edad: Option<i32>,
     pub notas: Option<String>,
 }
 

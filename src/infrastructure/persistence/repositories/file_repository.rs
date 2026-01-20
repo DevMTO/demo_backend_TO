@@ -62,8 +62,7 @@ impl FileRepositoryPort for PostgresFileRepository {
             id_agencia: Some(file.id_agencia),
             fecha_inicio: Some(file.fecha_inicio),
             fecha_fin: Some(file.fecha_fin),
-            lugar_recojo: Some(file.lugar_recojo.as_deref()),
-            hora_recojo: Some(file.hora_recojo),
+            // lugar_recojo, hora_recojo, turno_tour ahora están en file_tours
             notas: Some(file.notas.as_deref()),
             status: Some(&file.status),
             monto_total: Some(file.monto_total.clone()),
@@ -71,7 +70,6 @@ impl FileRepositoryPort for PostgresFileRepository {
             is_active: Some(file.is_active),
             nro_pasajeros: Some(file.nro_pasajeros),
             file_code: Some(file.file_code.as_deref()),
-            turno_tour: Some(file.turno_tour.as_deref()),
             deadline_confirmacion: Some(file.deadline_confirmacion),
             updated_by: file.updated_by,
         };

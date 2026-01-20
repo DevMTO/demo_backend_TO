@@ -23,7 +23,7 @@ use crate::domain::entities::{
     NotificationType, NotificationCategory, NotificationPriority,
 };
 use crate::domain::errors::ApplicationError;
-use crate::infrastructure::persistence::repositories::FileTourRepositoryPort;
+use crate::infrastructure::persistence::repositories::{FileTourRepositoryPort, FileTourInputData};
 
 /// Servicio de files - contiene la lógica de negocio
 pub struct FileService {
@@ -58,6 +58,10 @@ impl FileService {
             precio_aplicado: t.precio_aplicado.clone(),
             notas: t.notas,
             fecha_tour: t.fecha_tour,
+            // Campos de recojo movidos desde files
+            turno_tour: t.turno_tour,
+            lugar_recojo: t.lugar_recojo,
+            hora_recojo: t.hora_recojo,
             // Información completa del tour (INNER JOIN)
             tour_nombre: Some(t.tour_nombre),
             tour_lugar_inicio: Some(t.tour_lugar_inicio),
@@ -157,14 +161,23 @@ impl FileService {
         let created = self.file_repository.create(&file).await?;
         info!("✅ File creado: ID {} para fechas {} - {}", created.id, created.fecha_inicio, created.fecha_fin);
         
-        // Insertar tours asociados (con fecha_tour)
-        let tours_data: Vec<(i32, i32, Option<BigDecimal>, Option<String>, Option<chrono::NaiveDate>)> = tours_input
+        // Insertar tours asociados (con fecha_tour y campos de recojo)
+        let tours_data: Vec<FileTourInputData> = tours_input
             .into_iter()
             .enumerate()
             .map(|(idx, t)| {
                 let orden = t.orden.unwrap_or((idx + 1) as i32);
                 let precio = t.precio_aplicado.map(|p| BigDecimal::try_from(p).unwrap_or_default());
-                (t.id_tour, orden, precio, t.notas, t.fecha_tour)
+                FileTourInputData {
+                    id_tour: t.id_tour,
+                    orden,
+                    precio_aplicado: precio,
+                    notas: t.notas,
+                    fecha_tour: t.fecha_tour,
+                    turno_tour: t.turno_tour,
+                    lugar_recojo: t.lugar_recojo,
+                    hora_recojo: t.hora_recojo,
+                }
             })
             .collect();
         
@@ -239,14 +252,23 @@ impl FileService {
             // Eliminar todos los tours existentes
             self.file_tour_repository.remove_by_file(id).await?;
             
-            // Insertar nuevos tours (con fecha_tour)
-            let tours_data: Vec<(i32, i32, Option<BigDecimal>, Option<String>, Option<chrono::NaiveDate>)> = tours_input
+            // Insertar nuevos tours (con fecha_tour y campos de recojo)
+            let tours_data: Vec<FileTourInputData> = tours_input
                 .into_iter()
                 .enumerate()
                 .map(|(idx, t)| {
                     let orden = t.orden.unwrap_or((idx + 1) as i32);
                     let precio = t.precio_aplicado.map(|p| BigDecimal::try_from(p).unwrap_or_default());
-                    (t.id_tour, orden, precio, t.notas, t.fecha_tour)
+                    FileTourInputData {
+                        id_tour: t.id_tour,
+                        orden,
+                        precio_aplicado: precio,
+                        notas: t.notas,
+                        fecha_tour: t.fecha_tour,
+                        turno_tour: t.turno_tour,
+                        lugar_recojo: t.lugar_recojo,
+                        hora_recojo: t.hora_recojo,
+                    }
                 })
                 .collect();
             

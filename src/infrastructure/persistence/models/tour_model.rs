@@ -27,6 +27,7 @@ pub struct TourModel {
     pub updated_by: Option<i32>,
     pub tipo_tour: Option<String>,
     pub horarios: Option<JsonValue>,
+    pub tiene_restaurante: bool,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -45,6 +46,7 @@ pub struct NewTourModel<'a> {
     pub is_active: bool,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub tiene_restaurante: Option<bool>,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -62,6 +64,7 @@ pub struct UpdateTourModel<'a> {
     pub horarios: Option<Option<JsonValue>>,
     pub is_active: Option<bool>,
     pub updated_by: Option<i32>,
+    pub tiene_restaurante: Option<bool>,
 }
 
 impl From<TourModel> for Tour {
@@ -83,6 +86,7 @@ impl From<TourModel> for Tour {
             updated_at: model.updated_at,
             created_by: model.created_by,
             updated_by: model.updated_by,
+            tiene_restaurante: model.tiene_restaurante,
         }
     }
 }
@@ -103,6 +107,7 @@ impl<'a> From<&'a Tour> for NewTourModel<'a> {
             is_active: tour.is_active,
             created_by: tour.created_by,
             updated_by: tour.updated_by,
+            tiene_restaurante: Some(tour.tiene_restaurante),
         }
     }
 }

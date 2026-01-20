@@ -1,4 +1,5 @@
 use axum::{extract::{Path, State}, response::IntoResponse, Json};
+use chrono::Datelike;
 use tracing::instrument;
 use validator::Validate;
 
@@ -213,6 +214,8 @@ pub async fn list_file_pasajeros(
 }
 
 /// Agrega un pasajero a un file
+/// - id_persona es opcional para permitir pasajeros anónimos
+/// - edad es opcional
 #[instrument(skip(state, auth, request))]
 pub async fn add_pasajero_to_file(
     State(state): State<AppState>,
@@ -228,11 +231,13 @@ pub async fn add_pasajero_to_file(
         .await?
         .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
     
-    // Verificar que la persona existe
-    state.container.persona_repository
-        .find_by_id(request.id_persona)
-        .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("Persona {} no encontrada", request.id_persona)))?;
+    // Si se proporciona id_persona, verificar que existe
+    if let Some(persona_id) = request.id_persona {
+        state.container.persona_repository
+            .find_by_id(persona_id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Persona {} no encontrada", persona_id)))?;
+    }
     
     let result = state.container.file_pasajero_repository
         .add(
@@ -242,6 +247,7 @@ pub async fn add_pasajero_to_file(
             request.tipo_pasajero.as_deref(),
             request.nacionalidad.as_deref(),
             request.notas.as_deref(),
+            request.edad,
             Some(auth.user.id),
         )
         .await?;
@@ -331,14 +337,26 @@ pub async fn create_pasajero_with_persona(
         };
     
     // Agregar como pasajero al file
+    // Nota: Este endpoint siempre crea/usa una persona, así que id_persona no es None
+    // edad se calcula de fecha_nacimiento si está disponible
+    let edad = request.fecha_nacimiento.map(|fecha| {
+        let hoy = chrono::Utc::now().date_naive();
+        let mut age = hoy.year() - fecha.year();
+        if (hoy.month(), hoy.day()) < (fecha.month(), fecha.day()) {
+            age -= 1;
+        }
+        age
+    });
+    
     let pasajero_result = state.container.file_pasajero_repository
         .add(
             file_id,
-            persona_id,
+            Some(persona_id),  // Siempre tiene persona en este endpoint
             request.asiento.as_deref(),
             request.tipo_pasajero.as_deref(),
             request.nacionalidad.as_deref(),
             request.notas.as_deref(),
+            edad,
             Some(auth.user.id),
         )
         .await?;

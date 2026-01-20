@@ -118,7 +118,7 @@ diesel::table! {
     file_pasajeros (id) {
         id -> Int4,
         id_file -> Int4,
-        id_persona -> Int4,
+        id_persona -> Nullable<Int4>,
         #[max_length = 10]
         asiento -> Nullable<Varchar>,
         #[max_length = 30]
@@ -128,6 +128,7 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         #[max_length = 60]
         nacionalidad -> Nullable<Varchar>,
+        edad -> Nullable<Int4>,
     }
 }
 
@@ -155,6 +156,11 @@ diesel::table! {
         created_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         fecha_tour -> Nullable<Date>,
+        #[max_length = 30]
+        turno_tour -> Nullable<Varchar>,
+        #[max_length = 200]
+        lugar_recojo -> Nullable<Varchar>,
+        hora_recojo -> Nullable<Time>,
     }
 }
 
@@ -176,9 +182,6 @@ diesel::table! {
         id_agencia -> Int4,
         fecha_inicio -> Date,
         fecha_fin -> Date,
-        #[max_length = 200]
-        lugar_recojo -> Nullable<Varchar>,
-        hora_recojo -> Nullable<Time>,
         notas -> Nullable<Text>,
         #[max_length = 30]
         status -> Varchar,
@@ -192,8 +195,6 @@ diesel::table! {
         nro_pasajeros -> Int4,
         #[max_length = 50]
         file_code -> Nullable<Varchar>,
-        #[max_length = 30]
-        turno_tour -> Nullable<Varchar>,
         deadline_confirmacion -> Nullable<Timestamptz>,
     }
 }
@@ -344,6 +345,7 @@ diesel::table! {
         #[max_length = 100]
         tipo_tour -> Nullable<Varchar>,
         horarios -> Nullable<Jsonb>,
+        tiene_restaurante -> Bool,
     }
 }
 

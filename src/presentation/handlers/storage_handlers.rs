@@ -910,6 +910,7 @@ async fn update_tour_media(
         tipo_tour: None,
         horarios: None,
         is_active: None,
+        tiene_restaurante: None,
     };
     
     // Aplicar la actualización usando el servicio

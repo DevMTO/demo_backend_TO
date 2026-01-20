@@ -1,5 +1,5 @@
 
-use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use bigdecimal::BigDecimal;
 
@@ -65,15 +65,12 @@ pub struct File {
     pub id_agencia: i32,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
-    pub lugar_recojo: Option<String>,
-    pub hora_recojo: Option<NaiveTime>,
     pub notas: Option<String>,
     pub status: String,
     pub monto_total: BigDecimal,
     pub monto_pagado: BigDecimal,
     pub nro_pasajeros: i32,
     pub file_code: Option<String>,
-    pub turno_tour: Option<String>,
     pub deadline_confirmacion: Option<DateTime<Utc>>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
@@ -91,15 +88,12 @@ impl File {
             id_agencia,
             fecha_inicio,
             fecha_fin,
-            lugar_recojo: None,
-            hora_recojo: None,
             notas: None,
             status: StatusFile::Reservado.to_string(),
             monto_total: BigDecimal::from(0),
             monto_pagado: BigDecimal::from(0),
             nro_pasajeros: 0,
             file_code: None, // Será asignado después de insertar
-            turno_tour: None,
             deadline_confirmacion: None,
             is_active: true,
             created_at: now,

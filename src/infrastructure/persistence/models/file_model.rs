@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use bigdecimal::BigDecimal;
@@ -14,8 +14,6 @@ pub struct FileModel {
     pub id_agencia: i32,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
-    pub lugar_recojo: Option<String>,
-    pub hora_recojo: Option<NaiveTime>,
     pub notas: Option<String>,
     pub status: String,
     pub monto_total: BigDecimal,
@@ -27,8 +25,8 @@ pub struct FileModel {
     pub is_active: bool,
     pub nro_pasajeros: i32,
     pub file_code: Option<String>,
-    pub turno_tour: Option<String>,
     pub deadline_confirmacion: Option<DateTime<Utc>>,
+    // Campos eliminados: lugar_recojo, hora_recojo, turno_tour (ahora están en file_tours)
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -37,8 +35,6 @@ pub struct NewFileModel<'a> {
     pub id_agencia: i32,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
-    pub lugar_recojo: Option<&'a str>,
-    pub hora_recojo: Option<NaiveTime>,
     pub notas: Option<&'a str>,
     pub status: &'a str,
     pub monto_total: BigDecimal,
@@ -48,8 +44,8 @@ pub struct NewFileModel<'a> {
     pub is_active: bool,
     pub nro_pasajeros: i32,
     pub file_code: Option<&'a str>,
-    pub turno_tour: Option<&'a str>,
     pub deadline_confirmacion: Option<DateTime<Utc>>,
+    // Campos eliminados: lugar_recojo, hora_recojo, turno_tour (ahora están en file_tours)
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -58,8 +54,6 @@ pub struct UpdateFileModel<'a> {
     pub id_agencia: Option<i32>,
     pub fecha_inicio: Option<NaiveDate>,
     pub fecha_fin: Option<NaiveDate>,
-    pub lugar_recojo: Option<Option<&'a str>>,
-    pub hora_recojo: Option<Option<NaiveTime>>,
     pub notas: Option<Option<&'a str>>,
     pub status: Option<&'a str>,
     pub monto_total: Option<BigDecimal>,
@@ -68,8 +62,8 @@ pub struct UpdateFileModel<'a> {
     pub is_active: Option<bool>,
     pub nro_pasajeros: Option<i32>,
     pub file_code: Option<Option<&'a str>>,
-    pub turno_tour: Option<Option<&'a str>>,
     pub deadline_confirmacion: Option<Option<DateTime<Utc>>>,
+    // Campos eliminados: lugar_recojo, hora_recojo, turno_tour (ahora están en file_tours)
 }
 
 impl From<FileModel> for File {
@@ -79,8 +73,6 @@ impl From<FileModel> for File {
             id_agencia: model.id_agencia,
             fecha_inicio: model.fecha_inicio,
             fecha_fin: model.fecha_fin,
-            lugar_recojo: model.lugar_recojo,
-            hora_recojo: model.hora_recojo,
             notas: model.notas,
             status: model.status,
             monto_total: model.monto_total,
@@ -88,7 +80,6 @@ impl From<FileModel> for File {
             is_active: model.is_active,
             nro_pasajeros: model.nro_pasajeros,
             file_code: model.file_code,
-            turno_tour: model.turno_tour,
             deadline_confirmacion: model.deadline_confirmacion,
             created_at: model.created_at,
             updated_at: model.updated_at,
@@ -104,8 +95,6 @@ impl<'a> From<&'a File> for NewFileModel<'a> {
             id_agencia: f.id_agencia,
             fecha_inicio: f.fecha_inicio,
             fecha_fin: f.fecha_fin,
-            lugar_recojo: f.lugar_recojo.as_deref(),
-            hora_recojo: f.hora_recojo,
             notas: f.notas.as_deref(),
             status: &f.status,
             monto_total: f.monto_total.clone(),
@@ -115,7 +104,6 @@ impl<'a> From<&'a File> for NewFileModel<'a> {
             is_active: f.is_active,
             nro_pasajeros: f.nro_pasajeros,
             file_code: f.file_code.as_deref(),
-            turno_tour: f.turno_tour.as_deref(),
             deadline_confirmacion: f.deadline_confirmacion,
         }
     }

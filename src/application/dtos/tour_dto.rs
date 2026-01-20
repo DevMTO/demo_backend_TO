@@ -28,6 +28,8 @@ pub struct TourResponse {
     /// Horarios del tour: { "full": {...}, "morning": {...}, "afternoon": {...} }
     #[ts(type = "object | null")]
     pub horarios: Option<JsonValue>,
+    /// Indica si el tour incluye restaurante en su itinerario
+    pub tiene_restaurante: bool,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -47,6 +49,7 @@ impl From<Tour> for TourResponse {
             media: t.media,
             tipo_tour: t.tipo_tour,
             horarios: t.horarios,
+            tiene_restaurante: t.tiene_restaurante,
             is_active: t.is_active,
             created_at: t.created_at,
             updated_at: t.updated_at,
@@ -88,6 +91,9 @@ pub struct CreateTourRequest {
     /// Horarios del tour: { "full": {"start": "HH:MM", "end": "HH:MM"}, "morning": {...}, "afternoon": {...} }
     #[ts(type = "object | null")]
     pub horarios: Option<JsonValue>,
+    
+    /// Indica si el tour incluye restaurante en su itinerario
+    pub tiene_restaurante: Option<bool>,
 }
 
 impl CreateTourRequest {
@@ -105,6 +111,7 @@ impl CreateTourRequest {
             media: self.media,
             tipo_tour: self.tipo_tour,
             horarios: self.horarios,
+            tiene_restaurante: self.tiene_restaurante.unwrap_or(false),
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -149,6 +156,9 @@ pub struct UpdateTourRequest {
     #[ts(type = "object | null")]
     pub horarios: Option<JsonValue>,
     
+    /// Indica si el tour incluye restaurante en su itinerario
+    pub tiene_restaurante: Option<bool>,
+    
     pub is_active: Option<bool>,
 }
 
@@ -183,6 +193,9 @@ impl UpdateTourRequest {
         }
         if let Some(horarios) = self.horarios {
             tour.horarios = Some(horarios);
+        }
+        if let Some(tiene_restaurante) = self.tiene_restaurante {
+            tour.tiene_restaurante = tiene_restaurante;
         }
         if let Some(is_active) = self.is_active {
             tour.is_active = is_active;
