@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use validator::Validate;
+use bigdecimal::BigDecimal;
 
 use crate::infrastructure::persistence::models::{
     FileEntradaModel, FileGuiaModel, FilePasajeroModel, FilePasajeroWithPersonaModel,
@@ -15,7 +16,8 @@ use crate::infrastructure::persistence::models::{
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct FileEntradaResponse {
     pub id: i32,
-    pub id_file: i32,
+    /// Referencia al file_tour específico
+    pub id_file_tour: i32,
     pub id_entrada: i32,
     pub cantidad: i32,
     pub created_at: DateTime<Utc>,
@@ -29,7 +31,7 @@ impl From<FileEntradaModel> for FileEntradaResponse {
     fn from(m: FileEntradaModel) -> Self {
         Self {
             id: m.id,
-            id_file: m.id_file,
+            id_file_tour: m.id_file_tour,
             id_entrada: m.id_entrada,
             cantidad: m.cantidad,
             created_at: m.created_at,
@@ -40,10 +42,13 @@ impl From<FileEntradaModel> for FileEntradaResponse {
     }
 }
 
+/// Request para asignar entrada a un file_tour específico
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct AssignEntradaToFileRequest {
+pub struct AssignEntradaToFileTourRequest {
+    /// ID del file_tour al que se asigna la entrada
+    pub id_file_tour: i32,
     pub id_entrada: i32,
     #[validate(range(min = 1, message = "La cantidad debe ser al menos 1"))]
     pub cantidad: i32,
@@ -53,8 +58,8 @@ pub struct AssignEntradaToFileRequest {
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct BulkAssignEntradasRequest {
-    pub entradas: Vec<AssignEntradaToFileRequest>,
+pub struct BulkAssignEntradasToFileTourRequest {
+    pub entradas: Vec<AssignEntradaToFileTourRequest>,
 }
 
 // ==================== FILE GUIA ====================
@@ -239,12 +244,15 @@ pub struct CreatePasajeroWithPersonaResponse {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct FileRestauranteResponse {
     pub id: i32,
-    pub id_file: i32,
+    /// Referencia al file_tour específico
+    pub id_file_tour: i32,
     pub id_restaurante: i32,
     pub tipo_servicio: Option<String>,
-    pub dia: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
+    /// Precio del servicio de restaurante para este tour
+    #[ts(type = "string | null")]
+    pub precio: Option<BigDecimal>,
     // Datos del restaurante relacionado
     pub restaurante_nombre: Option<String>,
     pub restaurante_direccion: Option<String>,
@@ -254,27 +262,31 @@ impl From<FileRestauranteModel> for FileRestauranteResponse {
     fn from(m: FileRestauranteModel) -> Self {
         Self {
             id: m.id,
-            id_file: m.id_file,
+            id_file_tour: m.id_file_tour,
             id_restaurante: m.id_restaurante,
             tipo_servicio: m.tipo_servicio,
-            dia: m.dia,
             created_at: m.created_at,
             created_by: m.created_by,
+            precio: m.precio,
             restaurante_nombre: None,
             restaurante_direccion: None,
         }
     }
 }
 
+/// Request para asignar restaurante a un file_tour específico
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct AssignRestauranteToFileRequest {
+pub struct AssignRestauranteToFileTourRequest {
+    /// ID del file_tour al que se asigna el restaurante
+    pub id_file_tour: i32,
     pub id_restaurante: i32,
     #[validate(length(max = 30))]
     pub tipo_servicio: Option<String>, // "desayuno", "almuerzo", "cena"
-    #[validate(range(min = 1))]
-    pub dia: Option<i32>, // Día del tour (1, 2, 3, etc.)
+    /// Precio del servicio de restaurante
+    #[ts(type = "number | null")]
+    pub precio: Option<f64>,
 }
 
 // ==================== FILE VEHICULO ====================

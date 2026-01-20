@@ -3,8 +3,8 @@ use tracing::instrument;
 use validator::Validate;
 
 use crate::application::dtos::{
-    AssignEntradaToFileRequest, AssignGuiaToFileRequest, AddPasajeroToFileRequest,
-    AssignRestauranteToFileRequest, AssignVehiculoToFileRequest,
+    AssignEntradaToFileTourRequest, AssignGuiaToFileRequest, AddPasajeroToFileRequest,
+    AssignRestauranteToFileTourRequest, AssignVehiculoToFileRequest,
     FileEntradaResponse, FileGuiaResponse, FilePasajeroResponse,
     FileRestauranteResponse, FileVehiculoResponse, FileVehiculoListItemDto,
     ResourceStatusUpdateResponse,
@@ -15,47 +15,53 @@ use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use super::common::{json_ok, json_created, json_deleted};
 
-// ==================== FILE ENTRADAS ====================
+// ==================== FILE ENTRADAS (vinculadas a file_tours) ====================
 
-/// Lista las entradas asignadas a un file
+/// Lista las entradas asignadas a un file_tour
 #[instrument(skip(state, _auth))]
-pub async fn list_file_entradas(
+pub async fn list_file_tour_entradas(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path(file_id): Path<i32>,
+    Path(file_tour_id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    // Verificar que el file existe
-    state.container.file_repository
-        .find_by_id(file_id)
+    // Verificar que el file_tour existe
+    state.container.file_tour_repository
+        .find_by_id(file_tour_id)
         .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", file_tour_id)))?;
     
     let entradas = state.container.file_entrada_repository
-        .find_by_file(file_id)
+        .find_by_file_tour(file_tour_id)
         .await?;
     
-    let responses: Vec<FileEntradaResponse> = entradas.into_iter()
-        .map(FileEntradaResponse::from)
-        .collect();
+    // Obtener información completa de cada entrada
+    let mut responses: Vec<FileEntradaResponse> = Vec::new();
+    for e in entradas {
+        let mut response = FileEntradaResponse::from(e.clone());
+        if let Ok(Some(entrada)) = state.container.entrada_repository.find_by_id(e.id_entrada).await {
+            response.entrada_nombre = Some(entrada.nombre);
+            response.entrada_precio = Some(entrada.precio.to_string());
+        }
+        responses.push(response);
+    }
     
     Ok(json_ok(responses))
 }
 
-/// Asigna una entrada a un file
+/// Asigna una entrada a un file_tour
 #[instrument(skip(state, auth, request))]
-pub async fn assign_entrada_to_file(
+pub async fn assign_entrada_to_file_tour(
     State(state): State<AppState>,
     auth: AuthUser,
-    Path(file_id): Path<i32>,
-    Json(request): Json<AssignEntradaToFileRequest>,
+    Json(request): Json<AssignEntradaToFileTourRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
-    // Verificar que el file existe
-    state.container.file_repository
-        .find_by_id(file_id)
+    // Verificar que el file_tour existe
+    state.container.file_tour_repository
+        .find_by_id(request.id_file_tour)
         .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
     
     // Verificar que la entrada existe
     state.container.entrada_repository
@@ -64,7 +70,7 @@ pub async fn assign_entrada_to_file(
         .ok_or_else(|| ApplicationError::NotFound(format!("Entrada {} no encontrada", request.id_entrada)))?;
     
     let result = state.container.file_entrada_repository
-        .add(file_id, request.id_entrada, request.cantidad, Some(auth.user.id))
+        .add(request.id_file_tour, request.id_entrada, request.cantidad, Some(auth.user.id))
         .await?;
     
     Ok(json_created(FileEntradaResponse::from(result)))
@@ -75,18 +81,13 @@ pub async fn assign_entrada_to_file(
 pub async fn remove_file_entrada(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path((file_id, entrada_asig_id)): Path<(i32, i32)>,
+    Path(entrada_asig_id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     // Verificar que existe la asignación
-    let asig = state.container.file_entrada_repository
+    state.container.file_entrada_repository
         .find_by_id(entrada_asig_id)
         .await?
         .ok_or_else(|| ApplicationError::NotFound("Asignación no encontrada".to_string()))?;
-    
-    // Verificar que pertenece al file correcto
-    if asig.id_file != file_id {
-        return Err(ApplicationError::Validation("La asignación no pertenece a este file".to_string()));
-    }
     
     state.container.file_entrada_repository.remove(entrada_asig_id).await?;
     Ok(json_deleted())
@@ -362,57 +363,67 @@ pub async fn create_pasajero_with_persona(
     Ok(json_created(response))
 }
 
-// ==================== FILE RESTAURANTES ====================
+// ==================== FILE RESTAURANTES (vinculados a file_tours) ====================
 
-/// Lista los restaurantes asignados a un file
+/// Lista los restaurantes asignados a un file_tour
 #[instrument(skip(state, _auth))]
-pub async fn list_file_restaurantes(
+pub async fn list_file_tour_restaurantes(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path(file_id): Path<i32>,
+    Path(file_tour_id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    state.container.file_repository
-        .find_by_id(file_id)
+    state.container.file_tour_repository
+        .find_by_id(file_tour_id)
         .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", file_tour_id)))?;
     
     let restaurantes = state.container.file_restaurante_repository
-        .find_by_file(file_id)
+        .find_by_file_tour(file_tour_id)
         .await?;
     
-    let responses: Vec<FileRestauranteResponse> = restaurantes.into_iter()
-        .map(FileRestauranteResponse::from)
-        .collect();
+    // Obtener información completa de cada restaurante
+    let mut responses: Vec<FileRestauranteResponse> = Vec::new();
+    for r in restaurantes {
+        let mut response = FileRestauranteResponse::from(r.clone());
+        if let Ok(Some(restaurante)) = state.container.restaurante_repository.find_by_id(r.id_restaurante).await {
+            response.restaurante_nombre = Some(restaurante.nombre);
+            response.restaurante_direccion = Some(restaurante.direccion);
+        }
+        responses.push(response);
+    }
     
     Ok(json_ok(responses))
 }
 
-/// Asigna un restaurante a un file
+/// Asigna un restaurante a un file_tour específico
 #[instrument(skip(state, auth, request))]
-pub async fn assign_restaurante_to_file(
+pub async fn assign_restaurante_to_file_tour(
     State(state): State<AppState>,
     auth: AuthUser,
-    Path(file_id): Path<i32>,
-    Json(request): Json<AssignRestauranteToFileRequest>,
+    Json(request): Json<AssignRestauranteToFileTourRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
-    state.container.file_repository
-        .find_by_id(file_id)
+    // Verificar que el file_tour existe
+    state.container.file_tour_repository
+        .find_by_id(request.id_file_tour)
         .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
     
     state.container.restaurante_repository
         .find_by_id(request.id_restaurante)
         .await?
         .ok_or_else(|| ApplicationError::NotFound(format!("Restaurante {} no encontrado", request.id_restaurante)))?;
     
+    // Convertir precio de f64 a BigDecimal si se proporciona
+    let precio = request.precio.map(|p| bigdecimal::BigDecimal::try_from(p).unwrap_or_default());
+    
     let result = state.container.file_restaurante_repository
         .add(
-            file_id, 
+            request.id_file_tour, 
             request.id_restaurante, 
             request.tipo_servicio.as_deref(),
-            request.dia,
+            precio,
             Some(auth.user.id),
         )
         .await?;
@@ -425,16 +436,12 @@ pub async fn assign_restaurante_to_file(
 pub async fn remove_file_restaurante(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path((file_id, restaurante_asig_id)): Path<(i32, i32)>,
+    Path(restaurante_asig_id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let asig = state.container.file_restaurante_repository
+    state.container.file_restaurante_repository
         .find_by_id(restaurante_asig_id)
         .await?
         .ok_or_else(|| ApplicationError::NotFound("Asignación no encontrada".to_string()))?;
-    
-    if asig.id_file != file_id {
-        return Err(ApplicationError::Validation("La asignación no pertenece a este file".to_string()));
-    }
     
     state.container.file_restaurante_repository.remove(restaurante_asig_id).await?;
     Ok(json_deleted())

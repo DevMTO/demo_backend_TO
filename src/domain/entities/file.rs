@@ -61,7 +61,7 @@ impl Default for StatusFile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct File {
     pub id: i32,
-    pub id_tour: i32,
+    // id_tour eliminado - ahora los tours están en file_tours (relación N:M)
     pub id_agencia: i32,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
@@ -83,11 +83,11 @@ pub struct File {
 }
 
 impl File {
-    pub fn new(id_tour: i32, id_agencia: i32, fecha_inicio: NaiveDate, fecha_fin: NaiveDate) -> Self {
+    pub fn new(id_agencia: i32, fecha_inicio: NaiveDate, fecha_fin: NaiveDate) -> Self {
         let now = Utc::now();
         Self {
             id: 0, // Será asignado por la DB (SERIAL)
-            id_tour,
+            // tours se asignan aparte en file_tours
             id_agencia,
             fecha_inicio,
             fecha_fin,

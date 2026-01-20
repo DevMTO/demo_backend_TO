@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel::sql_types::{Integer, Nullable, Text, Timestamptz};
 use diesel_async::RunQueryDsl;
+use bigdecimal::BigDecimal;
 use tracing::{info, instrument};
 
 use crate::domain::errors::ApplicationError;
@@ -14,8 +15,9 @@ use crate::infrastructure::persistence::{
         FilePasajeroModel, FilePasajeroWithPersonaModel, NewFilePasajeroModel,
         FileRestauranteModel, NewFileRestauranteModel,
         FileVehiculoModel, NewFileVehiculoModel,
+        FileTourModel, NewFileTourModel, FileTourWithTourModel,
     },
-    schema::{file_entradas, file_guias, file_pasajeros, file_restaurantes, file_vehiculos},
+    schema::{file_entradas, file_guias, file_pasajeros, file_restaurantes, file_vehiculos, file_tours, tours},
 };
 
 // ==================== MODELOS EXTENDIDOS ====================
@@ -72,11 +74,12 @@ pub struct FileVehiculoWithDetailsModel {
 
 // ==================== TRAITS (PORTS) ====================
 
+/// Repositorio para file_entradas (vinculado a file_tours)
 #[async_trait]
 pub trait FileEntradaRepositoryPort: Send + Sync {
-    async fn add(&self, id_file: i32, id_entrada: i32, cantidad: i32, created_by: Option<i32>) -> Result<FileEntradaModel, ApplicationError>;
+    async fn add(&self, id_file_tour: i32, id_entrada: i32, cantidad: i32, created_by: Option<i32>) -> Result<FileEntradaModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileEntradaModel>, ApplicationError>;
+    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileEntradaModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileEntradaModel>, ApplicationError>;
 }
 
@@ -98,11 +101,12 @@ pub trait FilePasajeroRepositoryPort: Send + Sync {
     async fn count_by_file(&self, id_file: i32) -> Result<i64, ApplicationError>;
 }
 
+/// Repositorio para file_restaurantes (vinculado a file_tours)
 #[async_trait]
 pub trait FileRestauranteRepositoryPort: Send + Sync {
-    async fn add(&self, id_file: i32, id_restaurante: i32, tipo_servicio: Option<&str>, dia: Option<i32>, created_by: Option<i32>) -> Result<FileRestauranteModel, ApplicationError>;
+    async fn add(&self, id_file_tour: i32, id_restaurante: i32, tipo_servicio: Option<&str>, precio: Option<BigDecimal>, created_by: Option<i32>) -> Result<FileRestauranteModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileRestauranteModel>, ApplicationError>;
+    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileRestauranteModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileRestauranteModel>, ApplicationError>;
 }
 
@@ -132,11 +136,11 @@ impl PostgresFileEntradaRepository {
 #[async_trait]
 impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
     #[instrument(skip(self))]
-    async fn add(&self, id_file: i32, id_entrada: i32, cantidad: i32, created_by: Option<i32>) -> Result<FileEntradaModel, ApplicationError> {
+    async fn add(&self, id_file_tour: i32, id_entrada: i32, cantidad: i32, created_by: Option<i32>) -> Result<FileEntradaModel, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let new_record = NewFileEntradaModel {
-            id_file,
+            id_file_tour,
             id_entrada,
             cantidad,
             created_by,
@@ -149,7 +153,7 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Entrada asignada a file: file={}, entrada={}, cantidad={}", id_file, id_entrada, cantidad);
+        info!("✅ Entrada asignada a file_tour: file_tour={}, entrada={}, cantidad={}", id_file_tour, id_entrada, cantidad);
         Ok(result)
     }
     
@@ -164,11 +168,11 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
         Ok(affected > 0)
     }
     
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileEntradaModel>, ApplicationError> {
+    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileEntradaModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         file_entradas::table
-            .filter(file_entradas::id_file.eq(id_file))
+            .filter(file_entradas::id_file_tour.eq(id_file_tour))
             .select(FileEntradaModel::as_select())
             .load(&mut conn)
             .await
@@ -391,15 +395,15 @@ impl PostgresFileRestauranteRepository {
 #[async_trait]
 impl FileRestauranteRepositoryPort for PostgresFileRestauranteRepository {
     #[instrument(skip(self))]
-    async fn add(&self, id_file: i32, id_restaurante: i32, tipo_servicio: Option<&str>, dia: Option<i32>, created_by: Option<i32>) -> Result<FileRestauranteModel, ApplicationError> {
+    async fn add(&self, id_file_tour: i32, id_restaurante: i32, tipo_servicio: Option<&str>, precio: Option<BigDecimal>, created_by: Option<i32>) -> Result<FileRestauranteModel, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let new_record = NewFileRestauranteModel {
-            id_file,
+            id_file_tour,
             id_restaurante,
             tipo_servicio,
-            dia,
             created_by,
+            precio,
         };
         
         let result = diesel::insert_into(file_restaurantes::table)
@@ -409,7 +413,7 @@ impl FileRestauranteRepositoryPort for PostgresFileRestauranteRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Restaurante asignado a file: file={}, restaurante={}", id_file, id_restaurante);
+        info!("✅ Restaurante asignado a file_tour: file_tour={}, restaurante={}", id_file_tour, id_restaurante);
         Ok(result)
     }
     
@@ -424,11 +428,11 @@ impl FileRestauranteRepositoryPort for PostgresFileRestauranteRepository {
         Ok(affected > 0)
     }
     
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileRestauranteModel>, ApplicationError> {
+    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileRestauranteModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         file_restaurantes::table
-            .filter(file_restaurantes::id_file.eq(id_file))
+            .filter(file_restaurantes::id_file_tour.eq(id_file_tour))
             .select(FileRestauranteModel::as_select())
             .load(&mut conn)
             .await
@@ -590,5 +594,210 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
         Ok(count > 0)
+    }
+}
+
+// ==================== FILE TOUR REPOSITORY ====================
+
+#[async_trait]
+pub trait FileTourRepositoryPort: Send + Sync {
+    async fn add(&self, id_file: i32, id_tour: i32, orden: i32, precio_aplicado: Option<BigDecimal>, notas: Option<&str>, fecha_tour: Option<chrono::NaiveDate>, created_by: Option<i32>) -> Result<FileTourModel, ApplicationError>;
+    async fn add_many(&self, id_file: i32, tours: Vec<(i32, i32, Option<BigDecimal>, Option<String>, Option<chrono::NaiveDate>)>, created_by: Option<i32>) -> Result<Vec<FileTourModel>, ApplicationError>;
+    async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
+    async fn remove_by_file(&self, id_file: i32) -> Result<usize, ApplicationError>;
+    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileTourModel>, ApplicationError>;
+    /// Busca tours de un file con información del tour (INNER JOIN)
+    async fn find_by_file_with_tour(&self, id_file: i32) -> Result<Vec<FileTourWithTourModel>, ApplicationError>;
+    async fn find_by_id(&self, id: i32) -> Result<Option<FileTourModel>, ApplicationError>;
+    async fn find_by_tour(&self, id_tour: i32) -> Result<Vec<FileTourModel>, ApplicationError>;
+    async fn get_next_orden(&self, id_file: i32) -> Result<i32, ApplicationError>;
+}
+
+pub struct PostgresFileTourRepository {
+    pool: DatabasePool,
+}
+
+impl PostgresFileTourRepository {
+    pub fn new(pool: DatabasePool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl FileTourRepositoryPort for PostgresFileTourRepository {
+    #[instrument(skip(self))]
+    async fn add(&self, id_file: i32, id_tour: i32, orden: i32, precio_aplicado: Option<BigDecimal>, notas: Option<&str>, fecha_tour: Option<chrono::NaiveDate>, created_by: Option<i32>) -> Result<FileTourModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let new_record = NewFileTourModel {
+            id_file,
+            id_tour,
+            orden,
+            precio_aplicado,
+            notas,
+            created_by,
+            fecha_tour,
+        };
+        
+        let result = diesel::insert_into(file_tours::table)
+            .values(&new_record)
+            .returning(FileTourModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        info!("✅ Tour asignado a file: file={}, tour={}, orden={}", id_file, id_tour, orden);
+        Ok(result)
+    }
+    
+    #[instrument(skip(self, tours))]
+    async fn add_many(&self, id_file: i32, tours: Vec<(i32, i32, Option<BigDecimal>, Option<String>, Option<chrono::NaiveDate>)>, created_by: Option<i32>) -> Result<Vec<FileTourModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        // Insertar cada tour individualmente para evitar problemas de lifetime
+        let mut results = Vec::new();
+        for (id_tour, orden, precio, notas, fecha_tour) in tours {
+            let new_record = NewFileTourModel {
+                id_file,
+                id_tour,
+                orden,
+                precio_aplicado: precio,
+                notas: notas.as_deref(),
+                created_by,
+                fecha_tour,
+            };
+            
+            let result = diesel::insert_into(file_tours::table)
+                .values(&new_record)
+                .returning(FileTourModel::as_returning())
+                .get_result(&mut conn)
+                .await
+                .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+            
+            results.push(result);
+        }
+        
+        info!("✅ {} tours asignados a file {}", results.len(), id_file);
+        Ok(results)
+    }
+    
+    async fn remove(&self, id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let affected = diesel::delete(file_tours::table.filter(file_tours::id.eq(id)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        Ok(affected > 0)
+    }
+    
+    async fn remove_by_file(&self, id_file: i32) -> Result<usize, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let affected = diesel::delete(file_tours::table.filter(file_tours::id_file.eq(id_file)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        info!("✅ Eliminados {} tours del file {}", affected, id_file);
+        Ok(affected)
+    }
+    
+    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileTourModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        file_tours::table
+            .filter(file_tours::id_file.eq(id_file))
+            .order(file_tours::orden.asc())
+            .select(FileTourModel::as_select())
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))
+    }
+    
+    async fn find_by_file_with_tour(&self, id_file: i32) -> Result<Vec<FileTourWithTourModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        // INNER JOIN completo entre file_tours y tours
+        let results: Vec<(FileTourModel, (String, String, String, BigDecimal, Option<i32>, Option<String>, bool))> = file_tours::table
+            .inner_join(tours::table.on(tours::id.eq(file_tours::id_tour)))
+            .filter(file_tours::id_file.eq(id_file))
+            .order(file_tours::orden.asc())
+            .select((
+                FileTourModel::as_select(),
+                (
+                    tours::nombre,
+                    tours::lugar_inicio,
+                    tours::lugar_fin,
+                    tours::precio_base,
+                    tours::duracion_dias,
+                    tours::tipo_tour,
+                    tours::is_active,
+                ),
+            ))
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error al cargar tours con detalle: {}", e)))?;
+        
+        // Convertir a modelo con tour info completa (incluyendo fecha_tour)
+        let with_tour: Vec<FileTourWithTourModel> = results.into_iter().map(|(ft, (nombre, lugar_inicio, lugar_fin, precio, duracion, tipo, is_active))| {
+            FileTourWithTourModel {
+                id: ft.id,
+                id_file: ft.id_file,
+                id_tour: ft.id_tour,
+                orden: ft.orden,
+                precio_aplicado: ft.precio_aplicado,
+                notas: ft.notas,
+                created_at: ft.created_at,
+                created_by: ft.created_by,
+                fecha_tour: ft.fecha_tour,
+                tour_nombre: nombre,
+                tour_lugar_inicio: lugar_inicio,
+                tour_lugar_fin: lugar_fin,
+                tour_precio_base: precio,
+                tour_duracion_dias: duracion,
+                tour_tipo: tipo,
+                tour_is_active: is_active,
+            }
+        }).collect();
+        
+        Ok(with_tour)
+    }
+    
+    async fn find_by_id(&self, id: i32) -> Result<Option<FileTourModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        file_tours::table
+            .filter(file_tours::id.eq(id))
+            .select(FileTourModel::as_select())
+            .first(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| ApplicationError::Repository(e.to_string()))
+    }
+    
+    async fn find_by_tour(&self, id_tour: i32) -> Result<Vec<FileTourModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        file_tours::table
+            .filter(file_tours::id_tour.eq(id_tour))
+            .select(FileTourModel::as_select())
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))
+    }
+    
+    async fn get_next_orden(&self, id_file: i32) -> Result<i32, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let max_orden: Option<i32> = file_tours::table
+            .filter(file_tours::id_file.eq(id_file))
+            .select(diesel::dsl::max(file_tours::orden))
+            .first(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        Ok(max_orden.unwrap_or(0) + 1)
     }
 }

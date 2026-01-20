@@ -6,13 +6,15 @@
 //! - Búsqueda
 //! - Logging de actividades
 //! - Notificaciones
+//! - Gestión de tours asociados (file_tours)
 
 use std::sync::Arc;
 use chrono::NaiveDate;
+use bigdecimal::BigDecimal;
 use tracing::{info, warn, instrument};
 
 use crate::application::dtos::{
-    CreateFileRequest, UpdateFileRequest, FileResponse,
+    CreateFileRequest, UpdateFileRequest, FileResponse, FileTourDto,
 };
 use crate::application::ports::{FileRepositoryPort, PaginationOptions, NotificationServicePort};
 use crate::application::services::LoggingService;
@@ -21,10 +23,12 @@ use crate::domain::entities::{
     NotificationType, NotificationCategory, NotificationPriority,
 };
 use crate::domain::errors::ApplicationError;
+use crate::infrastructure::persistence::repositories::FileTourRepositoryPort;
 
 /// Servicio de files - contiene la lógica de negocio
 pub struct FileService {
     file_repository: Arc<dyn FileRepositoryPort>,
+    file_tour_repository: Arc<dyn FileTourRepositoryPort>,
     logging_service: Arc<LoggingService>,
     notification_service: Arc<dyn NotificationServicePort>,
 }
@@ -32,14 +36,37 @@ pub struct FileService {
 impl FileService {
     pub fn new(
         file_repository: Arc<dyn FileRepositoryPort>,
+        file_tour_repository: Arc<dyn FileTourRepositoryPort>,
         logging_service: Arc<LoggingService>,
         notification_service: Arc<dyn NotificationServicePort>,
     ) -> Self {
         Self {
             file_repository,
+            file_tour_repository,
             logging_service,
             notification_service,
         }
+    }
+
+    /// Carga los tours de un file con información completa del tour (INNER JOIN) y los convierte a DTO
+    async fn load_file_tours(&self, file_id: i32) -> Result<Vec<FileTourDto>, ApplicationError> {
+        let tours = self.file_tour_repository.find_by_file_with_tour(file_id).await?;
+        Ok(tours.into_iter().map(|t| FileTourDto {
+            id: t.id,
+            id_tour: t.id_tour,
+            orden: t.orden,
+            precio_aplicado: t.precio_aplicado.clone(),
+            notas: t.notas,
+            fecha_tour: t.fecha_tour,
+            // Información completa del tour (INNER JOIN)
+            tour_nombre: Some(t.tour_nombre),
+            tour_lugar_inicio: Some(t.tour_lugar_inicio),
+            tour_lugar_fin: Some(t.tour_lugar_fin),
+            tour_precio_base: Some(t.tour_precio_base),
+            tour_duracion_dias: t.tour_duracion_dias,
+            tour_tipo: t.tour_tipo,
+            tour_is_active: Some(t.tour_is_active),
+        }).collect())
     }
 
     /// Listar files con paginación
@@ -55,7 +82,14 @@ impl FileService {
         let total = result.total;
         let pages = result.pages();
         let current_page = result.current_page();
-        let items: Vec<FileResponse> = result.data.into_iter().map(Into::into).collect();
+        
+        // Cargar tours para cada file
+        let mut items = Vec::new();
+        for file in result.data {
+            let tours = self.load_file_tours(file.id).await?;
+            items.push(FileResponse::from_file_with_tours(file, tours));
+        }
+        
         info!("📋 Listados {} files (página {}, total: {})", items.len(), current_page, total);
         
         Ok((items, total, pages))
@@ -69,8 +103,10 @@ impl FileService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", id)))?;
         
-        info!("🔍 File encontrado: ID {}", id);
-        Ok(FileResponse::from(file))
+        let tours = self.load_file_tours(id).await?;
+        
+        info!("🔍 File encontrado: ID {} con {} tours", id, tours.len());
+        Ok(FileResponse::from_file_with_tours(file, tours))
     }
 
     /// Crear un nuevo file
@@ -106,12 +142,39 @@ impl FileService {
             }
         };
 
+        // Obtener tours del request antes de consumirlo
+        let tours_input = request.get_tours();
+        if tours_input.is_empty() {
+            return Err(ApplicationError::Validation(
+                "Debe especificar al menos un tour para el file".to_string()
+            ));
+        }
+
         // Crear entidad de dominio con id_agencia resuelto
         let file = request.into_entity(Some(created_by), id_agencia_resolved);
         
-        // Persistir
+        // Persistir el file
         let created = self.file_repository.create(&file).await?;
         info!("✅ File creado: ID {} para fechas {} - {}", created.id, created.fecha_inicio, created.fecha_fin);
+        
+        // Insertar tours asociados (con fecha_tour)
+        let tours_data: Vec<(i32, i32, Option<BigDecimal>, Option<String>, Option<chrono::NaiveDate>)> = tours_input
+            .into_iter()
+            .enumerate()
+            .map(|(idx, t)| {
+                let orden = t.orden.unwrap_or((idx + 1) as i32);
+                let precio = t.precio_aplicado.map(|p| BigDecimal::try_from(p).unwrap_or_default());
+                (t.id_tour, orden, precio, t.notas, t.fecha_tour)
+            })
+            .collect();
+        
+        let _created_tours = self.file_tour_repository
+            .add_many(created.id, tours_data, Some(created_by))
+            .await?;
+        info!("✅ {} tours asignados al file {}", _created_tours.len(), created.id);
+        
+        // Cargar tours con info completa (JOIN) para el response
+        let tours_dto = self.load_file_tours(created.id).await?;
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_create::<File>(
@@ -119,7 +182,7 @@ impl FileService {
             created_by_username.clone(),
             EntityType::File,
             created.id,
-            &format!("File #{} - {} a {}", created.id, created.fecha_inicio, created.fecha_fin),
+            &format!("File #{} - {} a {} ({} tours)", created.id, created.fecha_inicio, created.fecha_fin, tours_dto.len()),
             Some(&created),
             None,
         ).await {
@@ -131,7 +194,7 @@ impl FileService {
         if let Err(e) = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
             "Nuevo file creado",
-            &format!("{} ha creado el file #{} para {} - {}", username, created.id, created.fecha_inicio, created.fecha_fin),
+            &format!("{} ha creado el file #{} con {} tours", username, created.id, tours_dto.len()),
             NotificationType::Info,
             NotificationCategory::Crud,
             NotificationPriority::Normal,
@@ -140,7 +203,7 @@ impl FileService {
             warn!("⚠️ Error al enviar notificación de file creado: {}", e);
         }
         
-        Ok(FileResponse::from(created))
+        Ok(FileResponse::from_file_with_tours(created, tours_dto))
     }
 
     /// Actualizar un file existente
@@ -159,14 +222,47 @@ impl FileService {
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", id)))?;
         
         // Detectar campos cambiados
-        let changed_fields = self.detect_changed_fields(&old_file, &request);
+        let mut changed_fields = self.detect_changed_fields(&old_file, &request);
+        
+        // Obtener tours del request antes de consumirlo
+        let tours_update = request.get_tours();
         
         // Aplicar cambios
         let updated_entity = request.apply_to(old_file.clone(), Some(updated_by));
         
-        // Persistir
+        // Persistir file
         let result = self.file_repository.update(&updated_entity).await?;
         info!("✏️ File actualizado: ID {}", result.id);
+        
+        // Actualizar tours si se especificaron
+        let tours_dto = if let Some(tours_input) = tours_update {
+            // Eliminar todos los tours existentes
+            self.file_tour_repository.remove_by_file(id).await?;
+            
+            // Insertar nuevos tours (con fecha_tour)
+            let tours_data: Vec<(i32, i32, Option<BigDecimal>, Option<String>, Option<chrono::NaiveDate>)> = tours_input
+                .into_iter()
+                .enumerate()
+                .map(|(idx, t)| {
+                    let orden = t.orden.unwrap_or((idx + 1) as i32);
+                    let precio = t.precio_aplicado.map(|p| BigDecimal::try_from(p).unwrap_or_default());
+                    (t.id_tour, orden, precio, t.notas, t.fecha_tour)
+                })
+                .collect();
+            
+            let created_tours = self.file_tour_repository
+                .add_many(id, tours_data, Some(updated_by))
+                .await?;
+            
+            changed_fields.push("tours".to_string());
+            info!("✅ Tours actualizados para file {}: {} tours", id, created_tours.len());
+            
+            // Cargar con JOIN para info completa
+            self.load_file_tours(id).await?
+        } else {
+            // Cargar tours existentes
+            self.load_file_tours(id).await?
+        };
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_update::<File>(
@@ -204,7 +300,7 @@ impl FileService {
             }
         }
         
-        Ok(FileResponse::from(result))
+        Ok(FileResponse::from_file_with_tours(result, tours_dto))
     }
 
     /// Eliminar un file
@@ -317,8 +413,9 @@ impl FileService {
         if request.fecha_fin.as_ref().map(|f| *f != old.fecha_fin).unwrap_or(false) {
             changed.push("fecha_fin".to_string());
         }
-        if request.id_tour.as_ref().map(|t| *t != old.id_tour).unwrap_or(false) {
-            changed.push("id_tour".to_string());
+        // id_tour eliminado - tours ahora están en file_tours
+        if request.tours.is_some() {
+            changed.push("tours".to_string());
         }
         if request.id_agencia.as_ref().map(|a| *a != old.id_agencia).unwrap_or(false) {
             changed.push("id_agencia".to_string());

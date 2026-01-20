@@ -36,7 +36,7 @@ impl FileRepositoryPort for PostgresFileRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ File creado: tour={}, agencia={} (id: {})", result.id_tour, result.id_agencia, result.id);
+        info!("✅ File creado: agencia={} (id: {})", result.id_agencia, result.id);
         Ok(result.into())
     }
     
@@ -58,7 +58,7 @@ impl FileRepositoryPort for PostgresFileRepository {
         let mut conn = self.pool.get_connection().await?;
         
         let changes = UpdateFileModel {
-            id_tour: Some(file.id_tour),
+            // id_tour eliminado - ahora en file_tours
             id_agencia: Some(file.id_agencia),
             fecha_inicio: Some(file.fecha_inicio),
             fecha_fin: Some(file.fecha_fin),

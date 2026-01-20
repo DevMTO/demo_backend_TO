@@ -26,6 +26,7 @@ use crate::infrastructure::persistence::repositories::{
     FilePasajeroRepositoryPort,
     FileRestauranteRepositoryPort,
     FileVehiculoRepositoryPort,
+    FileTourRepositoryPort,
 };
 use crate::application::services::{
     LoggingService,
@@ -74,6 +75,7 @@ use crate::infrastructure::persistence::{
         PostgresFilePasajeroRepository,
         PostgresFileRestauranteRepository,
         PostgresFileVehiculoRepository,
+        PostgresFileTourRepository,
     },
 };
 use crate::infrastructure::security::{
@@ -138,6 +140,7 @@ pub struct DependencyContainer {
     pub file_pasajero_repository: Arc<dyn FilePasajeroRepositoryPort>,
     pub file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
     pub file_vehiculo_repository: Arc<dyn FileVehiculoRepositoryPort>,
+    pub file_tour_repository: Arc<dyn FileTourRepositoryPort>,
     
     // Config
     pub cookie_name: String,
@@ -242,6 +245,9 @@ impl DependencyContainer {
         let file_vehiculo_repository: Arc<dyn FileVehiculoRepositoryPort> = Arc::new(
             PostgresFileVehiculoRepository::new(db_pool.clone())
         );
+        let file_tour_repository: Arc<dyn FileTourRepositoryPort> = Arc::new(
+            PostgresFileTourRepository::new(db_pool.clone())
+        );
         
         // Crear servicios de sistema
         let logging_service = Arc::new(LoggingService::new(
@@ -308,6 +314,7 @@ impl DependencyContainer {
         // ========== Crear servicio - File ==========
         let file_service = Arc::new(FileService::new(
             file_repository.clone(),
+            file_tour_repository.clone(),
             logging_service.clone(),
             notification_broadcast_adapter.clone(),
         ));
@@ -410,6 +417,7 @@ impl DependencyContainer {
             file_pasajero_repository,
             file_restaurante_repository,
             file_vehiculo_repository,
+            file_tour_repository,
             // Cookie config
             cookie_name: config.cookie_name,
             cookie_secure: config.cookie_secure,

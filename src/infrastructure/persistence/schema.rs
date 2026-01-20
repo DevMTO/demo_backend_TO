@@ -90,11 +90,11 @@ diesel::table! {
 diesel::table! {
     file_entradas (id) {
         id -> Int4,
-        id_file -> Int4,
         id_entrada -> Int4,
         cantidad -> Int4,
         created_at -> Timestamptz,
         created_by -> Nullable<Int4>,
+        id_file_tour -> Int4,
     }
 }
 
@@ -134,13 +134,27 @@ diesel::table! {
 diesel::table! {
     file_restaurantes (id) {
         id -> Int4,
-        id_file -> Int4,
         id_restaurante -> Int4,
         #[max_length = 30]
         tipo_servicio -> Nullable<Varchar>,
-        dia -> Nullable<Int4>,
         created_at -> Timestamptz,
         created_by -> Nullable<Int4>,
+        precio -> Nullable<Numeric>,
+        id_file_tour -> Int4,
+    }
+}
+
+diesel::table! {
+    file_tours (id) {
+        id -> Int4,
+        id_file -> Int4,
+        id_tour -> Int4,
+        orden -> Int4,
+        precio_aplicado -> Nullable<Numeric>,
+        notas -> Nullable<Text>,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        fecha_tour -> Nullable<Date>,
     }
 }
 
@@ -159,7 +173,6 @@ diesel::table! {
 diesel::table! {
     files (id) {
         id -> Int4,
-        id_tour -> Int4,
         id_agencia -> Int4,
         fecha_inicio -> Date,
         fecha_fin -> Date,
@@ -430,7 +443,7 @@ diesel::joinable!(agencias -> personas (encargado));
 diesel::joinable!(conductores -> personas (id_persona));
 diesel::joinable!(conductores -> transportes (id_transporte));
 diesel::joinable!(file_entradas -> entradas (id_entrada));
-diesel::joinable!(file_entradas -> files (id_file));
+diesel::joinable!(file_entradas -> file_tours (id_file_tour));
 diesel::joinable!(file_entradas -> users (created_by));
 diesel::joinable!(file_guias -> files (id_file));
 diesel::joinable!(file_guias -> guias (id_guia));
@@ -438,15 +451,17 @@ diesel::joinable!(file_guias -> users (created_by));
 diesel::joinable!(file_pasajeros -> files (id_file));
 diesel::joinable!(file_pasajeros -> personas (id_persona));
 diesel::joinable!(file_pasajeros -> users (created_by));
-diesel::joinable!(file_restaurantes -> files (id_file));
+diesel::joinable!(file_restaurantes -> file_tours (id_file_tour));
 diesel::joinable!(file_restaurantes -> restaurantes (id_restaurante));
 diesel::joinable!(file_restaurantes -> users (created_by));
+diesel::joinable!(file_tours -> files (id_file));
+diesel::joinable!(file_tours -> tours (id_tour));
+diesel::joinable!(file_tours -> users (created_by));
 diesel::joinable!(file_vehiculos -> conductores (id_conductor));
 diesel::joinable!(file_vehiculos -> files (id_file));
 diesel::joinable!(file_vehiculos -> users (created_by));
 diesel::joinable!(file_vehiculos -> vehiculos (id_vehiculo));
 diesel::joinable!(files -> agencias (id_agencia));
-diesel::joinable!(files -> tours (id_tour));
 diesel::joinable!(guias -> personas (id_persona));
 diesel::joinable!(notification_users -> notifications (notification_id));
 diesel::joinable!(notification_users -> users (user_id));
@@ -465,6 +480,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     file_guias,
     file_pasajeros,
     file_restaurantes,
+    file_tours,
     file_vehiculos,
     files,
     guias,

@@ -17,6 +17,7 @@ pub mod guia;
 pub mod restaurante;
 pub mod entrada;
 pub mod file;
+pub mod file_tour;
 pub mod pago;
 
 // Re-exports - Auth core
@@ -45,4 +46,5 @@ pub use guia::{Guia, StatusGuia};
 pub use restaurante::Restaurante;
 pub use entrada::Entrada;
 pub use file::File;
+pub use file_tour::FileTour;
 pub use pago::{Pago, TipoMovimiento};

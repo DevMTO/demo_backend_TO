@@ -11,7 +11,6 @@ use crate::infrastructure::persistence::schema::files;
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct FileModel {
     pub id: i32,
-    pub id_tour: i32,
     pub id_agencia: i32,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
@@ -35,7 +34,6 @@ pub struct FileModel {
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = files)]
 pub struct NewFileModel<'a> {
-    pub id_tour: i32,
     pub id_agencia: i32,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
@@ -57,7 +55,6 @@ pub struct NewFileModel<'a> {
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = files)]
 pub struct UpdateFileModel<'a> {
-    pub id_tour: Option<i32>,
     pub id_agencia: Option<i32>,
     pub fecha_inicio: Option<NaiveDate>,
     pub fecha_fin: Option<NaiveDate>,
@@ -79,7 +76,6 @@ impl From<FileModel> for File {
     fn from(model: FileModel) -> Self {
         File {
             id: model.id,
-            id_tour: model.id_tour,
             id_agencia: model.id_agencia,
             fecha_inicio: model.fecha_inicio,
             fecha_fin: model.fecha_fin,
@@ -105,7 +101,6 @@ impl From<FileModel> for File {
 impl<'a> From<&'a File> for NewFileModel<'a> {
     fn from(f: &'a File) -> Self {
         NewFileModel {
-            id_tour: f.id_tour,
             id_agencia: f.id_agencia,
             fecha_inicio: f.fecha_inicio,
             fecha_fin: f.fecha_fin,
