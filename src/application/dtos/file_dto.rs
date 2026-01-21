@@ -33,6 +33,9 @@ pub struct FileTourDto {
     /// Hora de recojo para este tour específico
     pub hora_recojo: Option<NaiveTime>,
     
+    /// Estado del file_tour: reservado, confirmado, en_progreso, completado, cancelado
+    pub status: String,
+    
     // === Información del tour (INNER JOIN) ===
     /// Nombre del tour
     pub tour_nombre: Option<String>,
@@ -72,6 +75,9 @@ pub struct FileTourInput {
     pub lugar_recojo: Option<String>,
     /// Hora de recojo para este tour específico
     pub hora_recojo: Option<NaiveTime>,
+    /// Estado del file_tour: reservado, confirmado, en_progreso, completado, cancelado (default: reservado)
+    #[validate(length(max = 30))]
+    pub status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -200,6 +206,7 @@ impl CreateFileRequest {
                 turno_tour: None,
                 lugar_recojo: None,
                 hora_recojo: None,
+                status: None,
             }]
         } else {
             vec![]
@@ -293,6 +300,7 @@ impl UpdateFileRequest {
                 turno_tour: None,
                 lugar_recojo: None,
                 hora_recojo: None,
+                status: None,
             }]);
         }
         None

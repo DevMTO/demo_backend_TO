@@ -176,6 +176,8 @@ diesel::table! {
         #[max_length = 200]
         lugar_recojo -> Nullable<Varchar>,
         hora_recojo -> Nullable<Time>,
+        #[max_length = 30]
+        status -> Varchar,
     }
 }
 

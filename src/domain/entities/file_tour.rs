@@ -17,6 +17,8 @@ pub struct FileTour {
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
+    /// Estado del file_tour: reservado, confirmado, en_progreso, completado, cancelado
+    pub status: String,
 }
 
 impl FileTour {
@@ -30,6 +32,7 @@ impl FileTour {
             notas: None,
             created_at: Utc::now(),
             created_by: None,
+            status: "reservado".to_string(),
         }
     }
     

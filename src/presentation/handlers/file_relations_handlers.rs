@@ -216,6 +216,7 @@ pub async fn list_file_tours(
             turno_tour: t.turno_tour,
             lugar_recojo: t.lugar_recojo,
             hora_recojo: t.hora_recojo,
+            status: t.status,
             tour_nombre: Some(t.tour_nombre),
             tour_lugar_inicio: Some(t.tour_lugar_inicio),
             tour_lugar_fin: Some(t.tour_lugar_fin),

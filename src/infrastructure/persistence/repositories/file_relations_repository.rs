@@ -33,6 +33,8 @@ pub struct FileTourInputData {
     pub turno_tour: Option<String>,
     pub lugar_recojo: Option<String>,
     pub hora_recojo: Option<chrono::NaiveTime>,
+    /// Estado del file_tour (default: reservado)
+    pub status: Option<String>,
 }
 
 // ==================== MODELOS EXTENDIDOS ====================
@@ -666,6 +668,7 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
             turno_tour: data.turno_tour.as_deref(),
             lugar_recojo: data.lugar_recojo.as_deref(),
             hora_recojo: data.hora_recojo,
+            status: data.status.as_deref().unwrap_or("reservado"),
         };
         
         let result = diesel::insert_into(file_tours::table)
@@ -697,6 +700,7 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
                 turno_tour: data.turno_tour.as_deref(),
                 lugar_recojo: data.lugar_recojo.as_deref(),
                 hora_recojo: data.hora_recojo,
+                status: data.status.as_deref().unwrap_or("reservado"),
             };
             
             let result = diesel::insert_into(file_tours::table)
@@ -787,6 +791,7 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
                 turno_tour: ft.turno_tour,
                 lugar_recojo: ft.lugar_recojo,
                 hora_recojo: ft.hora_recojo,
+                status: ft.status,
                 tour_nombre: nombre,
                 tour_lugar_inicio: lugar_inicio,
                 tour_lugar_fin: lugar_fin,

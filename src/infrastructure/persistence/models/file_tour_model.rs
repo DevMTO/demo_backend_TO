@@ -23,6 +23,8 @@ pub struct FileTourModel {
     pub turno_tour: Option<String>,
     pub lugar_recojo: Option<String>,
     pub hora_recojo: Option<NaiveTime>,
+    /// Estado del file_tour: reservado, confirmado, en_progreso, completado, cancelado
+    pub status: String,
 }
 
 /// Modelo para insertar nuevos registros en file_tours
@@ -40,6 +42,8 @@ pub struct NewFileTourModel<'a> {
     pub turno_tour: Option<&'a str>,
     pub lugar_recojo: Option<&'a str>,
     pub hora_recojo: Option<NaiveTime>,
+    /// Estado del file_tour (default: reservado)
+    pub status: &'a str,
 }
 
 /// Modelo para actualizar registros en file_tours
@@ -55,6 +59,8 @@ pub struct UpdateFileTourModel<'a> {
     pub turno_tour: Option<Option<&'a str>>,
     pub lugar_recojo: Option<Option<&'a str>>,
     pub hora_recojo: Option<Option<NaiveTime>>,
+    /// Estado del file_tour
+    pub status: Option<&'a str>,
 }
 
 /// Modelo para el resultado del JOIN entre file_tours y tours
@@ -74,6 +80,8 @@ pub struct FileTourWithTourModel {
     pub turno_tour: Option<String>,
     pub lugar_recojo: Option<String>,
     pub hora_recojo: Option<NaiveTime>,
+    /// Estado del file_tour
+    pub status: String,
     // Campos del tour (JOIN)
     pub tour_nombre: String,
     pub tour_lugar_inicio: String,
