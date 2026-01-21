@@ -10,7 +10,6 @@ use crate::infrastructure::persistence::schema::file_guias;
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct FileGuiaModel {
     pub id: i32,
-    pub id_file: i32,
     pub id_guia: i32,
     pub rol: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -18,13 +17,14 @@ pub struct FileGuiaModel {
     pub estado_confirmacion: String,
     pub confirmado_at: Option<DateTime<Utc>>,
     pub motivo_rechazo: Option<String>,
+    pub id_file_tour: i32,
 }
 
 /// Modelo insertable para crear file_guias
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = file_guias)]
 pub struct NewFileGuiaModel<'a> {
-    pub id_file: i32,
+    pub id_file_tour: i32,
     pub id_guia: i32,
     pub rol: Option<&'a str>,
     pub created_by: Option<i32>,

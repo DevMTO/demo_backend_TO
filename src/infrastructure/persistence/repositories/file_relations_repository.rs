@@ -43,7 +43,7 @@ pub struct FileVehiculoWithDetailsModel {
     #[diesel(sql_type = Integer)]
     pub id: i32,
     #[diesel(sql_type = Integer)]
-    pub id_file: i32,
+    pub id_file_tour: i32,
     #[diesel(sql_type = Integer)]
     pub id_vehiculo: i32,
     #[diesel(sql_type = Nullable<Integer>)]
@@ -92,19 +92,20 @@ pub struct FileVehiculoWithDetailsModel {
 /// Repositorio para file_entradas (vinculado a file_tours)
 #[async_trait]
 pub trait FileEntradaRepositoryPort: Send + Sync {
-    async fn add(&self, id_file_tour: i32, id_entrada: i32, cantidad: i32, created_by: Option<i32>) -> Result<FileEntradaModel, ApplicationError>;
+    async fn add(&self, id_file_tour: i32, id_entrada: i32, cantidad: i32, id_entrada_precio: Option<i32>, created_by: Option<i32>) -> Result<FileEntradaModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileEntradaModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileEntradaModel>, ApplicationError>;
 }
 
+/// Repositorio para file_guias (vinculado a file_tours)
 #[async_trait]
 pub trait FileGuiaRepositoryPort: Send + Sync {
-    async fn add(&self, id_file: i32, id_guia: i32, rol: Option<&str>, created_by: Option<i32>) -> Result<FileGuiaModel, ApplicationError>;
+    async fn add(&self, id_file_tour: i32, id_guia: i32, rol: Option<&str>, created_by: Option<i32>) -> Result<FileGuiaModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileGuiaModel>, ApplicationError>;
+    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileGuiaModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileGuiaModel>, ApplicationError>;
-    async fn is_guia_assigned(&self, id_guia: i32, id_file: i32) -> Result<bool, ApplicationError>;
+    async fn is_guia_assigned(&self, id_guia: i32, id_file_tour: i32) -> Result<bool, ApplicationError>;
 }
 
 #[async_trait]
@@ -128,15 +129,16 @@ pub trait FileRestauranteRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<FileRestauranteModel>, ApplicationError>;
 }
 
+/// Repositorio para file_vehiculos (vinculado a file_tours)
 #[async_trait]
 pub trait FileVehiculoRepositoryPort: Send + Sync {
-    async fn add(&self, id_file: i32, id_vehiculo: i32, id_conductor: Option<i32>, capacidad_asignada: i32, created_by: Option<i32>) -> Result<FileVehiculoModel, ApplicationError>;
+    async fn add(&self, id_file_tour: i32, id_vehiculo: i32, id_conductor: Option<i32>, capacidad_asignada: i32, created_by: Option<i32>) -> Result<FileVehiculoModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileVehiculoModel>, ApplicationError>;
+    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileVehiculoModel>, ApplicationError>;
     async fn find_all_with_details(&self) -> Result<Vec<FileVehiculoWithDetailsModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileVehiculoModel>, ApplicationError>;
     async fn find_files_by_vehiculo(&self, id_vehiculo: i32) -> Result<Vec<i32>, ApplicationError>;
-    async fn is_vehiculo_assigned(&self, id_vehiculo: i32, id_file: i32) -> Result<bool, ApplicationError>;
+    async fn is_vehiculo_assigned(&self, id_vehiculo: i32, id_file_tour: i32) -> Result<bool, ApplicationError>;
 }
 
 // ==================== IMPLEMENTACIONES ====================
@@ -154,7 +156,7 @@ impl PostgresFileEntradaRepository {
 #[async_trait]
 impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
     #[instrument(skip(self))]
-    async fn add(&self, id_file_tour: i32, id_entrada: i32, cantidad: i32, created_by: Option<i32>) -> Result<FileEntradaModel, ApplicationError> {
+    async fn add(&self, id_file_tour: i32, id_entrada: i32, cantidad: i32, id_entrada_precio: Option<i32>, created_by: Option<i32>) -> Result<FileEntradaModel, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let new_record = NewFileEntradaModel {
@@ -162,6 +164,7 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
             id_entrada,
             cantidad,
             created_by,
+            id_entrada_precio,
         };
         
         let result = diesel::insert_into(file_entradas::table)
@@ -225,11 +228,11 @@ impl PostgresFileGuiaRepository {
 #[async_trait]
 impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
     #[instrument(skip(self))]
-    async fn add(&self, id_file: i32, id_guia: i32, rol: Option<&str>, created_by: Option<i32>) -> Result<FileGuiaModel, ApplicationError> {
+    async fn add(&self, id_file_tour: i32, id_guia: i32, rol: Option<&str>, created_by: Option<i32>) -> Result<FileGuiaModel, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let new_record = NewFileGuiaModel {
-            id_file,
+            id_file_tour,
             id_guia,
             rol,
             created_by,
@@ -242,7 +245,7 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Guía asignado a file: file={}, guia={}", id_file, id_guia);
+        info!("✅ Guía asignado a file_tour: file_tour={}, guia={}", id_file_tour, id_guia);
         Ok(result)
     }
     
@@ -257,11 +260,11 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
         Ok(affected > 0)
     }
     
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileGuiaModel>, ApplicationError> {
+    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileGuiaModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         file_guias::table
-            .filter(file_guias::id_file.eq(id_file))
+            .filter(file_guias::id_file_tour.eq(id_file_tour))
             .select(FileGuiaModel::as_select())
             .load(&mut conn)
             .await
@@ -280,12 +283,12 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
     
-    async fn is_guia_assigned(&self, id_guia: i32, id_file: i32) -> Result<bool, ApplicationError> {
+    async fn is_guia_assigned(&self, id_guia: i32, id_file_tour: i32) -> Result<bool, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let count: i64 = file_guias::table
             .filter(file_guias::id_guia.eq(id_guia))
-            .filter(file_guias::id_file.eq(id_file))
+            .filter(file_guias::id_file_tour.eq(id_file_tour))
             .count()
             .get_result(&mut conn)
             .await
@@ -489,11 +492,11 @@ impl PostgresFileVehiculoRepository {
 #[async_trait]
 impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
     #[instrument(skip(self))]
-    async fn add(&self, id_file: i32, id_vehiculo: i32, id_conductor: Option<i32>, capacidad_asignada: i32, created_by: Option<i32>) -> Result<FileVehiculoModel, ApplicationError> {
+    async fn add(&self, id_file_tour: i32, id_vehiculo: i32, id_conductor: Option<i32>, capacidad_asignada: i32, created_by: Option<i32>) -> Result<FileVehiculoModel, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let new_record = NewFileVehiculoModel {
-            id_file,
+            id_file_tour,
             id_vehiculo,
             id_conductor,
             capacidad_asignada,
@@ -507,7 +510,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Vehículo asignado a file: file={}, vehiculo={}, conductor={:?}, capacidad={}", id_file, id_vehiculo, id_conductor, capacidad_asignada);
+        info!("✅ Vehículo asignado a file_tour: file_tour={}, vehiculo={}, conductor={:?}, capacidad={}", id_file_tour, id_vehiculo, id_conductor, capacidad_asignada);
         Ok(result)
     }
     
@@ -522,11 +525,11 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
         Ok(affected > 0)
     }
     
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileVehiculoModel>, ApplicationError> {
+    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileVehiculoModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         file_vehiculos::table
-            .filter(file_vehiculos::id_file.eq(id_file))
+            .filter(file_vehiculos::id_file_tour.eq(id_file_tour))
             .select(FileVehiculoModel::as_select())
             .load(&mut conn)
             .await
@@ -540,7 +543,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
         let query = diesel::sql_query(r#"
             SELECT 
                 fv.id,
-                fv.id_file,
+                fv.id_file_tour,
                 fv.id_vehiculo,
                 fv.id_conductor,
                 fv.created_at,
@@ -560,8 +563,9 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
                 CASE WHEN c.id IS NOT NULL THEN CONCAT(pc.nombre, ' ', pc.apellidos) ELSE NULL END as conductor_nombre,
                 c.nro_brevete as conductor_brevete
             FROM file_vehiculos fv
-            INNER JOIN files f ON f.id = fv.id_file
-            INNER JOIN tours t ON t.id = f.id_tour
+            INNER JOIN file_tours ft ON ft.id = fv.id_file_tour
+            INNER JOIN files f ON f.id = ft.id_file
+            INNER JOIN tours t ON t.id = ft.id_tour
             INNER JOIN agencias a ON a.id = f.id_agencia
             INNER JOIN vehiculos v ON v.id = fv.id_vehiculo
             LEFT JOIN conductores c ON c.id = fv.id_conductor
@@ -596,7 +600,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
         
         let results: Vec<i32> = file_vehiculos::table
             .filter(file_vehiculos::id_vehiculo.eq(id_vehiculo))
-            .select(file_vehiculos::id_file)
+            .select(file_vehiculos::id_file_tour)
             .load(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
@@ -604,12 +608,12 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
         Ok(results)
     }
     
-    async fn is_vehiculo_assigned(&self, id_vehiculo: i32, id_file: i32) -> Result<bool, ApplicationError> {
+    async fn is_vehiculo_assigned(&self, id_vehiculo: i32, id_file_tour: i32) -> Result<bool, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let count: i64 = file_vehiculos::table
             .filter(file_vehiculos::id_vehiculo.eq(id_vehiculo))
-            .filter(file_vehiculos::id_file.eq(id_file))
+            .filter(file_vehiculos::id_file_tour.eq(id_file_tour))
             .count()
             .get_result(&mut conn)
             .await

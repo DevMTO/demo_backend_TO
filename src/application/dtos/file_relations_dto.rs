@@ -20,6 +20,8 @@ pub struct FileEntradaResponse {
     pub id_file_tour: i32,
     pub id_entrada: i32,
     pub cantidad: i32,
+    /// Referencia al precio específico elegido (opcional)
+    pub id_entrada_precio: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     // Datos de la entrada relacionada (se pueden poblar en el handler)
@@ -34,6 +36,7 @@ impl From<FileEntradaModel> for FileEntradaResponse {
             id_file_tour: m.id_file_tour,
             id_entrada: m.id_entrada,
             cantidad: m.cantidad,
+            id_entrada_precio: m.id_entrada_precio,
             created_at: m.created_at,
             created_by: m.created_by,
             entrada_nombre: None,
@@ -52,6 +55,8 @@ pub struct AssignEntradaToFileTourRequest {
     pub id_entrada: i32,
     #[validate(range(min = 1, message = "La cantidad debe ser al menos 1"))]
     pub cantidad: i32,
+    /// ID del precio específico para esta entrada (opcional)
+    pub id_entrada_precio: Option<i32>,
 }
 
 #[allow(dead_code)]
@@ -69,7 +74,8 @@ pub struct BulkAssignEntradasToFileTourRequest {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct FileGuiaResponse {
     pub id: i32,
-    pub id_file: i32,
+    /// Referencia al file_tour específico
+    pub id_file_tour: i32,
     pub id_guia: i32,
     pub rol: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -83,7 +89,7 @@ impl From<FileGuiaModel> for FileGuiaResponse {
     fn from(m: FileGuiaModel) -> Self {
         Self {
             id: m.id,
-            id_file: m.id_file,
+            id_file_tour: m.id_file_tour,
             id_guia: m.id_guia,
             rol: m.rol,
             created_at: m.created_at,
@@ -94,10 +100,13 @@ impl From<FileGuiaModel> for FileGuiaResponse {
     }
 }
 
+/// Request para asignar guía a un file_tour específico
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct AssignGuiaToFileRequest {
+pub struct AssignGuiaToFileTourRequest {
+    /// ID del file_tour al que se asigna el guía
+    pub id_file_tour: i32,
     pub id_guia: i32,
     #[validate(length(max = 30))]
     pub rol: Option<String>, // "principal", "auxiliar", etc.
@@ -306,7 +315,8 @@ pub struct AssignRestauranteToFileTourRequest {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct FileVehiculoListItemDto {
     pub id: i32,
-    pub id_file: i32,
+    /// Referencia al file_tour específico
+    pub id_file_tour: i32,
     pub id_vehiculo: i32,
     pub id_conductor: Option<i32>,
     pub created_at: DateTime<Utc>,
@@ -337,7 +347,8 @@ pub struct FileVehiculoListItemDto {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct FileVehiculoResponse {
     pub id: i32,
-    pub id_file: i32,
+    /// Referencia al file_tour específico
+    pub id_file_tour: i32,
     pub id_vehiculo: i32,
     pub id_conductor: Option<i32>,
     pub capacidad_asignada: i32,
@@ -356,7 +367,7 @@ impl From<FileVehiculoModel> for FileVehiculoResponse {
     fn from(m: FileVehiculoModel) -> Self {
         Self {
             id: m.id,
-            id_file: m.id_file,
+            id_file_tour: m.id_file_tour,
             id_vehiculo: m.id_vehiculo,
             id_conductor: m.id_conductor,
             capacidad_asignada: m.capacidad_asignada,
@@ -371,10 +382,13 @@ impl From<FileVehiculoModel> for FileVehiculoResponse {
     }
 }
 
+/// Request para asignar vehículo a un file_tour específico
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct AssignVehiculoToFileRequest {
+pub struct AssignVehiculoToFileTourRequest {
+    /// ID del file_tour al que se asigna el vehículo
+    pub id_file_tour: i32,
     pub id_vehiculo: i32,
     pub id_conductor: Option<i32>,
     #[validate(range(min = 0, message = "Capacidad asignada no puede ser negativa"))]

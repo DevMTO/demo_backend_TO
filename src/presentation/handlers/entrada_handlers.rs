@@ -7,7 +7,7 @@ use crate::domain::errors::ApplicationError;
 
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
-use super::common::{PaginationParams, PaginatedResponse, PaginationInfo, json_ok, json_created, json_message};
+use super::common::{PaginatedResponse, PaginationInfo, json_ok, json_created, json_message};
 
 #[derive(Debug, serde::Deserialize, Default)]
 pub struct EntradaListParams {
@@ -83,16 +83,10 @@ pub async fn restore_entrada(State(state): State<AppState>, auth: AuthUser, Path
     Ok(json_message("Entrada restaurada"))
 }
 
-#[derive(Debug, serde::Deserialize)]
-pub struct EntradaSearchQuery { pub ruta: Option<String> }
-
+/// Search/list entradas (simplified - no longer searches by ruta)
 #[instrument(skip(state, _auth))]
-pub async fn search_entradas(State(state): State<AppState>, _auth: AuthUser, Query(query): Query<EntradaSearchQuery>) -> Result<impl IntoResponse, ApplicationError> {
-    let entradas = if let Some(ruta) = query.ruta {
-        state.container.entrada_service.search_by_ruta(&ruta).await?
-    } else {
-        state.container.entrada_service.list_entradas(Default::default()).await?.data
-    };
+pub async fn search_entradas(State(state): State<AppState>, _auth: AuthUser) -> Result<impl IntoResponse, ApplicationError> {
+    let entradas = state.container.entrada_service.list_entradas(Default::default()).await?.data;
     Ok(json_ok(entradas.into_iter().map(EntradaResponse::from).collect::<Vec<_>>()))
 }
 

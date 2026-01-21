@@ -15,6 +15,7 @@ pub struct FileEntradaModel {
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub id_file_tour: i32,
+    pub id_entrada_precio: Option<i32>,
 }
 
 /// Modelo insertable para crear file_entradas
@@ -25,4 +26,5 @@ pub struct NewFileEntradaModel {
     pub id_entrada: i32,
     pub cantidad: i32,
     pub created_by: Option<i32>,
+    pub id_entrada_precio: Option<i32>,
 }

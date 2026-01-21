@@ -59,11 +59,6 @@ impl EntradaService {
             .ok_or_else(|| ApplicationError::NotFound(format!("Entrada {} no encontrada", id)))
     }
 
-    /// Search entradas by ruta
-    pub async fn search_by_ruta(&self, ruta: &str) -> Result<Vec<Entrada>, ApplicationError> {
-        self.entrada_repository.find_by_ruta(ruta).await
-    }
-
     // ==================== WRITE OPERATIONS ====================
 
     /// Create a new entrada with logging and notifications
@@ -295,8 +290,8 @@ impl EntradaService {
         if old.descripcion != new.descripcion {
             changed.push("descripcion".to_string());
         }
-        if old.ruta != new.ruta {
-            changed.push("ruta".to_string());
+        if old.tours_asociados != new.tours_asociados {
+            changed.push("tours_asociados".to_string());
         }
         if old.is_active != new.is_active {
             changed.push("is_active".to_string());

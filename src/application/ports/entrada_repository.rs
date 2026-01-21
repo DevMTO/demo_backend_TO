@@ -21,7 +21,4 @@ pub trait EntradaRepositoryPort: Send + Sync {
     // Soft delete
     async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
     async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
-    
-    // Búsqueda por ruta
-    async fn find_by_ruta(&self, ruta: &str) -> Result<Vec<Entrada>, ApplicationError>;
 }

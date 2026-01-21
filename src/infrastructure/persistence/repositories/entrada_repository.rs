@@ -42,7 +42,7 @@ impl EntradaRepositoryPort for PostgresEntradaRepository {
         let mut conn = self.pool.get_connection().await?;
         let changes = UpdateEntradaModel {
             nombre: Some(&entrada.nombre),
-            ruta: Some(entrada.ruta.as_deref()),
+            tours_asociados: Some(entrada.tours_asociados.clone()),
             descripcion: Some(entrada.descripcion.as_deref()),
             is_active: Some(entrada.is_active),
             updated_by: entrada.updated_by,
@@ -119,15 +119,6 @@ impl EntradaRepositoryPort for PostgresEntradaRepository {
             .set((entradas::is_active.eq(true), entradas::updated_by.eq(Some(user_id))))
             .execute(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))?;
         Ok(affected > 0)
-    }
-    
-    async fn find_by_ruta(&self, ruta: &str) -> Result<Vec<Entrada>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        let results = entradas::table.filter(entradas::ruta.ilike(format!("%{}%", ruta)))
-            .filter(entradas::is_active.eq(true))
-            .load::<EntradaModel>(&mut conn).await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(results.into_iter().map(Into::into).collect())
     }
 }
 

@@ -4,8 +4,8 @@ use tracing::instrument;
 use validator::Validate;
 
 use crate::application::dtos::{
-    AssignEntradaToFileTourRequest, AssignGuiaToFileRequest, AddPasajeroToFileRequest,
-    AssignRestauranteToFileTourRequest, AssignVehiculoToFileRequest,
+    AssignEntradaToFileTourRequest, AssignGuiaToFileTourRequest, AddPasajeroToFileRequest,
+    AssignRestauranteToFileTourRequest, AssignVehiculoToFileTourRequest,
     FileEntradaResponse, FileGuiaResponse, FilePasajeroResponse,
     FileRestauranteResponse, FileVehiculoResponse, FileVehiculoListItemDto,
     ResourceStatusUpdateResponse, FileTourDto,
@@ -72,7 +72,7 @@ pub async fn assign_entrada_to_file_tour(
         .ok_or_else(|| ApplicationError::NotFound(format!("Entrada {} no encontrada", request.id_entrada)))?;
     
     let result = state.container.file_entrada_repository
-        .add(request.id_file_tour, request.id_entrada, request.cantidad, Some(auth.user.id))
+        .add(request.id_file_tour, request.id_entrada, request.cantidad, request.id_entrada_precio, Some(auth.user.id))
         .await?;
     
     Ok(json_created(FileEntradaResponse::from(result)))
@@ -95,22 +95,22 @@ pub async fn remove_file_entrada(
     Ok(json_deleted())
 }
 
-// ==================== FILE GUIAS ====================
+// ==================== FILE GUIAS (vinculadas a file_tours) ====================
 
-/// Lista los guías asignados a un file
+/// Lista los guías asignados a un file_tour
 #[instrument(skip(state, _auth))]
-pub async fn list_file_guias(
+pub async fn list_file_tour_guias(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path(file_id): Path<i32>,
+    Path(file_tour_id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    state.container.file_repository
-        .find_by_id(file_id)
+    state.container.file_tour_repository
+        .find_by_id(file_tour_id)
         .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", file_tour_id)))?;
     
     let guias = state.container.file_guia_repository
-        .find_by_file(file_id)
+        .find_by_file_tour(file_tour_id)
         .await?;
     
     let responses: Vec<FileGuiaResponse> = guias.into_iter()
@@ -120,21 +120,20 @@ pub async fn list_file_guias(
     Ok(json_ok(responses))
 }
 
-/// Asigna un guía a un file
+/// Asigna un guía a un file_tour
 #[instrument(skip(state, auth, request))]
-pub async fn assign_guia_to_file(
+pub async fn assign_guia_to_file_tour(
     State(state): State<AppState>,
     auth: AuthUser,
-    Path(file_id): Path<i32>,
-    Json(request): Json<AssignGuiaToFileRequest>,
+    Json(request): Json<AssignGuiaToFileTourRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
-    // Verificar que el file existe
-    state.container.file_repository
-        .find_by_id(file_id)
+    // Verificar que el file_tour existe
+    state.container.file_tour_repository
+        .find_by_id(request.id_file_tour)
         .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
     
     // Verificar que el guía existe
     let guia = state.container.guia_repository
@@ -142,17 +141,17 @@ pub async fn assign_guia_to_file(
         .await?
         .ok_or_else(|| ApplicationError::NotFound(format!("Guía {} no encontrado", request.id_guia)))?;
     
-    // Verificar que el guía no esté ya asignado a este file
+    // Verificar que el guía no esté ya asignado a este file_tour
     if state.container.file_guia_repository
-        .is_guia_assigned(request.id_guia, file_id)
+        .is_guia_assigned(request.id_guia, request.id_file_tour)
         .await? 
     {
-        return Err(ApplicationError::Validation("El guía ya está asignado a este file".to_string()));
+        return Err(ApplicationError::Validation("El guía ya está asignado a este file_tour".to_string()));
     }
     
     // Asignar el guía
     let result = state.container.file_guia_repository
-        .add(file_id, request.id_guia, request.rol.as_deref(), Some(auth.user.id))
+        .add(request.id_file_tour, request.id_guia, request.rol.as_deref(), Some(auth.user.id))
         .await?;
     
     // Cambiar el status del guía a "ocupado"
@@ -170,16 +169,12 @@ pub async fn assign_guia_to_file(
 pub async fn remove_file_guia(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path((file_id, guia_asig_id)): Path<(i32, i32)>,
+    Path(guia_asig_id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let asig = state.container.file_guia_repository
+    let _asig = state.container.file_guia_repository
         .find_by_id(guia_asig_id)
         .await?
         .ok_or_else(|| ApplicationError::NotFound("Asignación no encontrada".to_string()))?;
-    
-    if asig.id_file != file_id {
-        return Err(ApplicationError::Validation("La asignación no pertenece a este file".to_string()));
-    }
     
     // Liberar el guía si ya no tiene más asignaciones
     state.container.file_guia_repository.remove(guia_asig_id).await?;
@@ -511,7 +506,7 @@ pub async fn remove_file_restaurante(
     Ok(json_deleted())
 }
 
-// ==================== FILE VEHICULOS ====================
+// ==================== FILE VEHICULOS (vinculados a file_tours) ====================
 
 /// Lista TODOS los file_vehiculos con información completa
 #[instrument(skip(state, _auth))]
@@ -526,7 +521,7 @@ pub async fn list_all_file_vehiculos(
     let responses: Vec<FileVehiculoListItemDto> = vehiculos.into_iter()
         .map(|v| FileVehiculoListItemDto {
             id: v.id,
-            id_file: v.id_file,
+            id_file_tour: v.id_file_tour,
             id_vehiculo: v.id_vehiculo,
             id_conductor: v.id_conductor,
             created_at: v.created_at,
@@ -551,20 +546,20 @@ pub async fn list_all_file_vehiculos(
     Ok(json_ok(responses))
 }
 
-/// Lista los vehículos asignados a un file
+/// Lista los vehículos asignados a un file_tour
 #[instrument(skip(state, _auth))]
-pub async fn list_file_vehiculos(
+pub async fn list_file_tour_vehiculos(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path(file_id): Path<i32>,
+    Path(file_tour_id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    state.container.file_repository
-        .find_by_id(file_id)
+    state.container.file_tour_repository
+        .find_by_id(file_tour_id)
         .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", file_tour_id)))?;
     
     let vehiculos = state.container.file_vehiculo_repository
-        .find_by_file(file_id)
+        .find_by_file_tour(file_tour_id)
         .await?;
     
     let responses: Vec<FileVehiculoResponse> = vehiculos.into_iter()
@@ -574,21 +569,20 @@ pub async fn list_file_vehiculos(
     Ok(json_ok(responses))
 }
 
-/// Asigna un vehículo a un file
+/// Asigna un vehículo a un file_tour
 #[instrument(skip(state, auth, request))]
-pub async fn assign_vehiculo_to_file(
+pub async fn assign_vehiculo_to_file_tour(
     State(state): State<AppState>,
     auth: AuthUser,
-    Path(file_id): Path<i32>,
-    Json(request): Json<AssignVehiculoToFileRequest>,
+    Json(request): Json<AssignVehiculoToFileTourRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
-    // Verificar que el file existe
-    let _file = state.container.file_repository
-        .find_by_id(file_id)
+    // Verificar que el file_tour existe y obtener file_id para contar pasajeros
+    let file_tour = state.container.file_tour_repository
+        .find_by_id(request.id_file_tour)
         .await?
-        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
     
     // Verificar que el vehículo existe
     let vehiculo = state.container.vehiculo_repository
@@ -596,12 +590,12 @@ pub async fn assign_vehiculo_to_file(
         .await?
         .ok_or_else(|| ApplicationError::NotFound(format!("Vehículo {} no encontrado", request.id_vehiculo)))?;
     
-    // Verificar que el vehículo no esté ya asignado a este file
+    // Verificar que el vehículo no esté ya asignado a este file_tour
     if state.container.file_vehiculo_repository
-        .is_vehiculo_assigned(request.id_vehiculo, file_id)
+        .is_vehiculo_assigned(request.id_vehiculo, request.id_file_tour)
         .await? 
     {
-        return Err(ApplicationError::Validation("El vehículo ya está asignado a este file".to_string()));
+        return Err(ApplicationError::Validation("El vehículo ya está asignado a este file_tour".to_string()));
     }
     
     // Si se especificó un conductor, verificar que existe y está disponible
@@ -624,16 +618,15 @@ pub async fn assign_vehiculo_to_file(
     
     // Asignar el vehículo
     let result = state.container.file_vehiculo_repository
-        .add(file_id, request.id_vehiculo, request.id_conductor, capacidad_asignada, Some(auth.user.id))
+        .add(request.id_file_tour, request.id_vehiculo, request.id_conductor, capacidad_asignada, Some(auth.user.id))
         .await?;
     
     // Contar pasajeros actuales del file para verificar capacidad
     let pax_count = state.container.file_pasajero_repository
-        .count_by_file(file_id)
+        .count_by_file(file_tour.id_file)
         .await? as i32;
     
     // Si los pasajeros llenan o superan la capacidad, marcar como ocupado
-    // Si aún hay espacio, puede seguir disponible para compartir
     if pax_count >= vehiculo.capacidad {
         state.container.vehiculo_repository
             .update_status(request.id_vehiculo, "ocupado")
@@ -648,16 +641,12 @@ pub async fn assign_vehiculo_to_file(
 pub async fn remove_file_vehiculo(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path((file_id, vehiculo_asig_id)): Path<(i32, i32)>,
+    Path(vehiculo_asig_id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let asig = state.container.file_vehiculo_repository
         .find_by_id(vehiculo_asig_id)
         .await?
         .ok_or_else(|| ApplicationError::NotFound("Asignación no encontrada".to_string()))?;
-    
-    if asig.id_file != file_id {
-        return Err(ApplicationError::Validation("La asignación no pertenece a este file".to_string()));
-    }
     
     // Liberar conductor si estaba asignado
     if let Some(id_conductor) = asig.id_conductor {
@@ -685,23 +674,22 @@ pub async fn remove_file_vehiculo(
 
 // ==================== GESTIÓN DE STATUS ====================
 
-/// Cambia manualmente el status de un vehículo asignado a un file
-/// Útil para marcar como "en_servicio" cuando inicia el tour
+/// Cambia manualmente el status de un vehículo asignado a un file_tour
 #[instrument(skip(state, _auth))]
 pub async fn update_vehiculo_status(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path((file_id, vehiculo_id)): Path<(i32, i32)>,
+    Path((file_tour_id, vehiculo_id)): Path<(i32, i32)>,
     Json(request): Json<crate::application::dtos::UpdateVehiculoStatusRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
-    // Verificar que el vehículo está asignado a este file
+    // Verificar que el vehículo está asignado a este file_tour
     if !state.container.file_vehiculo_repository
-        .is_vehiculo_assigned(vehiculo_id, file_id)
+        .is_vehiculo_assigned(vehiculo_id, file_tour_id)
         .await? 
     {
-        return Err(ApplicationError::Validation("El vehículo no está asignado a este file".to_string()));
+        return Err(ApplicationError::Validation("El vehículo no está asignado a este file_tour".to_string()));
     }
     
     // Obtener status actual
