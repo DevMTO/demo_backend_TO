@@ -69,9 +69,25 @@ impl EntradaRepositoryPort for PostgresEntradaRepository {
         Ok(results.into_iter().map(Into::into).collect())
     }
     
+    async fn list_all(&self, limit: i64, offset: i64) -> Result<Vec<Entrada>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let results = entradas::table
+            .order((entradas::is_active.desc(), entradas::nombre.asc()))
+            .limit(limit).offset(offset)
+            .load::<EntradaModel>(&mut conn).await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(results.into_iter().map(Into::into).collect())
+    }
+    
     async fn count(&self) -> Result<i64, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         entradas::table.filter(entradas::is_active.eq(true)).count()
+            .get_result::<i64>(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))
+    }
+    
+    async fn count_all(&self) -> Result<i64, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        entradas::table.count()
             .get_result::<i64>(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))
     }
     
@@ -79,6 +95,13 @@ impl EntradaRepositoryPort for PostgresEntradaRepository {
         let total = self.count().await?;
         let limit = options.limit.unwrap_or(50); let offset = options.offset.unwrap_or(0);
         let data = self.list(limit, offset).await?;
+        Ok(PaginatedResult::new(data, total, limit, offset))
+    }
+    
+    async fn list_all_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Entrada>, ApplicationError> {
+        let total = self.count_all().await?;
+        let limit = options.limit.unwrap_or(50); let offset = options.offset.unwrap_or(0);
+        let data = self.list_all(limit, offset).await?;
         Ok(PaginatedResult::new(data, total, limit, offset))
     }
     

@@ -35,12 +35,20 @@ impl EntradaService {
 
     // ==================== READ OPERATIONS ====================
 
-    /// List all entradas with pagination
+    /// List all active entradas with pagination
     pub async fn list_entradas(
         &self,
         options: PaginationOptions,
     ) -> Result<PaginatedResult<Entrada>, ApplicationError> {
         self.entrada_repository.list_paginated(options).await
+    }
+    
+    /// List ALL entradas (active + inactive) with pagination
+    pub async fn list_all_entradas(
+        &self,
+        options: PaginationOptions,
+    ) -> Result<PaginatedResult<Entrada>, ApplicationError> {
+        self.entrada_repository.list_all_paginated(options).await
     }
 
     /// Get a specific entrada by ID

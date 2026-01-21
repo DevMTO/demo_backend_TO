@@ -12,8 +12,11 @@ pub trait EntradaRepositoryPort: Send + Sync {
     async fn update(&self, entrada: &Entrada) -> Result<Entrada, ApplicationError>;
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Entrada>, ApplicationError>;
+    async fn list_all(&self, limit: i64, offset: i64) -> Result<Vec<Entrada>, ApplicationError>;
     async fn count(&self) -> Result<i64, ApplicationError>;
+    async fn count_all(&self) -> Result<i64, ApplicationError>;
     async fn list_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Entrada>, ApplicationError>;
+    async fn list_all_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Entrada>, ApplicationError>;
     
     // Soft delete
     async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
