@@ -70,7 +70,7 @@ impl EntradaService {
     ) -> Result<Entrada, ApplicationError> {
         // Create the entrada
         let created = self.entrada_repository.create(entrada).await?;
-        info!("✅ Entrada creada: {} (ID: {})", created.nombre, created.id);
+        info!("Entrada creada: {} (ID: {})", created.nombre, created.id);
 
         // Log activity
         let _ = self
@@ -123,7 +123,7 @@ impl EntradaService {
 
         // Update the entrada
         let result = self.entrada_repository.update(updated_entrada).await?;
-        info!("📝 Entrada actualizada: {} (ID: {})", result.nombre, result.id);
+        info!("Entrada actualizada: {} (ID: {})", result.nombre, result.id);
 
         // Detect changed fields for logging
         let changed_fields = self.detect_changed_fields(&old_entrada, &result);

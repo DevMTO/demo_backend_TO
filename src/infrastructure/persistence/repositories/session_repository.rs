@@ -63,7 +63,7 @@ impl SessionRepositoryPort for PostgresSessionRepository {
         
         if let Some(ref session) = result {
             debug!(
-                "📦 Sesión cargada de DB: id={}, user_id={}, remember_me={}, expires_at={}",
+                "Sesión cargada de DB: id={}, user_id={}, remember_me={}, expires_at={}",
                 session.id, session.user_id, session.remember_me, session.expires_at
             );
         }

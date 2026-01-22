@@ -59,7 +59,7 @@ pub async fn create_restaurante(
         .create_restaurante(request, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("✅ Handler: Restaurante creado: {} (ID: {})", created.nombre, created.id);
+    info!("Handler: Restaurante creado: {} (ID: {})", created.nombre, created.id);
     Ok(json_created(created))
 }
 

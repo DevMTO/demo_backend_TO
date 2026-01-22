@@ -60,7 +60,7 @@ impl TourService {
         let pages = result.pages();
         let current_page = result.current_page();
         let items: Vec<TourResponse> = result.data.into_iter().map(Into::into).collect();
-        info!("📋 Listados {} tours (página {}, total: {})", items.len(), current_page, total);
+        info!("Listados {} tours (página {}, total: {})", items.len(), current_page, total);
         
         Ok((items, total, pages))
     }
@@ -73,7 +73,7 @@ impl TourService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Tour {} no encontrado", id)))?;
         
-        info!("🔍 Tour encontrado: {} (ID: {})", tour.nombre, id);
+        info!("Tour encontrado: {} (ID: {})", tour.nombre, id);
         Ok(TourResponse::from(tour))
     }
 
@@ -90,7 +90,7 @@ impl TourService {
         
         // Persistir
         let created = self.tour_repository.create(&tour).await?;
-        info!("✅ Tour creado: {} (ID: {})", created.nombre, created.id);
+        info!("Tour creado: {} (ID: {})", created.nombre, created.id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_create::<Tour>(
@@ -102,7 +102,7 @@ impl TourService {
             Some(&created),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de creación de tour: {}", e);
+            warn!("Error al registrar log de creación de tour: {}", e);
         }
         
         // Notificación a admins
@@ -116,7 +116,7 @@ impl TourService {
             NotificationPriority::Low,
             Some(created_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de tour creado: {}", e);
+            warn!("Error al enviar notificación de tour creado: {}", e);
         }
         
         Ok(TourResponse::from(created))
@@ -158,7 +158,7 @@ impl TourService {
             if changed_fields.is_empty() { None } else { Some(changed_fields.clone()) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de tour: {}", e);
+            warn!("Error al registrar log de actualización de tour: {}", e);
         }
         
         // Notificación si hubo cambios importantes
@@ -173,7 +173,7 @@ impl TourService {
                 NotificationPriority::Low,
                 Some(updated_by),
             ).await {
-                warn!("⚠️ Error al enviar notificación de tour actualizado: {}", e);
+                warn!("Error al enviar notificación de tour actualizado: {}", e);
             }
         }
         
@@ -212,7 +212,7 @@ impl TourService {
             Some(&tour),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de desactivación de tour: {}", e);
+            warn!("Error al registrar log de desactivación de tour: {}", e);
         }
         
         // Notificación a admins
@@ -226,7 +226,7 @@ impl TourService {
             NotificationPriority::Normal,
             Some(deleted_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de tour desactivado: {}", e);
+            warn!("Error al enviar notificación de tour desactivado: {}", e);
         }
         
         Ok(())
@@ -263,7 +263,7 @@ impl TourService {
             Some(vec!["is_active".to_string()]),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de restauración de tour: {}", e);
+            warn!("Error al registrar log de restauración de tour: {}", e);
         }
         
         // Notificación a admins
@@ -277,7 +277,7 @@ impl TourService {
             NotificationPriority::Normal,
             Some(restored_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de tour restaurado: {}", e);
+            warn!("Error al enviar notificación de tour restaurado: {}", e);
         }
         
         Ok(())
@@ -290,7 +290,7 @@ impl TourService {
             .search(query)
             .await?;
         
-        info!("🔍 Búsqueda '{}' encontró {} tours", query, tours.len());
+        info!("Búsqueda '{}' encontró {} tours", query, tours.len());
         Ok(tours.into_iter().map(Into::into).collect())
     }
 

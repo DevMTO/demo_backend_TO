@@ -26,7 +26,7 @@ impl PostgresTourRepository {
 impl TourRepositoryPort for PostgresTourRepository {
     #[instrument(skip(self, tour))]
     async fn create(&self, tour: &Tour) -> Result<Tour, ApplicationError> {
-        debug!("📝 Creando tour: {}", tour.nombre);
+        debug!("Creando tour: {}", tour.nombre);
         let mut conn = self.pool.get_connection().await?;
         let new_tour: NewTourModel = tour.into();
         let result = diesel::insert_into(tours::table)
@@ -34,7 +34,7 @@ impl TourRepositoryPort for PostgresTourRepository {
             .get_result::<TourModel>(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        info!("✅ Tour creado: {} (id: {})", result.nombre, result.id);
+        info!("Tour creado: {} (id: {})", result.nombre, result.id);
         Ok(result.into())
     }
     

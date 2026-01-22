@@ -27,7 +27,7 @@ impl ConductorRepositoryPort for PostgresConductorRepository {
         let result = diesel::insert_into(conductores::table).values(&new_c)
             .get_result::<ConductorModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        info!("✅ Conductor creado: {} (id: {})", result.nro_brevete, result.id);
+        info!("Conductor creado: {} (id: {})", result.nro_brevete, result.id);
         Ok(result.into())
     }
     
@@ -114,7 +114,7 @@ impl ConductorRepositoryPort for PostgresConductorRepository {
             })
             .collect();
         
-        info!("✅ Listados {} conductores de {} total", items.len(), total);
+        info!("Listados {} conductores de {} total", items.len(), total);
         Ok((items, total))
     }
     
@@ -153,7 +153,7 @@ impl ConductorRepositoryPort for PostgresConductorRepository {
             .execute(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        info!("✅ Conductor {} status actualizado a: {}", id, status);
+        info!("Conductor {} status actualizado a: {}", id, status);
         Ok(affected > 0)
     }
 }

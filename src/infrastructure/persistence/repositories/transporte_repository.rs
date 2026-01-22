@@ -27,7 +27,7 @@ impl TransporteRepositoryPort for PostgresTransporteRepository {
         let result = diesel::insert_into(transportes::table).values(&new_t)
             .get_result::<TransporteModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        info!("✅ Transporte creado: {} (id: {})", result.nombre, result.id);
+        info!("Transporte creado: {} (id: {})", result.nombre, result.id);
         Ok(result.into())
     }
     

@@ -25,7 +25,7 @@ impl PostgresAgenciaRepository {
 impl AgenciaRepositoryPort for PostgresAgenciaRepository {
     #[instrument(skip(self, agencia))]
     async fn create(&self, agencia: &Agencia) -> Result<Agencia, ApplicationError> {
-        debug!("📝 Creando agencia: {}", agencia.nombre);
+        debug!("Creando agencia: {}", agencia.nombre);
         let mut conn = self.pool.get_connection().await?;
         let new_agencia: NewAgenciaModel = agencia.into();
         
@@ -34,11 +34,11 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             .get_result::<AgenciaModel>(&mut conn)
             .await
             .map_err(|e| {
-                warn!("❌ Error al crear agencia: {}", e);
+                warn!("Error al crear agencia: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
-        info!("✅ Agencia creada: {} (id: {})", result.nombre, result.id);
+        info!("Agencia creada: {} (id: {})", result.nombre, result.id);
         Ok(result.into())
     }
     
@@ -56,7 +56,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
     
     #[instrument(skip(self))]
     async fn find_by_encargado(&self, persona_id: i32) -> Result<Option<Agencia>, ApplicationError> {
-        debug!("🔍 Buscando agencia por encargado (persona_id: {})", persona_id);
+        debug!("Buscando agencia por encargado (persona_id: {})", persona_id);
         let mut conn = self.pool.get_connection().await?;
         let result = agencias::table
             .filter(agencias::encargado.eq(Some(persona_id)))
@@ -67,7 +67,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
         if let Some(ref agencia) = result {
-            info!("✅ Encontrada agencia '{}' (id: {}) para encargado {}", agencia.nombre, agencia.id, persona_id);
+            info!("Encontrada agencia '{}' (id: {}) para encargado {}", agencia.nombre, agencia.id, persona_id);
         } else {
             debug!("ℹ️ No se encontró agencia para encargado {}", persona_id);
         }
@@ -178,7 +178,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
     async fn list_with_encargado(&self, limit: i64, offset: i64) -> Result<(Vec<crate::application::dtos::AgenciaListItemDto>, i64), ApplicationError> {
         use crate::infrastructure::persistence::schema::personas;
         
-        debug!("📋 Listando agencias con encargado (limit: {}, offset: {})", limit, offset);
+        debug!("Listando agencias con encargado (limit: {}, offset: {})", limit, offset);
         let mut conn = self.pool.get_connection().await?;
         
         let total: i64 = agencias::table
@@ -225,7 +225,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             })
             .collect();
         
-        info!("✅ Listadas {} agencias de {} total", items.len(), total);
+        info!("Listadas {} agencias de {} total", items.len(), total);
         Ok((items, total))
     }
 }

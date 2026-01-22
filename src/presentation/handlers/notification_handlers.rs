@@ -56,7 +56,7 @@ pub async fn get_my_notifications(
     auth: AuthUser,
     Query(params): Query<ListNotificationsParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("🔔 Obteniendo notificaciones para usuario: {}", auth.user.id);
+    info!("Obteniendo notificaciones para usuario: {}", auth.user.id);
     
     let page_size = params.page_size.min(100).max(1);
     let offset = (params.page - 1).max(0) * page_size;
@@ -116,7 +116,7 @@ pub async fn mark_as_read(
     auth: AuthUser,
     Path(notification_id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("✅ Marcando notificación {} como leída", notification_id);
+    info!("Marcando notificación {} como leída", notification_id);
     
     state.container.notification_service
         .mark_as_read(auth.user.id, notification_id)
@@ -134,7 +134,7 @@ pub async fn mark_all_as_read(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("✅ Marcando todas las notificaciones como leídas para usuario: {}", auth.user.id);
+    info!("Marcando todas las notificaciones como leídas para usuario: {}", auth.user.id);
     
     let count = state.container.notification_service
         .mark_all_as_read(auth.user.id)
@@ -271,7 +271,7 @@ pub async fn create_notification(
             .await?
     };
     
-    info!("✅ Notificación creada con ID: {}", notification.id);
+    info!("Notificación creada con ID: {}", notification.id);
     
     Ok(json_created(serde_json::json!({
         "id": notification.id,
@@ -295,7 +295,7 @@ pub async fn list_all_notifications(
         ));
     }
     
-    info!("📋 Listando todas las notificaciones del sistema");
+    info!("Listando todas las notificaciones del sistema");
     
     let page_size = params.page_size.min(100).max(1);
     let offset = (params.page - 1).max(0) * page_size;
@@ -403,7 +403,7 @@ pub async fn cleanup_notifications(
         .await?;
     
     info!(
-        "✅ Cleanup completado: {} expiradas, {} low, {} normal, {} high, {} urgent = {} total",
+        "Cleanup completado: {} expiradas, {} low, {} normal, {} high, {} urgent = {} total",
         result.deleted_expired,
         result.deleted_low,
         result.deleted_normal,

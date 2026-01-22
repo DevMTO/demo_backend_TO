@@ -53,7 +53,7 @@ impl RestauranteService {
         offset: i64,
     ) -> Result<(Vec<RestauranteListItemDto>, i64), ApplicationError> {
         let (items, total) = self.restaurante_repository.list_with_encargado(limit, offset).await?;
-        info!("📋 Listados {} restaurantes (offset: {}, total: {})", items.len(), offset, total);
+        info!("Listados {} restaurantes (offset: {}, total: {})", items.len(), offset, total);
         Ok((items, total))
     }
 
@@ -65,7 +65,7 @@ impl RestauranteService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Restaurante {} no encontrado", id)))?;
         
-        info!("🔍 Restaurante encontrado: {} (ID: {})", restaurante.nombre, id);
+        info!("Restaurante encontrado: {} (ID: {})", restaurante.nombre, id);
         Ok(RestauranteResponse::from(restaurante))
     }
 
@@ -115,7 +115,7 @@ impl RestauranteService {
         
         // Persistir
         let created = self.restaurante_repository.create(&restaurante).await?;
-        info!("✅ Restaurante creado: {} (ID: {})", created.nombre, created.id);
+        info!("Restaurante creado: {} (ID: {})", created.nombre, created.id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_create::<Restaurante>(
@@ -127,7 +127,7 @@ impl RestauranteService {
             Some(&created),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de creación de restaurante: {}", e);
+            warn!("Error al registrar log de creación de restaurante: {}", e);
         }
         
         // Notificación a admins
@@ -141,7 +141,7 @@ impl RestauranteService {
             NotificationPriority::Low,
             Some(created_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de restaurante creado: {}", e);
+            warn!("Error al enviar notificación de restaurante creado: {}", e);
         }
         
         Ok(RestauranteResponse::from(created))
@@ -183,7 +183,7 @@ impl RestauranteService {
             if changed_fields.is_empty() { None } else { Some(changed_fields.clone()) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de restaurante: {}", e);
+            warn!("Error al registrar log de actualización de restaurante: {}", e);
         }
         
         // Determinar prioridad de notificación según campos cambiados
@@ -210,7 +210,7 @@ impl RestauranteService {
             priority,
             Some(updated_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de restaurante actualizado: {}", e);
+            warn!("Error al enviar notificación de restaurante actualizado: {}", e);
         }
         
         Ok(RestauranteResponse::from(result))
@@ -252,7 +252,7 @@ impl RestauranteService {
             Some(&restaurante),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de desactivación de restaurante: {}", e);
+            warn!("Error al registrar log de desactivación de restaurante: {}", e);
         }
         
         // Notificación a admins - Warning porque es una eliminación
@@ -266,7 +266,7 @@ impl RestauranteService {
             NotificationPriority::Normal,
             Some(deleted_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de restaurante desactivado: {}", e);
+            warn!("Error al enviar notificación de restaurante desactivado: {}", e);
         }
         
         Ok(())
@@ -310,7 +310,7 @@ impl RestauranteService {
             Some(vec!["is_active".to_string()]),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de restauración de restaurante: {}", e);
+            warn!("Error al registrar log de restauración de restaurante: {}", e);
         }
         
         // Notificación a admins - Success porque se recupera
@@ -324,7 +324,7 @@ impl RestauranteService {
             NotificationPriority::Low,
             Some(restored_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de restaurante restaurado: {}", e);
+            warn!("Error al enviar notificación de restaurante restaurado: {}", e);
         }
         
         Ok(())

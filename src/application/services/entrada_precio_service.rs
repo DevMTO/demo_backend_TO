@@ -95,7 +95,7 @@ impl EntradaPrecioService {
         }
         
         let created = self.entrada_precio_repository.create(precio).await?;
-        info!("✅ Precio creado para entrada {}: {} ({}-{:?})", 
+        info!("Precio creado para entrada {}: {} ({}-{:?})", 
             created.id_entrada, created.tipo_precio, created.edad_minima, created.edad_maxima);
         
         Ok(created)
@@ -119,7 +119,7 @@ impl EntradaPrecioService {
         }
         
         let created = self.entrada_precio_repository.create_batch(precios).await?;
-        info!("✅ {} precios creados en batch", created.len());
+        info!("{} precios creados en batch", created.len());
         
         Ok(created)
     }
@@ -139,7 +139,7 @@ impl EntradaPrecioService {
         }
         
         let updated = self.entrada_precio_repository.update(precio).await?;
-        info!("📝 Precio actualizado: ID {}", updated.id);
+        info!("Precio actualizado: ID {}", updated.id);
         
         Ok(updated)
     }
@@ -178,7 +178,7 @@ impl EntradaPrecioService {
         }
         
         let created = self.entrada_precio_repository.replace_all(id_entrada, precios).await?;
-        info!("🔄 {} precios reemplazados para entrada {}", created.len(), id_entrada);
+        info!("{} precios reemplazados para entrada {}", created.len(), id_entrada);
         
         Ok(created)
     }

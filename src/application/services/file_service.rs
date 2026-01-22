@@ -96,7 +96,7 @@ impl FileService {
             items.push(FileResponse::from_file_with_tours(file, tours));
         }
         
-        info!("📋 Listados {} files (página {}, total: {})", items.len(), current_page, total);
+        info!("Listados {} files (página {}, total: {})", items.len(), current_page, total);
         
         Ok((items, total, pages))
     }
@@ -111,7 +111,7 @@ impl FileService {
         
         let tours = self.load_file_tours(id).await?;
         
-        info!("🔍 File encontrado: ID {} con {} tours", id, tours.len());
+        info!("File encontrado: ID {} con {} tours", id, tours.len());
         Ok(FileResponse::from_file_with_tours(file, tours))
     }
 
@@ -161,7 +161,7 @@ impl FileService {
         
         // Persistir el file
         let created = self.file_repository.create(&file).await?;
-        info!("✅ File creado: ID {} para fechas {} - {}", created.id, created.fecha_inicio, created.fecha_fin);
+        info!("File creado: ID {} para fechas {} - {}", created.id, created.fecha_inicio, created.fecha_fin);
         
         // Insertar tours asociados (con fecha_tour y campos de recojo)
         let tours_data: Vec<FileTourInputData> = tours_input
@@ -187,7 +187,7 @@ impl FileService {
         let _created_tours = self.file_tour_repository
             .add_many(created.id, tours_data, Some(created_by))
             .await?;
-        info!("✅ {} tours asignados al file {}", _created_tours.len(), created.id);
+        info!("{} tours asignados al file {}", _created_tours.len(), created.id);
         
         // Cargar tours con info completa (JOIN) para el response
         let tours_dto = self.load_file_tours(created.id).await?;
@@ -202,7 +202,7 @@ impl FileService {
             Some(&created),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de creación de file: {}", e);
+            warn!("Error al registrar log de creación de file: {}", e);
         }
         
         // Notificación a admins
@@ -216,7 +216,7 @@ impl FileService {
             NotificationPriority::Normal,
             Some(created_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de file creado: {}", e);
+            warn!("Error al enviar notificación de file creado: {}", e);
         }
         
         Ok(FileResponse::from_file_with_tours(created, tours_dto))
@@ -281,7 +281,7 @@ impl FileService {
                 .await?;
             
             changed_fields.push("tours".to_string());
-            info!("✅ Tours actualizados para file {}: {} tours", id, created_tours.len());
+            info!("Tours actualizados para file {}: {} tours", id, created_tours.len());
             
             // Cargar con JOIN para info completa
             self.load_file_tours(id).await?
@@ -301,7 +301,7 @@ impl FileService {
             if changed_fields.is_empty() { None } else { Some(changed_fields.clone()) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de file: {}", e);
+            warn!("Error al registrar log de actualización de file: {}", e);
         }
         
         // Notificación si hubo cambios importantes (especialmente estado)
@@ -322,7 +322,7 @@ impl FileService {
                 priority,
                 Some(updated_by),
             ).await {
-                warn!("⚠️ Error al enviar notificación de file actualizado: {}", e);
+                warn!("Error al enviar notificación de file actualizado: {}", e);
             }
         }
         
@@ -361,7 +361,7 @@ impl FileService {
             Some(&file),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de eliminación de file: {}", e);
+            warn!("Error al registrar log de eliminación de file: {}", e);
         }
         
         // Notificación a admins (eliminar es crítico)
@@ -375,7 +375,7 @@ impl FileService {
             NotificationPriority::High,
             Some(deleted_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de file eliminado: {}", e);
+            warn!("Error al enviar notificación de file eliminado: {}", e);
         }
         
         Ok(())
@@ -388,7 +388,7 @@ impl FileService {
             .find_by_agencia(agencia_id)
             .await?;
         
-        info!("📋 {} files encontrados para agencia {}", files.len(), agencia_id);
+        info!("{} files encontrados para agencia {}", files.len(), agencia_id);
         Ok(files.into_iter().map(Into::into).collect())
     }
 
@@ -403,7 +403,7 @@ impl FileService {
             .find_by_date_range(from, to)
             .await?;
         
-        info!("📋 {} files encontrados entre {} y {}", files.len(), from, to);
+        info!("{} files encontrados entre {} y {}", files.len(), from, to);
         Ok(files.into_iter().map(Into::into).collect())
     }
 
@@ -414,7 +414,7 @@ impl FileService {
             .find_upcoming()
             .await?;
         
-        info!("📋 {} files próximos encontrados", files.len());
+        info!("{} files próximos encontrados", files.len());
         Ok(files.into_iter().map(Into::into).collect())
     }
 
@@ -425,7 +425,7 @@ impl FileService {
             .find_pending_payment()
             .await?;
         
-        info!("📋 {} files con pago pendiente encontrados", files.len());
+        info!("{} files con pago pendiente encontrados", files.len());
         Ok(files.into_iter().map(Into::into).collect())
     }
 

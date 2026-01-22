@@ -27,7 +27,7 @@ impl GuiaRepositoryPort for PostgresGuiaRepository {
         let result = diesel::insert_into(guias::table).values(&new_g)
             .get_result::<GuiaModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        info!("✅ Guia creado: {} (id: {})", result.nro_carnet, result.id);
+        info!("Guia creado: {} (id: {})", result.nro_carnet, result.id);
         Ok(result.into())
     }
     
@@ -158,7 +158,7 @@ impl GuiaRepositoryPort for PostgresGuiaRepository {
             .execute(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        info!("✅ Guia {} status actualizado a: {}", id, status);
+        info!("Guia {} status actualizado a: {}", id, status);
         Ok(affected > 0)
     }
 }

@@ -63,7 +63,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
 
     #[instrument(skip(self, notification))]
     async fn create(&self, notification: NewNotification) -> Result<Notification, ApplicationError> {
-        debug!("📝 Creando notificación: {}", notification.title);
+        debug!("Creando notificación: {}", notification.title);
         let mut conn = self.pool.get_connection().await?;
         
         let new_notification: NewNotificationModel = notification.into();
@@ -73,17 +73,17 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
             .get_result::<NotificationModel>(&mut conn)
             .await
             .map_err(|e| {
-                warn!("❌ Error al crear notificación: {}", e);
+                warn!("Error al crear notificación: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
-        info!("✅ Notificación creada con ID: {}", result.id);
+        info!("Notificación creada con ID: {}", result.id);
         Ok(result.into())
     }
 
     #[instrument(skip(self))]
     async fn find_by_id(&self, id: i32) -> Result<Option<Notification>, ApplicationError> {
-        debug!("🔍 Buscando notificación por ID: {}", id);
+        debug!("Buscando notificación por ID: {}", id);
         let mut conn = self.pool.get_connection().await?;
         
         let result = notifications::table
@@ -92,7 +92,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
             .await
             .optional()
             .map_err(|e| {
-                warn!("❌ Error al buscar notificación: {}", e);
+                warn!("Error al buscar notificación: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
@@ -106,7 +106,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<Notification>, ApplicationError> {
-        debug!("📋 Listando todas las notificaciones");
+        debug!("Listando todas las notificaciones");
         let mut conn = self.pool.get_connection().await?;
         
         let mut query = notifications::table.into_boxed();
@@ -186,7 +186,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
         .await
         .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Eliminadas {} notificaciones expiradas", deleted);
+        info!("Eliminadas {} notificaciones expiradas", deleted);
         Ok(deleted as i64)
     }
 
@@ -215,11 +215,11 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
         .await
         .map(|r| (r.deleted_expired, r.deleted_low, r.deleted_normal, r.deleted_high, r.deleted_urgent, r.total_deleted))
         .map_err(|e| {
-            warn!("❌ Error en cleanup_by_priority: {}", e);
+            warn!("Error en cleanup_by_priority: {}", e);
             ApplicationError::Repository(e.to_string())
         })?;
         
-        info!("✅ Cleanup completado - Total eliminadas: {}", result.5);
+        info!("Cleanup completado - Total eliminadas: {}", result.5);
         
         Ok(crate::application::ports::CleanupResult {
             deleted_expired: result.0,
@@ -239,7 +239,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
         notification_id: i32,
         user_id: i32,
     ) -> Result<NotificationUser, ApplicationError> {
-        debug!("📝 Creando notificación de usuario: notification={}, user={}", notification_id, user_id);
+        debug!("Creando notificación de usuario: notification={}, user={}", notification_id, user_id);
         let mut conn = self.pool.get_connection().await?;
         
         let new_record = NewNotificationUserModel {
@@ -252,7 +252,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
             .get_result::<NotificationUserModel>(&mut conn)
             .await
             .map_err(|e| {
-                warn!("❌ Error al crear notificación de usuario: {}", e);
+                warn!("Error al crear notificación de usuario: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
@@ -265,7 +265,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
         notification_id: i32,
         user_ids: Vec<i32>,
     ) -> Result<Vec<NotificationUser>, ApplicationError> {
-        debug!("📝 Creando notificaciones para {} usuarios", user_ids.len());
+        debug!("Creando notificaciones para {} usuarios", user_ids.len());
         let mut conn = self.pool.get_connection().await?;
         
         let new_records: Vec<NewNotificationUserModel> = user_ids
@@ -293,7 +293,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
         filters: PortFilters,
         pagination: PaginationOptions,
     ) -> Result<PaginatedResult<NotificationWithReadStatus>, ApplicationError> {
-        debug!("📋 Listando notificaciones de usuario: {}", user_id);
+        debug!("Listando notificaciones de usuario: {}", user_id);
         let mut conn = self.pool.get_connection().await?;
         
         // Base query con join
@@ -450,7 +450,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
 
     #[instrument(skip(self, notification_ids))]
     async fn mark_as_read(&self, user_id: i32, notification_ids: Vec<i32>) -> Result<i64, ApplicationError> {
-        debug!("✅ Marcando {} notificaciones como leídas", notification_ids.len());
+        debug!("Marcando {} notificaciones como leídas", notification_ids.len());
         let mut conn = self.pool.get_connection().await?;
         let now = Utc::now();
         
@@ -472,7 +472,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
 
     #[instrument(skip(self))]
     async fn mark_all_as_read(&self, user_id: i32) -> Result<i64, ApplicationError> {
-        debug!("✅ Marcando todas las notificaciones como leídas para usuario: {}", user_id);
+        debug!("Marcando todas las notificaciones como leídas para usuario: {}", user_id);
         let mut conn = self.pool.get_connection().await?;
         let now = Utc::now();
         
@@ -540,7 +540,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
 
     #[instrument(skip(self, roles))]
     async fn get_users_by_roles(&self, roles: Vec<String>) -> Result<Vec<i32>, ApplicationError> {
-        debug!("🔍 Buscando usuarios por roles: {:?}", roles);
+        debug!("Buscando usuarios por roles: {:?}", roles);
         let mut conn = self.pool.get_connection().await?;
         
         let user_ids: Vec<i32> = users::table
@@ -551,13 +551,13 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        debug!("✅ Encontrados {} usuarios", user_ids.len());
+        debug!("Encontrados {} usuarios", user_ids.len());
         Ok(user_ids)
     }
 
     #[instrument(skip(self))]
     async fn get_all_active_user_ids(&self) -> Result<Vec<i32>, ApplicationError> {
-        debug!("🔍 Obteniendo todos los usuarios activos");
+        debug!("Obteniendo todos los usuarios activos");
         let mut conn = self.pool.get_connection().await?;
         
         let user_ids: Vec<i32> = users::table

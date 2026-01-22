@@ -26,7 +26,7 @@ impl PersonaRepositoryPort for PostgresPersonaRepository {
         let result = diesel::insert_into(personas::table).values(&new_p)
             .get_result::<PersonaModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        info!("✅ Persona creada: {} {} (id: {})", result.nombre, result.apellidos, result.id);
+        info!("Persona creada: {} {} (id: {})", result.nombre, result.apellidos, result.id);
         Ok(result.into())
     }
     

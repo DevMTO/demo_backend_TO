@@ -37,7 +37,7 @@ impl FromRequestParts<AppState> for AuthUser {
         if let Some(ref new_token) = verification.new_token {
             // Intentar obtener el Cookies manager de las extensiones
             if let Some(cookies) = parts.extensions.get::<Cookies>() {
-                info!("🔄 Token rotado automáticamente para sesión {}, actualizando cookie...", verification.session_id);
+                info!("Token rotado automáticamente para sesión {}, actualizando cookie...", verification.session_id);
                 let session_cookie = create_session_cookie_for_rotation(
                     new_token,
                     state.container.cookie_max_age_hours,

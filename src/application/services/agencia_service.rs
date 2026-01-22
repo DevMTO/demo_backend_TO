@@ -55,7 +55,7 @@ impl AgenciaService {
             .list_with_encargado(page_size, offset)
             .await?;
         
-        info!("📋 Listadas {} agencias (página {}, total: {})", items.len(), page, total);
+        info!("Listadas {} agencias (página {}, total: {})", items.len(), page, total);
         Ok((items, total))
     }
 
@@ -67,7 +67,7 @@ impl AgenciaService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id)))?;
         
-        info!("🔍 Agencia encontrada: {} (ID: {})", agencia.nombre, id);
+        info!("Agencia encontrada: {} (ID: {})", agencia.nombre, id);
         Ok(AgenciaResponse::from(agencia))
     }
 
@@ -79,7 +79,7 @@ impl AgenciaService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Agencia con RUC {} no encontrada", ruc)))?;
         
-        info!("🔍 Agencia encontrada por RUC: {} ({})", agencia.nombre, ruc);
+        info!("Agencia encontrada por RUC: {} ({})", agencia.nombre, ruc);
         Ok(AgenciaResponse::from(agencia))
     }
 
@@ -106,7 +106,7 @@ impl AgenciaService {
         
         // Persistir
         let created = self.agencia_repository.create(&agencia).await?;
-        info!("✅ Agencia creada: {} (ID: {})", created.nombre, created.id);
+        info!("Agencia creada: {} (ID: {})", created.nombre, created.id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_create::<Agencia>(
@@ -118,7 +118,7 @@ impl AgenciaService {
             Some(&created),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de creación de agencia: {}", e);
+            warn!("Error al registrar log de creación de agencia: {}", e);
         }
         
         // Notificación a admins
@@ -132,7 +132,7 @@ impl AgenciaService {
             NotificationPriority::Low,
             Some(created_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de agencia creada: {}", e);
+            warn!("Error al enviar notificación de agencia creada: {}", e);
         }
         
         Ok(AgenciaResponse::from(created))
@@ -189,7 +189,7 @@ impl AgenciaService {
             if changed_fields.is_empty() { None } else { Some(changed_fields) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de agencia: {}", e);
+            warn!("Error al registrar log de actualización de agencia: {}", e);
         }
         
         // Notificación a admins
@@ -203,7 +203,7 @@ impl AgenciaService {
             NotificationPriority::Low,
             Some(updated_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de agencia actualizada: {}", e);
+            warn!("Error al enviar notificación de agencia actualizada: {}", e);
         }
         
         Ok(AgenciaResponse::from(result))
@@ -241,7 +241,7 @@ impl AgenciaService {
             Some(&agencia),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de desactivación de agencia: {}", e);
+            warn!("Error al registrar log de desactivación de agencia: {}", e);
         }
         
         // Notificación a admins
@@ -255,7 +255,7 @@ impl AgenciaService {
             NotificationPriority::Normal,
             Some(deleted_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de agencia desactivada: {}", e);
+            warn!("Error al enviar notificación de agencia desactivada: {}", e);
         }
         
         Ok(())
@@ -295,7 +295,7 @@ impl AgenciaService {
             Some(vec!["is_active".to_string()]),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de restauración de agencia: {}", e);
+            warn!("Error al registrar log de restauración de agencia: {}", e);
         }
         
         // Notificación a admins
@@ -309,7 +309,7 @@ impl AgenciaService {
             NotificationPriority::Low,
             Some(restored_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de agencia restaurada: {}", e);
+            warn!("Error al enviar notificación de agencia restaurada: {}", e);
         }
         
         Ok(AgenciaResponse::from(agencia))
@@ -324,7 +324,7 @@ impl AgenciaService {
         id_persona: Option<i32>,
         username: &str,
     ) -> Result<AgenciaResponse, ApplicationError> {
-        info!("🏢 Buscando agencia para usuario '{}' (id_persona: {:?}, id_entidad: {:?}, role: {:?})", 
+        info!("Buscando agencia para usuario '{}' (id_persona: {:?}, id_entidad: {:?}, role: {:?})", 
             username, id_persona, id_entidad, user_role);
         
         let mut agencia: Option<Agencia> = None;
@@ -339,7 +339,7 @@ impl AgenciaService {
                     .find_by_id(entity_id)
                     .await?;
                 if agencia.is_some() {
-                    info!("✅ Agencia encontrada por id_entidad: {}", entity_id);
+                    info!("Agencia encontrada por id_entidad: {}", entity_id);
                 }
             }
         }
@@ -351,7 +351,7 @@ impl AgenciaService {
                     .find_by_encargado(persona_id)
                     .await?;
                 if agencia.is_some() {
-                    info!("✅ Agencia encontrada por encargado (persona_id: {})", persona_id);
+                    info!("Agencia encontrada por encargado (persona_id: {})", persona_id);
                 }
             }
         }

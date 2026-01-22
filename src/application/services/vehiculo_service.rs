@@ -51,7 +51,7 @@ impl VehiculoService {
         offset: i64,
     ) -> Result<(Vec<VehiculoListItemDto>, i64), ApplicationError> {
         let (items, total) = self.vehiculo_repository.list_with_details(limit, offset).await?;
-        info!("📋 Listados {} vehículos (offset: {}, total: {})", items.len(), offset, total);
+        info!("Listados {} vehículos (offset: {}, total: {})", items.len(), offset, total);
         Ok((items, total))
     }
 
@@ -63,7 +63,7 @@ impl VehiculoService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)))?;
         
-        info!("🔍 Vehículo encontrado: {} (ID: {})", vehiculo.placa, id);
+        info!("Vehículo encontrado: {} (ID: {})", vehiculo.placa, id);
         Ok(VehiculoResponse::from(vehiculo))
     }
 
@@ -79,7 +79,7 @@ impl VehiculoService {
     #[instrument(skip(self))]
     pub async fn list_available(&self) -> Result<Vec<VehiculoResponse>, ApplicationError> {
         let vehiculos = self.vehiculo_repository.list_available().await?;
-        info!("✅ Encontrados {} vehículos disponibles", vehiculos.len());
+        info!("Encontrados {} vehículos disponibles", vehiculos.len());
         Ok(vehiculos.into_iter().map(VehiculoResponse::from).collect())
     }
 
@@ -103,7 +103,7 @@ impl VehiculoService {
         
         // Persistir
         let created = self.vehiculo_repository.create(&vehiculo).await?;
-        info!("✅ Vehículo creado: {} - {} (ID: {})", created.nombre, created.placa, created.id);
+        info!("Vehículo creado: {} - {} (ID: {})", created.nombre, created.placa, created.id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_create::<Vehiculo>(
@@ -115,7 +115,7 @@ impl VehiculoService {
             Some(&created),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de creación de vehículo: {}", e);
+            warn!("Error al registrar log de creación de vehículo: {}", e);
         }
         
         // Notificación a admins
@@ -130,7 +130,7 @@ impl VehiculoService {
             NotificationPriority::Low,
             Some(created_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de vehículo creado: {}", e);
+            warn!("Error al enviar notificación de vehículo creado: {}", e);
         }
         
         Ok(VehiculoResponse::from(created))
@@ -172,7 +172,7 @@ impl VehiculoService {
             if changed_fields.is_empty() { None } else { Some(changed_fields.clone()) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de vehículo: {}", e);
+            warn!("Error al registrar log de actualización de vehículo: {}", e);
         }
         
         // Notificación a admins
@@ -192,7 +192,7 @@ impl VehiculoService {
             NotificationPriority::Low,
             Some(updated_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de vehículo actualizado: {}", e);
+            warn!("Error al enviar notificación de vehículo actualizado: {}", e);
         }
         
         Ok(VehiculoResponse::from(result))
@@ -227,7 +227,7 @@ impl VehiculoService {
             Some(&vehiculo),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de eliminación de vehículo: {}", e);
+            warn!("Error al registrar log de eliminación de vehículo: {}", e);
         }
         
         // Notificación a admins - Warning porque es una eliminación
@@ -241,7 +241,7 @@ impl VehiculoService {
             NotificationPriority::Normal,
             Some(deleted_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de vehículo eliminado: {}", e);
+            warn!("Error al enviar notificación de vehículo eliminado: {}", e);
         }
         
         Ok(())

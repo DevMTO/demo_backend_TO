@@ -36,7 +36,7 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
             .await
             .map_err(|e| ApplicationError::Repository(format!("Error al crear precio: {e}")))?;
         
-        debug!("✅ Precio de entrada creado: ID {}", result.id);
+        debug!("Precio de entrada creado: ID {}", result.id);
         Ok(result.into())
     }
     
@@ -59,7 +59,7 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
             .await
             .map_err(|e| ApplicationError::Repository(format!("Error al crear precios en batch: {e}")))?;
         
-        debug!("✅ {} precios de entrada creados en batch", results.len());
+        debug!("{} precios de entrada creados en batch", results.len());
         Ok(results.into_iter().map(EntradaPrecio::from).collect())
     }
     
@@ -145,7 +145,7 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
             .await
             .map_err(|e| ApplicationError::Repository(format!("Error al actualizar precio: {e}")))?;
         
-        debug!("📝 Precio de entrada actualizado: ID {}", result.id);
+        debug!("Precio de entrada actualizado: ID {}", result.id);
         Ok(result.into())
     }
     

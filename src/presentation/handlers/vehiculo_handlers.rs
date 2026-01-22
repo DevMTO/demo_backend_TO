@@ -73,7 +73,7 @@ pub async fn create_vehiculo(
         .create_vehiculo(request, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("✅ Handler: Vehículo creado: {} (ID: {})", created.placa, created.id);
+    info!("Handler: Vehículo creado: {} (ID: {})", created.placa, created.id);
     Ok(json_created(created))
 }
 

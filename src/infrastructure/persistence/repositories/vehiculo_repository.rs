@@ -28,7 +28,7 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
         let result = diesel::insert_into(vehiculos::table).values(&new_v)
             .get_result::<VehiculoModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        info!("✅ Vehiculo creado: {} (id: {})", result.placa, result.id);
+        info!("Vehiculo creado: {} (id: {})", result.placa, result.id);
         Ok(result.into())
     }
     
@@ -128,7 +128,7 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
             })
             .collect();
         
-        info!("✅ Listados {} vehículos de {} total", items.len(), total);
+        info!("Listados {} vehículos de {} total", items.len(), total);
         Ok((items, total))
     }
     

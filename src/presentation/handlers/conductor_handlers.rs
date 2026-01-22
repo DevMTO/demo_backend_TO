@@ -57,7 +57,7 @@ pub async fn create_conductor(
         .create_conductor(request, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("✅ Handler: Conductor creado: {} (ID: {})", created.nro_brevete, created.id);
+    info!("Handler: Conductor creado: {} (ID: {})", created.nro_brevete, created.id);
     Ok(json_created(created))
 }
 

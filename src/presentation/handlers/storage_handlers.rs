@@ -55,7 +55,7 @@ pub async fn upload_agencia_logo(
     // Verificar que el storage está configurado
     let storage = state.container.tigris_storage.as_ref()
         .ok_or_else(|| {
-            error!("❌ Storage no configurado");
+            error!("Storage no configurado");
             (StatusCode::SERVICE_UNAVAILABLE, Json(StorageErrorResponse {
                 success: false,
                 error: "Storage no disponible".to_string(),
@@ -77,7 +77,7 @@ pub async fn upload_agencia_logo(
             if let Ok(Some(agencia)) = state.container.agencia_repository.find_by_id(agencia_id).await {
                 if agencia.encargado == Some(user_persona_id) {
                     can_upload = true;
-                    info!("✅ Usuario {} es encargado de agencia {} (persona_id: {})", 
+                    info!("Usuario {} es encargado de agencia {} (persona_id: {})", 
                         auth_user.user.username, agencia_id, user_persona_id);
                 }
             }
@@ -85,7 +85,7 @@ pub async fn upload_agencia_logo(
     }
     
     if !can_upload {
-        warn!("⚠️ Usuario {} no tiene permisos para subir logo de agencia {}", 
+        warn!("Usuario {} no tiene permisos para subir logo de agencia {}", 
             auth_user.user.username, agencia_id);
         return Err((StatusCode::FORBIDDEN, Json(StorageErrorResponse {
             success: false,
@@ -95,7 +95,7 @@ pub async fn upload_agencia_logo(
     
     // Procesar archivo del multipart
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        error!("❌ Error procesando multipart: {}", e);
+        error!("Error procesando multipart: {}", e);
         (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
             success: false,
             error: format!("Error procesando archivo: {}", e),
@@ -115,7 +115,7 @@ pub async fn upload_agencia_logo(
         
         // Leer bytes del archivo
         let data = field.bytes().await.map_err(|e| {
-            error!("❌ Error leyendo archivo: {}", e);
+            error!("Error leyendo archivo: {}", e);
             (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
                 success: false,
                 error: format!("Error leyendo archivo: {}", e),
@@ -135,7 +135,7 @@ pub async fn upload_agencia_logo(
         let path = TigrisStorage::generate_agencia_path(agencia_id, "logo", extension);
         
         let url = storage.upload(&path, &data, &content_type).await.map_err(|e| {
-            error!("❌ Error subiendo a Tigris: {}", e);
+            error!("Error subiendo a Tigris: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, Json(StorageErrorResponse {
                 success: false,
                 error: format!("Error subiendo archivo: {}", e),
@@ -150,10 +150,10 @@ pub async fn upload_agencia_logo(
             &path,
             auth_user.user.id,
         ).await {
-            warn!("⚠️ Error actualizando media de agencia: {}", e);
+            warn!("Error actualizando media de agencia: {}", e);
         }
         
-        info!("✅ Logo subido: {}", url);
+        info!("Logo subido: {}", url);
         
         return Ok(Json(UploadResponse {
             success: true,
@@ -202,7 +202,7 @@ pub async fn upload_agencia_banner(
             if let Ok(Some(agencia)) = state.container.agencia_repository.find_by_id(agencia_id).await {
                 if agencia.encargado == Some(user_persona_id) {
                     can_upload = true;
-                    info!("✅ Usuario {} es encargado de agencia {} (persona_id: {})", 
+                    info!("Usuario {} es encargado de agencia {} (persona_id: {})", 
                         auth_user.user.username, agencia_id, user_persona_id);
                 }
             }
@@ -258,7 +258,7 @@ pub async fn upload_agencia_banner(
         })?;
         
         if let Err(e) = update_agencia_media(&state, agencia_id, "banner", &path, auth_user.user.id).await {
-            warn!("⚠️ Error actualizando media de agencia: {}", e);
+            warn!("Error actualizando media de agencia: {}", e);
         }
         
         return Ok(Json(UploadResponse {
@@ -339,17 +339,17 @@ pub async fn delete_agencia_logo(
     if let Some(logo_path) = &media.logo {
         // Eliminar archivo de Tigris
         if let Err(e) = storage.delete(logo_path).await {
-            warn!("⚠️ Error eliminando archivo de Tigris: {}", e);
+            warn!("Error eliminando archivo de Tigris: {}", e);
             // Continuamos para limpiar la BD aunque falle Tigris
         }
     }
     
     // Actualizar media quitando el logo
     if let Err(e) = clear_agencia_media(&state, agencia_id, "logo", auth_user.user.id).await {
-        warn!("⚠️ Error limpiando media de agencia: {}", e);
+        warn!("Error limpiando media de agencia: {}", e);
     }
     
-    info!("✅ Logo eliminado para agencia {}", agencia_id);
+    info!("Logo eliminado para agencia {}", agencia_id);
     
     Ok(Json(StorageDeleteResponse {
         success: true,
@@ -421,16 +421,16 @@ pub async fn delete_agencia_banner(
     if let Some(banner_path) = &media.banner {
         // Eliminar archivo de Tigris
         if let Err(e) = storage.delete(banner_path).await {
-            warn!("⚠️ Error eliminando archivo de Tigris: {}", e);
+            warn!("Error eliminando archivo de Tigris: {}", e);
         }
     }
     
     // Actualizar media quitando el banner
     if let Err(e) = clear_agencia_media(&state, agencia_id, "banner", auth_user.user.id).await {
-        warn!("⚠️ Error limpiando media de agencia: {}", e);
+        warn!("Error limpiando media de agencia: {}", e);
     }
     
-    info!("✅ Banner eliminado para agencia {}", agencia_id);
+    info!("Banner eliminado para agencia {}", agencia_id);
     
     Ok(Json(StorageDeleteResponse {
         success: true,
@@ -514,7 +514,7 @@ pub async fn proxy_file(
             (StatusCode::OK, headers, data).into_response()
         }
         Err(e) => {
-            warn!("⚠️ Archivo no encontrado: {} - {}", file_path, e);
+            warn!("Archivo no encontrado: {} - {}", file_path, e);
             (StatusCode::NOT_FOUND, "Archivo no encontrado").into_response()
         }
     }
@@ -579,7 +579,7 @@ pub async fn upload_transporte_logo(
     // Verificar que el storage está configurado
     let storage = state.container.tigris_storage.as_ref()
         .ok_or_else(|| {
-            error!("❌ Storage no configurado");
+            error!("Storage no configurado");
             (StatusCode::SERVICE_UNAVAILABLE, Json(StorageErrorResponse {
                 success: false,
                 error: "Storage no disponible".to_string(),
@@ -600,7 +600,7 @@ pub async fn upload_transporte_logo(
             if let Ok(Some(transporte)) = state.container.transporte_repository.find_by_id(transporte_id).await {
                 if transporte.encargado == Some(user_persona_id) {
                     can_upload = true;
-                    info!("✅ Usuario {} es encargado de transporte {} (persona_id: {})", 
+                    info!("Usuario {} es encargado de transporte {} (persona_id: {})", 
                         auth_user.user.username, transporte_id, user_persona_id);
                 }
             }
@@ -608,7 +608,7 @@ pub async fn upload_transporte_logo(
     }
     
     if !can_upload {
-        warn!("⚠️ Usuario {} no tiene permisos para subir logo de transporte {}", 
+        warn!("Usuario {} no tiene permisos para subir logo de transporte {}", 
             auth_user.user.username, transporte_id);
         return Err((StatusCode::FORBIDDEN, Json(StorageErrorResponse {
             success: false,
@@ -618,7 +618,7 @@ pub async fn upload_transporte_logo(
     
     // Procesar archivo del multipart
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        error!("❌ Error procesando multipart: {}", e);
+        error!("Error procesando multipart: {}", e);
         (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
             success: false,
             error: format!("Error procesando archivo: {}", e),
@@ -638,7 +638,7 @@ pub async fn upload_transporte_logo(
         
         // Leer bytes del archivo
         let data = field.bytes().await.map_err(|e| {
-            error!("❌ Error leyendo archivo: {}", e);
+            error!("Error leyendo archivo: {}", e);
             (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
                 success: false,
                 error: format!("Error leyendo archivo: {}", e),
@@ -658,7 +658,7 @@ pub async fn upload_transporte_logo(
         let path = TigrisStorage::generate_transporte_path(transporte_id, "logo", extension);
         
         let url = storage.upload(&path, &data, &content_type).await.map_err(|e| {
-            error!("❌ Error subiendo a Tigris: {}", e);
+            error!("Error subiendo a Tigris: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, Json(StorageErrorResponse {
                 success: false,
                 error: format!("Error subiendo archivo: {}", e),
@@ -673,10 +673,10 @@ pub async fn upload_transporte_logo(
             &path,
             auth_user.user.id,
         ).await {
-            warn!("⚠️ Error actualizando media de transporte: {}", e);
+            warn!("Error actualizando media de transporte: {}", e);
         }
         
-        info!("✅ Logo de transporte subido: {}", url);
+        info!("Logo de transporte subido: {}", url);
         
         return Ok(Json(UploadResponse {
             success: true,
@@ -754,7 +754,7 @@ pub async fn upload_tour_image(
     // Verificar que el storage está configurado
     let storage = state.container.tigris_storage.as_ref()
         .ok_or_else(|| {
-            error!("❌ Storage no configurado");
+            error!("Storage no configurado");
             (StatusCode::SERVICE_UNAVAILABLE, Json(StorageErrorResponse {
                 success: false,
                 error: "Storage no disponible".to_string(),
@@ -767,7 +767,7 @@ pub async fn upload_tour_image(
         || auth_user.user.role == UserRole::Agencias;
     
     if !can_upload {
-        warn!("⚠️ Usuario {} no tiene permisos para subir imagen de tour {}", 
+        warn!("Usuario {} no tiene permisos para subir imagen de tour {}", 
             auth_user.user.username, tour_id);
         return Err((StatusCode::FORBIDDEN, Json(StorageErrorResponse {
             success: false,
@@ -780,7 +780,7 @@ pub async fn upload_tour_image(
         .find_by_id(tour_id)
         .await
         .map_err(|e| {
-            error!("❌ Error buscando tour: {}", e);
+            error!("Error buscando tour: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, Json(StorageErrorResponse {
                 success: false,
                 error: "Error verificando tour".to_string(),
@@ -795,7 +795,7 @@ pub async fn upload_tour_image(
     
     // Procesar archivo del multipart
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        error!("❌ Error procesando multipart: {}", e);
+        error!("Error procesando multipart: {}", e);
         (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
             success: false,
             error: format!("Error procesando archivo: {}", e),
@@ -815,7 +815,7 @@ pub async fn upload_tour_image(
         
         // Leer bytes del archivo
         let data = field.bytes().await.map_err(|e| {
-            error!("❌ Error leyendo archivo: {}", e);
+            error!("Error leyendo archivo: {}", e);
             (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
                 success: false,
                 error: format!("Error leyendo archivo: {}", e),
@@ -835,7 +835,7 @@ pub async fn upload_tour_image(
         let path = TigrisStorage::generate_tour_path(tour_id, "image", extension);
         
         let url = storage.upload(&path, &data, &content_type).await.map_err(|e| {
-            error!("❌ Error subiendo a Tigris: {}", e);
+            error!("Error subiendo a Tigris: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, Json(StorageErrorResponse {
                 success: false,
                 error: format!("Error subiendo archivo: {}", e),
@@ -850,10 +850,10 @@ pub async fn upload_tour_image(
             &path,
             auth_user.user.id,
         ).await {
-            warn!("⚠️ Error actualizando media de tour: {}", e);
+            warn!("Error actualizando media de tour: {}", e);
         }
         
-        info!("✅ Imagen de tour subida: {}", url);
+        info!("Imagen de tour subida: {}", url);
         
         return Ok(Json(UploadResponse {
             success: true,

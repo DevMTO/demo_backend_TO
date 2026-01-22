@@ -179,7 +179,7 @@ impl NotificationServicePort for NotificationBroadcastAdapter {
                 }
             }
             Err(e) => {
-                warn!("⚠️ Error al obtener usuarios para broadcast: {}", e);
+                warn!("Error al obtener usuarios para broadcast: {}", e);
             }
         }
 

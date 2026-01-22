@@ -31,7 +31,7 @@ impl PostgresActivityLogRepository {
 impl ActivityLogRepositoryPort for PostgresActivityLogRepository {
     #[instrument(skip(self, log))]
     async fn create(&self, log: NewActivityLog) -> Result<ActivityLog, ApplicationError> {
-        debug!("📝 Creando log de actividad: {} - {}", log.action_type, log.action);
+        debug!("Creando log de actividad: {} - {}", log.action_type, log.action);
         let mut conn = self.pool.get_connection().await?;
         
         let new_log: NewActivityLogModel = log.into();
@@ -41,17 +41,17 @@ impl ActivityLogRepositoryPort for PostgresActivityLogRepository {
             .get_result::<ActivityLogModel>(&mut conn)
             .await
             .map_err(|e| {
-                warn!("❌ Error al crear log: {}", e);
+                warn!("Error al crear log: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
-        debug!("✅ Log creado con ID: {}", result.id);
+        debug!("Log creado con ID: {}", result.id);
         Ok(result.into())
     }
 
     #[instrument(skip(self))]
     async fn find_by_id(&self, id: i32) -> Result<Option<ActivityLog>, ApplicationError> {
-        debug!("🔍 Buscando log por ID: {}", id);
+        debug!("Buscando log por ID: {}", id);
         let mut conn = self.pool.get_connection().await?;
         
         let result = activity_logs::table
@@ -60,7 +60,7 @@ impl ActivityLogRepositoryPort for PostgresActivityLogRepository {
             .await
             .optional()
             .map_err(|e| {
-                warn!("❌ Error al buscar log: {}", e);
+                warn!("Error al buscar log: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
@@ -73,7 +73,7 @@ impl ActivityLogRepositoryPort for PostgresActivityLogRepository {
         filters: PortFilters,
         pagination: PaginationOptions,
     ) -> Result<PaginatedResult<ActivityLog>, ApplicationError> {
-        debug!("📋 Listando logs con filtros");
+        debug!("Listando logs con filtros");
         let mut conn = self.pool.get_connection().await?;
         
         // Query base

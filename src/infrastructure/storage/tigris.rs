@@ -61,7 +61,7 @@ impl TigrisStorage {
             .map_err(|e| format!("Error creando bucket: {}", e))?
             .with_path_style();
 
-        info!("✅ Tigris Storage inicializado: bucket={}, endpoint={}", 
+        info!("Tigris Storage inicializado: bucket={}, endpoint={}", 
             config.bucket_name, config.endpoint);
 
         Ok(Self {
@@ -110,7 +110,7 @@ impl TigrisStorage {
             .map_err(|e| format!("Error subiendo archivo: {}", e))?;
 
         if response.status_code() != 200 {
-            error!("❌ Error subiendo archivo: status={}", response.status_code());
+            error!("Error subiendo archivo: status={}", response.status_code());
             return Err(format!("Error HTTP: {}", response.status_code()));
         }
 
@@ -123,7 +123,7 @@ impl TigrisStorage {
             full_path
         );
 
-        info!("✅ Archivo subido: {}", url);
+        info!("Archivo subido: {}", url);
         Ok(url)
     }
 
@@ -173,7 +173,7 @@ impl TigrisStorage {
             return Err(format!("Error eliminando: status={}", response.status_code()));
         }
 
-        info!("✅ Archivo eliminado: {}", full_path);
+        info!("Archivo eliminado: {}", full_path);
         Ok(())
     }
 

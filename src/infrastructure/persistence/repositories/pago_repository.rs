@@ -37,7 +37,7 @@ impl PagoRepositoryPort for PostgresPagoRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Pago creado: {} S/.{} (id: {})", result.tipo_movimiento, result.monto, result.id);
+        info!("Pago creado: {} S/.{} (id: {})", result.tipo_movimiento, result.monto, result.id);
         Ok(result.into())
     }
     

@@ -49,56 +49,56 @@ impl LoginUseCase {
         ip_address: Option<String>,
         user_agent: Option<String>,
     ) -> Result<LoginOutput, ApplicationError> {
-        debug!("📝 Buscando usuario por email/username: {}", request.identifier);
+        debug!("Buscando usuario por email/username: {}", request.identifier);
         
         // 1. Buscar usuario por email o username
         let user = match self.user_repository
             .find_by_email_or_username(&request.identifier)
             .await {
                 Ok(Some(user)) => {
-                    info!("👤 Usuario encontrado: {} (id: {})", user.username, user.id);
+                    info!("Usuario encontrado: {} (id: {})", user.username, user.id);
                     user
                 },
                 Ok(None) => {
-                    warn!("❌ Usuario no encontrado: {}", request.identifier);
+                    warn!("Usuario no encontrado: {}", request.identifier);
                     return Err(ApplicationError::Authentication("Credenciales inválidas".to_string()));
                 },
                 Err(e) => {
-                    warn!("❌ Error al buscar usuario: {:?}", e);
+                    warn!("Error al buscar usuario: {:?}", e);
                     return Err(e);
                 }
             };
         
         // 2. Verificar que el usuario esté activo
-        debug!("🔍 Verificando estado del usuario: {:?}", user.is_active);
+        debug!("Verificando estado del usuario: {:?}", user.is_active);
         if !user.is_active {
-            warn!("❌ Usuario inactivo: {} (is_active: {:?})", user.username, user.is_active);
+            warn!("Usuario inactivo: {} (is_active: {:?})", user.username, user.is_active);
             return Err(ApplicationError::Authentication(
                 "Usuario inactivo".to_string()
             ));
         }
         
         // 3. Verificar contraseña
-        debug!("🔐 Verificando contraseña...");
+        debug!("Verificando contraseña...");
         let password_valid = match self.password_hasher.verify(&request.password, &user.password_hash) {
             Ok(valid) => valid,
             Err(e) => {
-                warn!("❌ Error al verificar contraseña: {:?}", e);
+                warn!("Error al verificar contraseña: {:?}", e);
                 return Err(e);
             }
         };
         
         if !password_valid {
-            warn!("❌ Contraseña incorrecta para usuario: {}", user.username);
+            warn!("Contraseña incorrecta para usuario: {}", user.username);
             return Err(ApplicationError::Authentication(
                 "Credenciales inválidas".to_string()
             ));
         }
         
-        info!("✅ Contraseña válida para: {}", user.username);
+        info!("Contraseña válida para: {}", user.username);
         
         // 4. Verificar límite de sesiones activas
-        debug!("📊 Verificando sesiones activas...");
+        debug!("Verificando sesiones activas...");
         let active_sessions_count = self.session_repository
             .count_active_by_user_id(user.id)
             .await?;
@@ -106,7 +106,7 @@ impl LoginUseCase {
         debug!("Sesiones activas: {}/{}", active_sessions_count, self.max_sessions);
         
         if active_sessions_count >= self.max_sessions {
-            info!("⚠️ Límite de sesiones alcanzado, revocando sesión más antigua");
+            info!("Límite de sesiones alcanzado, revocando sesión más antigua");
             // Revocar la sesión más antigua si se excede el límite
             let sessions = self.session_repository
                 .find_active_by_user_id(user.id)
@@ -120,7 +120,7 @@ impl LoginUseCase {
         }
         
         // 5. Crear sesión con token opaco
-        debug!("🎫 Creando nueva sesión (remember_me: {})...", request.remember_me);
+        debug!("Creando nueva sesión (remember_me: {})...", request.remember_me);
         let (session, token_data) = self.session_manager.create_session(
             user.id,
             user_agent,
@@ -129,9 +129,9 @@ impl LoginUseCase {
         )?;
         
         // 6. Guardar sesión en BD
-        debug!("💾 Guardando sesión en BD...");
+        debug!("Guardando sesión en BD...");
         let created_session = self.session_repository.create(&session).await?;
-        info!("✅ Sesión creada: {} (expira: {})", created_session.id, created_session.expires_at);
+        info!("Sesión creada: {} (expira: {})", created_session.id, created_session.expires_at);
         
         // 7. Actualizar último login del usuario
         debug!("📅 Actualizando último login...");

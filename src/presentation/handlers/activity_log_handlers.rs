@@ -55,7 +55,7 @@ pub async fn list_logs(
         ));
     }
     
-    info!("📋 Listando logs de actividad (page: {}, size: {})", params.page, params.page_size);
+    info!("Listando logs de actividad (page: {}, size: {})", params.page, params.page_size);
     
     let page_size = params.page_size.min(100).max(1);
     let offset = (params.page - 1).max(0) * page_size;
@@ -107,7 +107,7 @@ pub async fn get_logs_summary(
         ));
     }
     
-    info!("📊 Obteniendo resumen de logs");
+    info!("Obteniendo resumen de logs");
     
     let summary = state.container.logging_service.get_summary().await?;
     
@@ -166,7 +166,7 @@ pub async fn cleanup_old_logs(
         .cleanup_old_logs(days)
         .await?;
     
-    info!("✅ {} logs eliminados", deleted);
+    info!("{} logs eliminados", deleted);
     
     Ok(json_ok(serde_json::json!({
         "deleted_count": deleted,

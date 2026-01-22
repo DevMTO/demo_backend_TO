@@ -27,7 +27,7 @@ impl RestauranteRepositoryPort for PostgresRestauranteRepository {
         let result = diesel::insert_into(restaurantes::table).values(&new_r)
             .get_result::<RestauranteModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        info!("✅ Restaurante creado: {} (id: {})", result.nombre, result.id);
+        info!("Restaurante creado: {} (id: {})", result.nombre, result.id);
         Ok(result.into())
     }
     

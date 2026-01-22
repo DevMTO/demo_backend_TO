@@ -142,7 +142,7 @@ impl UserService {
         };
         
         let created = self.user_repository.create(&new_user).await?;
-        info!("✅ Usuario creado: {} (ID: {})", created.username, created.id);
+        info!("Usuario creado: {} (ID: {})", created.username, created.id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_create::<User>(
@@ -154,7 +154,7 @@ impl UserService {
             Some(&created),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de creación de usuario: {}", e);
+            warn!("Error al registrar log de creación de usuario: {}", e);
         }
         
         // Notificación a admins
@@ -167,7 +167,7 @@ impl UserService {
             NotificationPriority::Low,
             Some(created_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de usuario creado: {}", e);
+            warn!("Error al enviar notificación de usuario creado: {}", e);
         }
         
         Ok(CreateUserResult {
@@ -215,7 +215,7 @@ impl UserService {
             };
             
             let created_persona = self.persona_repository.create(&persona).await?;
-            info!("✅ Persona creada: {} {} (ID: {})", created_persona.nombre, created_persona.apellidos, created_persona.id);
+            info!("Persona creada: {} {} (ID: {})", created_persona.nombre, created_persona.apellidos, created_persona.id);
             Ok((Some(created_persona.id), Some(created_persona.id)))
         } else {
             Ok((None, None))
@@ -258,7 +258,7 @@ impl UserService {
         let updated = request.apply_to(user, Some(updated_by));
         let result = self.user_repository.update(&updated).await?;
         
-        info!("✅ Usuario actualizado: {} (ID: {})", result.username, result.id);
+        info!("Usuario actualizado: {} (ID: {})", result.username, result.id);
         
         // Detectar campos cambiados
         let changed_fields = self.detect_changed_fields(&old_user, &result);
@@ -274,7 +274,7 @@ impl UserService {
             if changed_fields.is_empty() { None } else { Some(changed_fields.clone()) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de usuario: {}", e);
+            warn!("Error al registrar log de actualización de usuario: {}", e);
         }
         
         // Notificación al usuario afectado si fue actualizado por otro
@@ -294,7 +294,7 @@ impl UserService {
                 NotificationPriority::Normal,
                 Some(updated_by),
             ).await {
-                warn!("⚠️ Error al enviar notificación de actualización: {}", e);
+                warn!("Error al enviar notificación de actualización: {}", e);
             }
         }
         
@@ -349,7 +349,7 @@ impl UserService {
             Some(&user),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de desactivación de usuario: {}", e);
+            warn!("Error al registrar log de desactivación de usuario: {}", e);
         }
         
         // Notificación al usuario desactivado
@@ -362,7 +362,7 @@ impl UserService {
             NotificationPriority::High,
             Some(deleted_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de desactivación: {}", e);
+            warn!("Error al enviar notificación de desactivación: {}", e);
         }
         
         // Notificación a admins
@@ -375,7 +375,7 @@ impl UserService {
             NotificationPriority::Normal,
             Some(deleted_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación a admins: {}", e);
+            warn!("Error al enviar notificación a admins: {}", e);
         }
         
         Ok(user)
@@ -408,7 +408,7 @@ impl UserService {
         user.updated_by = Some(activated_by);
         
         let result = self.user_repository.update(&user).await?;
-        info!("✅ Usuario activado: {} (ID: {})", result.username, id);
+        info!("Usuario activado: {} (ID: {})", result.username, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_update::<User>(
@@ -421,7 +421,7 @@ impl UserService {
             Some(vec!["is_active".to_string()]),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de activación de usuario: {}", e);
+            warn!("Error al registrar log de activación de usuario: {}", e);
         }
         
         // Notificación al usuario activado
@@ -434,7 +434,7 @@ impl UserService {
             NotificationPriority::High,
             Some(activated_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de activación: {}", e);
+            warn!("Error al enviar notificación de activación: {}", e);
         }
         
         // Notificación a admins
@@ -451,7 +451,7 @@ impl UserService {
             NotificationPriority::Low,
             Some(activated_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación a admins: {}", e);
+            warn!("Error al enviar notificación a admins: {}", e);
         }
         
         Ok((UserDetailDto::from(result), old_active))
@@ -490,7 +490,7 @@ impl UserService {
         user.updated_by = Some(deactivated_by);
         
         let result = self.user_repository.update(&user).await?;
-        info!("🔒 Usuario desactivado: {} (ID: {})", result.username, id);
+        info!("Usuario desactivado: {} (ID: {})", result.username, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_update::<User>(
@@ -503,7 +503,7 @@ impl UserService {
             Some(vec!["is_active".to_string()]),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de desactivación de usuario: {}", e);
+            warn!("Error al registrar log de desactivación de usuario: {}", e);
         }
         
         // Notificación al usuario desactivado
@@ -516,7 +516,7 @@ impl UserService {
             NotificationPriority::High,
             Some(deactivated_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de desactivación: {}", e);
+            warn!("Error al enviar notificación de desactivación: {}", e);
         }
         
         // Notificación a admins
@@ -533,7 +533,7 @@ impl UserService {
             NotificationPriority::Normal,
             Some(deactivated_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación a admins: {}", e);
+            warn!("Error al enviar notificación a admins: {}", e);
         }
         
         Ok((UserDetailDto::from(result), old_active))
@@ -564,7 +564,7 @@ impl UserService {
         user.updated_by = Some(changed_by);
         
         let result = self.user_repository.update(&user).await?;
-        info!("🔐 Contraseña cambiada para usuario: {} (ID: {})", result.username, id);
+        info!("Contraseña cambiada para usuario: {} (ID: {})", result.username, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_update::<User>(
@@ -577,7 +577,7 @@ impl UserService {
             Some(vec!["password".to_string()]),
             Some("Contraseña cambiada por SuperAdmin".to_string()),
         ).await {
-            warn!("⚠️ Error al registrar log de cambio de contraseña: {}", e);
+            warn!("Error al registrar log de cambio de contraseña: {}", e);
         }
         
         // Notificación al usuario afectado
@@ -590,7 +590,7 @@ impl UserService {
             NotificationPriority::High,
             Some(changed_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de cambio de contraseña: {}", e);
+            warn!("Error al enviar notificación de cambio de contraseña: {}", e);
         }
         
         Ok(UserDetailDto::from(result))

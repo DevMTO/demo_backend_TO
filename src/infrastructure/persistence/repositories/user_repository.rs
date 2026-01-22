@@ -25,7 +25,7 @@ impl PostgresUserRepository {
 impl UserRepositoryPort for PostgresUserRepository {
     #[instrument(skip(self, user))]
     async fn create(&self, user: &User) -> Result<User, ApplicationError> {
-        debug!("📝 Creando usuario: {}", user.username);
+        debug!("Creando usuario: {}", user.username);
         let mut conn = self.pool.get_connection().await?;
         let new_user: NewUserModel = user.into();
         
@@ -34,17 +34,17 @@ impl UserRepositoryPort for PostgresUserRepository {
             .get_result::<UserModel>(&mut conn)
             .await
             .map_err(|e| {
-                warn!("❌ Error al crear usuario: {}", e);
+                warn!("Error al crear usuario: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
-        info!("✅ Usuario creado: {} (id: {})", result.username, result.id);
+        info!("Usuario creado: {} (id: {})", result.username, result.id);
         Ok(result.into())
     }
     
     #[instrument(skip(self))]
     async fn find_by_id(&self, id: i32) -> Result<Option<User>, ApplicationError> {
-        debug!("🔍 Buscando usuario por ID: {}", id);
+        debug!("Buscando usuario por ID: {}", id);
         let mut conn = self.pool.get_connection().await?;
         
         let result = users::table
@@ -53,13 +53,13 @@ impl UserRepositoryPort for PostgresUserRepository {
             .await
             .optional()
             .map_err(|e| {
-                warn!("❌ Error al buscar usuario por ID: {}", e);
+                warn!("Error al buscar usuario por ID: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
         match &result {
-            Some(user) => debug!("✅ Usuario encontrado: {}", user.username),
-            None => debug!("⚠️ Usuario no encontrado con ID: {}", id),
+            Some(user) => debug!("Usuario encontrado: {}", user.username),
+            None => debug!("Usuario no encontrado con ID: {}", id),
         }
         
         Ok(result.map(Into::into))
@@ -67,7 +67,7 @@ impl UserRepositoryPort for PostgresUserRepository {
     
     #[instrument(skip(self))]
     async fn find_by_email(&self, email: &str) -> Result<Option<User>, ApplicationError> {
-        debug!("🔍 Buscando usuario por email: {}", email);
+        debug!("Buscando usuario por email: {}", email);
         let mut conn = self.pool.get_connection().await?;
         
         let result = users::table
@@ -76,13 +76,13 @@ impl UserRepositoryPort for PostgresUserRepository {
             .await
             .optional()
             .map_err(|e| {
-                warn!("❌ Error al buscar usuario por email: {}", e);
+                warn!("Error al buscar usuario por email: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
         match &result {
-            Some(user) => debug!("✅ Usuario encontrado: {}", user.username),
-            None => debug!("⚠️ Usuario no encontrado con email: {}", email),
+            Some(user) => debug!("Usuario encontrado: {}", user.username),
+            None => debug!("Usuario no encontrado con email: {}", email),
         }
         
         Ok(result.map(Into::into))
@@ -90,7 +90,7 @@ impl UserRepositoryPort for PostgresUserRepository {
     
     #[instrument(skip(self))]
     async fn find_by_username(&self, username: &str) -> Result<Option<User>, ApplicationError> {
-        debug!("🔍 Buscando usuario por username: {}", username);
+        debug!("Buscando usuario por username: {}", username);
         let mut conn = self.pool.get_connection().await?;
         
         let result = users::table
@@ -99,13 +99,13 @@ impl UserRepositoryPort for PostgresUserRepository {
             .await
             .optional()
             .map_err(|e| {
-                warn!("❌ Error al buscar usuario por username: {}", e);
+                warn!("Error al buscar usuario por username: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
         match &result {
-            Some(user) => debug!("✅ Usuario encontrado: {}", user.username),
-            None => debug!("⚠️ Usuario no encontrado con username: {}", username),
+            Some(user) => debug!("Usuario encontrado: {}", user.username),
+            None => debug!("Usuario no encontrado con username: {}", username),
         }
         
         Ok(result.map(Into::into))
@@ -113,7 +113,7 @@ impl UserRepositoryPort for PostgresUserRepository {
     
     #[instrument(skip(self))]
     async fn find_by_email_or_username(&self, identifier: &str) -> Result<Option<User>, ApplicationError> {
-        debug!("🔍 Buscando usuario por email o username: {}", identifier);
+        debug!("Buscando usuario por email o username: {}", identifier);
         let mut conn = self.pool.get_connection().await?;
         let identifier_lower = identifier.to_lowercase();
         
@@ -126,13 +126,13 @@ impl UserRepositoryPort for PostgresUserRepository {
             .await
             .optional()
             .map_err(|e| {
-                warn!("❌ Error al buscar usuario por email/username: {}", e);
+                warn!("Error al buscar usuario por email/username: {}", e);
                 ApplicationError::Repository(e.to_string())
             })?;
         
         match &result {
-            Some(user) => debug!("✅ Usuario encontrado: {} (id: {})", user.username, user.id),
-            None => debug!("⚠️ Usuario no encontrado con identifier: {}", identifier),
+            Some(user) => debug!("Usuario encontrado: {} (id: {})", user.username, user.id),
+            None => debug!("Usuario no encontrado con identifier: {}", identifier),
         }
         
         Ok(result.map(Into::into))
@@ -239,7 +239,7 @@ impl UserRepositoryPort for PostgresUserRepository {
     async fn list_users_with_details(&self, limit: i64, offset: i64) -> Result<(Vec<crate::application::dtos::UserListItemDto>, i64), ApplicationError> {
         use crate::infrastructure::persistence::schema::personas;
         
-        debug!("📋 Listando usuarios con detalles (limit: {}, offset: {})", limit, offset);
+        debug!("Listando usuarios con detalles (limit: {}, offset: {})", limit, offset);
         let mut conn = self.pool.get_connection().await?;
         
         let total: i64 = users::table
@@ -283,7 +283,7 @@ impl UserRepositoryPort for PostgresUserRepository {
             })
             .collect();
         
-        info!("✅ Listados {} usuarios de {} total", items.len(), total);
+        info!("Listados {} usuarios de {} total", items.len(), total);
         Ok((items, total))
     }
 }

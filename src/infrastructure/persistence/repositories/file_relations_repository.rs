@@ -176,7 +176,7 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Entrada asignada a file_tour: file_tour={}, entrada={}, cantidad={}", id_file_tour, id_entrada, cantidad);
+        info!("Entrada asignada a file_tour: file_tour={}, entrada={}, cantidad={}", id_file_tour, id_entrada, cantidad);
         Ok(result)
     }
     
@@ -247,7 +247,7 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Guía asignado a file_tour: file_tour={}, guia={}", id_file_tour, id_guia);
+        info!("Guía asignado a file_tour: file_tour={}, guia={}", id_file_tour, id_guia);
         Ok(result)
     }
     
@@ -337,7 +337,7 @@ impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
         let persona_info = id_persona.map(|p| format!("persona={}", p)).unwrap_or_else(|| "anónimo".to_string());
-        info!("✅ Pasajero agregado a file: file={}, {}", id_file, persona_info);
+        info!("Pasajero agregado a file: file={}, {}", id_file, persona_info);
         Ok(result)
     }
     
@@ -440,7 +440,7 @@ impl FileRestauranteRepositoryPort for PostgresFileRestauranteRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Restaurante asignado a file_tour: file_tour={}, restaurante={}", id_file_tour, id_restaurante);
+        info!("Restaurante asignado a file_tour: file_tour={}, restaurante={}", id_file_tour, id_restaurante);
         Ok(result)
     }
     
@@ -512,7 +512,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Vehículo asignado a file_tour: file_tour={}, vehiculo={}, conductor={:?}, capacidad={}", id_file_tour, id_vehiculo, id_conductor, capacidad_asignada);
+        info!("Vehículo asignado a file_tour: file_tour={}, vehiculo={}, conductor={:?}, capacidad={}", id_file_tour, id_vehiculo, id_conductor, capacidad_asignada);
         Ok(result)
     }
     
@@ -581,7 +581,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
             .await
             .map_err(|e| ApplicationError::Repository(format!("Error consultando file_vehiculos: {}", e)))?;
         
-        info!("✅ Encontrados {} file_vehiculos con detalles", results.len());
+        info!("Encontrados {} file_vehiculos con detalles", results.len());
         Ok(results)
     }
     
@@ -678,7 +678,7 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Tour asignado a file: file={}, tour={}, orden={}", id_file, data.id_tour, data.orden);
+        info!("Tour asignado a file: file={}, tour={}, orden={}", id_file, data.id_tour, data.orden);
         Ok(result)
     }
     
@@ -713,7 +713,7 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
             results.push(result);
         }
         
-        info!("✅ {} tours asignados a file {}", results.len(), id_file);
+        info!("{} tours asignados a file {}", results.len(), id_file);
         Ok(results)
     }
     
@@ -736,7 +736,7 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ Eliminados {} tours del file {}", affected, id_file);
+        info!("Eliminados {} tours del file {}", affected, id_file);
         Ok(affected)
     }
     

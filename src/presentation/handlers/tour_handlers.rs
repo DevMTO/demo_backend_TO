@@ -27,7 +27,7 @@ use super::common::{
     json_ok, json_created, json_message,
 };
 
-/// Listar tours con paginación
+/// Listar tours con paginación (incluye activos e inactivos)
 #[instrument(skip(state, _auth))]
 pub async fn list_tours(
     State(state): State<AppState>,
@@ -35,8 +35,9 @@ pub async fn list_tours(
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let options = params.to_options();
+    // Listar todos los tours (activos e inactivos) para permitir categorización en frontend
     let (items, total, total_pages) = state.container.tour_service
-        .list_tours(options, false)
+        .list_tours(options, true)
         .await?;
     
     let response: PaginatedResponse<TourResponse> = PaginatedResponse {
@@ -84,7 +85,7 @@ pub async fn create_tour(
         )
         .await?;
     
-    info!("✅ Tour creado: {} (ID: {})", response.nombre, response.id);
+    info!("Tour creado: {} (ID: {})", response.nombre, response.id);
     Ok(json_created(response))
 }
 
@@ -108,7 +109,7 @@ pub async fn update_tour(
         )
         .await?;
     
-    info!("✅ Tour actualizado: {} (ID: {})", response.nombre, response.id);
+    info!("Tour actualizado: {} (ID: {})", response.nombre, response.id);
     Ok(json_ok(response))
 }
 
@@ -148,7 +149,7 @@ pub async fn restore_tour(
         )
         .await?;
     
-    info!("✅ Tour restaurado: ID {}", id);
+    info!("Tour restaurado: ID {}", id);
     Ok(json_message("Tour restaurado correctamente"))
 }
 

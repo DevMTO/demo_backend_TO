@@ -38,15 +38,15 @@ pub async fn get_my_files_as_guia(
         return Err(ApplicationError::Forbidden("Solo los guías pueden acceder a este endpoint".to_string()));
     }
     
-    info!("📋 Consultando files para guía con id_persona: {}", id_persona);
+    info!("Consultando files para guía con id_persona: {}", id_persona);
     
     let files = match state.container.my_files_service.get_my_files_as_guia(id_persona).await {
         Ok(files) => {
-            info!("📋 Encontrados {} files para guía id_persona: {}", files.len(), id_persona);
+            info!("Encontrados {} files para guía id_persona: {}", files.len(), id_persona);
             files
         },
         Err(e) => {
-            error!("❌ Error consultando files para guía id_persona {}: {:?}", id_persona, e);
+            error!("Error consultando files para guía id_persona {}: {:?}", id_persona, e);
             return Err(e);
         }
     };
@@ -122,7 +122,7 @@ pub async fn confirm_guia_assignment(
         return Err(ApplicationError::Validation("Debe proporcionar un motivo para rechazar la asignación".to_string()));
     }
     
-    info!("🔔 Guía (persona: {}) confirmando asignación al file {}: aceptar={}", 
+    info!("Guía (persona: {}) confirmando asignación al file {}: aceptar={}", 
           id_persona, file_id, payload.aceptar);
     
     let response = state.container.my_files_service
@@ -158,7 +158,7 @@ pub async fn confirm_conductor_assignment(
         return Err(ApplicationError::Validation("Debe proporcionar un motivo para rechazar la asignación".to_string()));
     }
     
-    info!("🔔 Conductor (persona: {}) confirmando asignación al file {}: aceptar={}", 
+    info!("Conductor (persona: {}) confirmando asignación al file {}: aceptar={}", 
           id_persona, file_id, payload.aceptar);
     
     let response = state.container.my_files_service

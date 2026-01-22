@@ -36,7 +36,7 @@ impl FileRepositoryPort for PostgresFileRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("✅ File creado: agencia={} (id: {})", result.id_agencia, result.id);
+        info!("File creado: agencia={} (id: {})", result.id_agencia, result.id);
         Ok(result.into())
     }
     
@@ -211,7 +211,7 @@ impl FileRepositoryPort for PostgresFileRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("📊 Actualizado nro_pasajeros del file {} a {}", file_id, count_i32);
+        info!("Actualizado nro_pasajeros del file {} a {}", file_id, count_i32);
         Ok(count_i32)
     }
 }

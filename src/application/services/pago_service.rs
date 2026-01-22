@@ -57,7 +57,7 @@ impl PagoService {
         let pages = result.pages();
         let current_page = result.current_page();
         let items: Vec<PagoResponse> = result.data.into_iter().map(Into::into).collect();
-        info!("📋 Listados {} pagos (página {}, total: {})", items.len(), current_page, total);
+        info!("Listados {} pagos (página {}, total: {})", items.len(), current_page, total);
         
         Ok((items, total, pages))
     }
@@ -70,7 +70,7 @@ impl PagoService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Pago {} no encontrado", id)))?;
         
-        info!("🔍 Pago encontrado: {} {} (ID: {})", pago.tipo_movimiento, pago.monto, id);
+        info!("Pago encontrado: {} {} (ID: {})", pago.tipo_movimiento, pago.monto, id);
         Ok(PagoResponse::from(pago))
     }
 
@@ -96,7 +96,7 @@ impl PagoService {
         
         // Persistir
         let created = self.pago_repository.create(&pago).await?;
-        info!("✅ Pago registrado: {} ${} (ID: {})", created.tipo_movimiento, created.monto, created.id);
+        info!("Pago registrado: {} ${} (ID: {})", created.tipo_movimiento, created.monto, created.id);
         
         // Logging del evento
         let description = format!("{} ${}", created.tipo_movimiento, created.monto);
@@ -109,7 +109,7 @@ impl PagoService {
             Some(&created),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de creación de pago: {}", e);
+            warn!("Error al registrar log de creación de pago: {}", e);
         }
         
         // Notificación a admins (pagos son importantes)
@@ -123,7 +123,7 @@ impl PagoService {
             NotificationPriority::Normal,
             Some(created_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de pago registrado: {}", e);
+            warn!("Error al enviar notificación de pago registrado: {}", e);
         }
         
         Ok(PagoResponse::from(created))
@@ -165,7 +165,7 @@ impl PagoService {
             if changed_fields.is_empty() { None } else { Some(changed_fields.clone()) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de pago: {}", e);
+            warn!("Error al registrar log de actualización de pago: {}", e);
         }
         
         // Notificación si hubo cambios importantes
@@ -180,7 +180,7 @@ impl PagoService {
                 NotificationPriority::High,
                 Some(updated_by),
             ).await {
-                warn!("⚠️ Error al enviar notificación de pago modificado: {}", e);
+                warn!("Error al enviar notificación de pago modificado: {}", e);
             }
         }
         
@@ -219,21 +219,21 @@ impl PagoService {
             Some(&pago),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de eliminación de pago: {}", e);
+            warn!("Error al registrar log de eliminación de pago: {}", e);
         }
         
         // Notificación a admins (eliminar pagos es crítico)
         let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
         if let Err(e) = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
-            "⚠️ Pago eliminado",
+            "Pago eliminado",
             &format!("{} ha eliminado pago #{} ({} ${}) del file #{}", username, id, pago.tipo_movimiento, pago.monto, pago.id_file),
             NotificationType::Error,
             NotificationCategory::Alert,
             NotificationPriority::Urgent,
             Some(deleted_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de pago eliminado: {}", e);
+            warn!("Error al enviar notificación de pago eliminado: {}", e);
         }
         
         Ok(())
@@ -246,7 +246,7 @@ impl PagoService {
             .find_by_file(file_id)
             .await?;
         
-        info!("📋 {} pagos encontrados para file {}", pagos.len(), file_id);
+        info!("{} pagos encontrados para file {}", pagos.len(), file_id);
         Ok(pagos.into_iter().map(Into::into).collect())
     }
 

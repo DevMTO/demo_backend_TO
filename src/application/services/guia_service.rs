@@ -79,7 +79,7 @@ impl GuiaService {
     ) -> Result<Guia, ApplicationError> {
         // Create the guia
         let created = self.guia_repository.create(guia).await?;
-        info!("✅ Guía creado: {} (ID: {})", created.nro_carnet, created.id);
+        info!("Guía creado: {} (ID: {})", created.nro_carnet, created.id);
 
         // Log activity
         let _ = self
@@ -132,7 +132,7 @@ impl GuiaService {
 
         // Update the guia
         let result = self.guia_repository.update(updated_guia).await?;
-        info!("📝 Guía actualizado: {} (ID: {})", result.nro_carnet, result.id);
+        info!("Guía actualizado: {} (ID: {})", result.nro_carnet, result.id);
 
         // Detect changed fields for logging
         let changed_fields = self.detect_changed_fields(&old_guia, &result);

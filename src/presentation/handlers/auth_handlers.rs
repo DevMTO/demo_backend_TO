@@ -27,7 +27,7 @@ pub async fn login_handler(
     cookies: Cookies,
     Json(request): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("🔐 Intento de login para: {} (remember_me: {})", request.identifier, request.remember_me);
+    info!("Intento de login para: {} (remember_me: {})", request.identifier, request.remember_me);
     
     // Extraer IP y User-Agent del request
     let ip_address = None;
@@ -39,7 +39,7 @@ pub async fn login_handler(
         .execute(request.clone(), ip_address.clone(), user_agent.clone())
         .await {
             Ok(output) => {
-                info!("✅ Login exitoso para usuario: {} (id: {}, remember_me: {})", output.user_info.username, output.user_info.id, request.remember_me);
+                info!("Login exitoso para usuario: {} (id: {}, remember_me: {})", output.user_info.username, output.user_info.id, request.remember_me);
                 
                 // Logging del login exitoso
                 if let Err(e) = state.container.logging_service.log_login(
@@ -48,13 +48,13 @@ pub async fn login_handler(
                     ip_address.clone(),
                     user_agent.clone(),
                 ).await {
-                    warn!("⚠️ Error al registrar log de login: {}", e);
+                    warn!("Error al registrar log de login: {}", e);
                 }
                 
                 output
             },
             Err(e) => {
-                warn!("❌ Login fallido para {}: {:?}", request.identifier, e);
+                warn!("Login fallido para {}: {:?}", request.identifier, e);
                 
                 // Logging del login fallido
                 if let Err(log_err) = state.container.logging_service.log_login_failed(
@@ -63,7 +63,7 @@ pub async fn login_handler(
                     ip_address,
                     user_agent,
                 ).await {
-                    warn!("⚠️ Error al registrar log de login fallido: {}", log_err);
+                    warn!("Error al registrar log de login fallido: {}", log_err);
                 }
                 
                 // Si el error es por cuenta bloqueada, notificar a admins
@@ -83,7 +83,7 @@ pub async fn login_handler(
                             NotificationPriority::High,
                             None,
                         ).await {
-                            warn!("⚠️ Error al notificar bloqueo de cuenta: {}", notif_err);
+                            warn!("Error al notificar bloqueo de cuenta: {}", notif_err);
                         }
                     }
                 }
@@ -145,7 +145,7 @@ pub async fn logout_handler(
     // Limpiar cookie de sesión
     remove_session_cookie(&cookies, &state.container);
     
-    info!("✅ Logout completado: {} sesión(es) cerrada(s)", count);
+    info!("Logout completado: {} sesión(es) cerrada(s)", count);
     
     // Logging del logout
     if let Err(e) = state.container.logging_service.log_logout(
@@ -153,7 +153,7 @@ pub async fn logout_handler(
         &auth_user.user.username,
         None,
     ).await {
-        warn!("⚠️ Error al registrar log de logout: {}", e);
+        warn!("Error al registrar log de logout: {}", e);
     }
     
     Ok((
@@ -168,7 +168,7 @@ pub async fn verify_session_handler(
     cookies: Cookies,
     auth_user: AuthUser,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("🔍 Verificando sesión para usuario: {}", auth_user.user.username);
+    info!("Verificando sesión para usuario: {}", auth_user.user.username);
     
     // Si la sesión fue rotada, actualizar la cookie
     if let Some(new_token) = auth_user.rotated_token.as_ref() {
@@ -191,7 +191,7 @@ pub async fn verify_session_handler(
         is_active: auth_user.user.is_active,
     };
     
-    info!("✅ Sesión válida para: {}", auth_user.user.username);
+    info!("Sesión válida para: {}", auth_user.user.username);
     
     Ok((StatusCode::OK, Json(user_info)))
 }
@@ -206,7 +206,7 @@ pub async fn get_profile_handler(
     State(state): State<AppState>,
     auth_user: AuthUser,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("👤 Obteniendo perfil para usuario: {}", auth_user.user.username);
+    info!("Obteniendo perfil para usuario: {}", auth_user.user.username);
     
     let user_info = AuthUserInfo {
         id: auth_user.user.id,
@@ -232,11 +232,11 @@ pub async fn get_profile_handler(
                 fecha_nacimiento: persona.fecha_nacimiento,
             }),
             Ok(None) => {
-                warn!("⚠️ Persona con ID {} no encontrada para usuario {}", id_persona, auth_user.user.username);
+                warn!("Persona con ID {} no encontrada para usuario {}", id_persona, auth_user.user.username);
                 None
             },
             Err(e) => {
-                warn!("⚠️ Error al obtener persona {}: {}", id_persona, e);
+                warn!("Error al obtener persona {}: {}", id_persona, e);
                 None
             }
         }
@@ -249,7 +249,7 @@ pub async fn get_profile_handler(
         persona: persona_info,
     };
     
-    info!("✅ Perfil obtenido para: {}", auth_user.user.username);
+    info!("Perfil obtenido para: {}", auth_user.user.username);
     Ok((StatusCode::OK, Json(response)))
 }
 
@@ -260,7 +260,7 @@ pub async fn update_profile_handler(
     auth_user: AuthUser,
     Json(request): Json<UpdateProfileRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    info!("📝 Actualizando perfil para usuario: {}", auth_user.user.username);
+    info!("Actualizando perfil para usuario: {}", auth_user.user.username);
     
     // Validar request
     request.validate()
@@ -318,7 +318,7 @@ pub async fn update_profile_handler(
         persona: Some(persona_info),
     };
     
-    info!("✅ Perfil actualizado para: {}", auth_user.user.username);
+    info!("Perfil actualizado para: {}", auth_user.user.username);
     Ok((StatusCode::OK, Json(response)))
 }
 

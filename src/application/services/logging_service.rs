@@ -229,17 +229,17 @@ impl LoggingService {
 
     /// Crear log directamente
     async fn create_log(&self, log: NewActivityLog) -> Result<(), ApplicationError> {
-        debug!("📝 Creando log: {} - {}", log.action_type, log.action);
+        debug!("Creando log: {} - {}", log.action_type, log.action);
         
         // Ejecutar en background para no bloquear la operación principal
         match self.repository.create(log).await {
             Ok(_) => {
-                debug!("✅ Log creado exitosamente");
+                debug!("Log creado exitosamente");
                 Ok(())
             }
             Err(e) => {
                 // Los errores de logging no deberían afectar la operación principal
-                error!("❌ Error al crear log (no crítico): {}", e);
+                error!("Error al crear log (no crítico): {}", e);
                 Ok(()) // Retornamos Ok para no interrumpir el flujo
             }
         }

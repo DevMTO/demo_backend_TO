@@ -455,15 +455,15 @@ impl DependencyContainer {
                 match TigrisStorage::new(config).await {
                     Ok(storage) => {
                         self.tigris_storage = Some(Arc::new(storage));
-                        info!("✅ Tigris Storage inicializado correctamente");
+                        info!("Tigris Storage inicializado correctamente");
                     }
                     Err(e) => {
-                        warn!("⚠️ No se pudo inicializar Tigris Storage: {}", e);
+                        warn!("No se pudo inicializar Tigris Storage: {}", e);
                     }
                 }
             }
             Err(e) => {
-                warn!("⚠️ Tigris Storage no configurado: {}", e);
+                warn!("Tigris Storage no configurado: {}", e);
             }
         }
     }

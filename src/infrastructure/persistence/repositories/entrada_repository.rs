@@ -26,7 +26,7 @@ impl EntradaRepositoryPort for PostgresEntradaRepository {
         let result = diesel::insert_into(entradas::table).values(&new_e)
             .get_result::<EntradaModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        info!("✅ Entrada creada: {} (id: {})", result.nombre, result.id);
+        info!("Entrada creada: {} (id: {})", result.nombre, result.id);
         Ok(result.into())
     }
     

@@ -33,7 +33,7 @@ pub async fn list_personas(
     _auth: AuthUser,
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    debug!("📋 Listando personas - página: {}, tamaño: {}", params.page, params.page_size);
+    debug!("Listando personas - página: {}, tamaño: {}", params.page, params.page_size);
     
     let options = params.to_options();
     let (items, total, total_pages) = state.container.persona_service
@@ -60,7 +60,7 @@ pub async fn get_persona(
     _auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    debug!("🔍 Buscando persona ID: {}", id);
+    debug!("Buscando persona ID: {}", id);
     
     let persona = state.container.persona_service
         .get_persona(id)
@@ -80,7 +80,7 @@ pub async fn create_persona(
     request.validate()
         .map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
-    info!("📝 Creando persona: {} {}", request.nombre, request.apellidos);
+    info!("Creando persona: {} {}", request.nombre, request.apellidos);
     
     // Delegar al servicio
     let response = state.container.persona_service
@@ -91,7 +91,7 @@ pub async fn create_persona(
         )
         .await?;
     
-    info!("✅ Persona creada: {} (ID: {})", response.nombre, response.id);
+    info!("Persona creada: {} (ID: {})", response.nombre, response.id);
     
     Ok(json_created(response))
 }
@@ -108,7 +108,7 @@ pub async fn update_persona(
     request.validate()
         .map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
-    debug!("📝 Actualizando persona ID: {}", id);
+    debug!("Actualizando persona ID: {}", id);
     
     // Delegar al servicio
     let response = state.container.persona_service
@@ -120,7 +120,7 @@ pub async fn update_persona(
         )
         .await?;
     
-    info!("✅ Persona actualizada: {} (ID: {})", response.nombre, response.id);
+    info!("Persona actualizada: {} (ID: {})", response.nombre, response.id);
     
     Ok(json_ok(response))
 }
@@ -143,7 +143,7 @@ pub async fn delete_persona(
         )
         .await?;
     
-    info!("✅ Persona eliminada ID: {}", id);
+    info!("Persona eliminada ID: {}", id);
     Ok(json_deleted())
 }
 
@@ -159,7 +159,7 @@ pub async fn search_personas(
     _auth: AuthUser,
     Query(query): Query<SearchQuery>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    debug!("🔍 Buscando personas: {}", query.q);
+    debug!("Buscando personas: {}", query.q);
     
     // Delegar al servicio
     let response = state.container.persona_service

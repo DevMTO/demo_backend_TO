@@ -51,7 +51,7 @@ impl ConductorService {
         offset: i64,
     ) -> Result<(Vec<ConductorListItemDto>, i64), ApplicationError> {
         let (items, total) = self.conductor_repository.list_with_details(limit, offset).await?;
-        info!("📋 Listados {} conductores (offset: {}, total: {})", items.len(), offset, total);
+        info!("Listados {} conductores (offset: {}, total: {})", items.len(), offset, total);
         Ok((items, total))
     }
 
@@ -63,7 +63,7 @@ impl ConductorService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Conductor {} no encontrado", id)))?;
         
-        info!("🔍 Conductor encontrado: {} (ID: {})", conductor.nro_brevete, id);
+        info!("Conductor encontrado: {} (ID: {})", conductor.nro_brevete, id);
         Ok(ConductorResponse::from(conductor))
     }
 
@@ -79,7 +79,7 @@ impl ConductorService {
     #[instrument(skip(self))]
     pub async fn list_available(&self) -> Result<Vec<ConductorResponse>, ApplicationError> {
         let conductores = self.conductor_repository.list_available().await?;
-        info!("✅ Encontrados {} conductores disponibles", conductores.len());
+        info!("Encontrados {} conductores disponibles", conductores.len());
         Ok(conductores.into_iter().map(ConductorResponse::from).collect())
     }
 
@@ -103,7 +103,7 @@ impl ConductorService {
         
         // Persistir
         let created = self.conductor_repository.create(&conductor).await?;
-        info!("✅ Conductor creado: {} (ID: {})", created.nro_brevete, created.id);
+        info!("Conductor creado: {} (ID: {})", created.nro_brevete, created.id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_create::<Conductor>(
@@ -115,7 +115,7 @@ impl ConductorService {
             Some(&created),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de creación de conductor: {}", e);
+            warn!("Error al registrar log de creación de conductor: {}", e);
         }
         
         // Notificación a admins
@@ -130,7 +130,7 @@ impl ConductorService {
             NotificationPriority::Low,
             Some(created_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de conductor creado: {}", e);
+            warn!("Error al enviar notificación de conductor creado: {}", e);
         }
         
         Ok(ConductorResponse::from(created))
@@ -172,7 +172,7 @@ impl ConductorService {
             if changed_fields.is_empty() { None } else { Some(changed_fields.clone()) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de conductor: {}", e);
+            warn!("Error al registrar log de actualización de conductor: {}", e);
         }
         
         // Determinar prioridad - mayor si cambia tiene_soat
@@ -199,7 +199,7 @@ impl ConductorService {
             priority,
             Some(updated_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de conductor actualizado: {}", e);
+            warn!("Error al enviar notificación de conductor actualizado: {}", e);
         }
         
         Ok(ConductorResponse::from(result))
@@ -234,7 +234,7 @@ impl ConductorService {
             Some(&conductor),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de eliminación de conductor: {}", e);
+            warn!("Error al registrar log de eliminación de conductor: {}", e);
         }
         
         // Notificación a admins - Warning porque es una eliminación
@@ -248,7 +248,7 @@ impl ConductorService {
             NotificationPriority::Normal,
             Some(deleted_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de conductor eliminado: {}", e);
+            warn!("Error al enviar notificación de conductor eliminado: {}", e);
         }
         
         Ok(())

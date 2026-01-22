@@ -201,7 +201,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             motivo_rechazo: r.motivo_rechazo,
         }).collect();
         
-        info!("📋 Encontrados {} files para guía (persona: {})", results.len(), id_persona);
+        info!("Encontrados {} files para guía (persona: {})", results.len(), id_persona);
         Ok(results)
     }
     
@@ -333,7 +333,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             motivo_rechazo: r.motivo_rechazo,
         }).collect();
         
-        info!("📋 Encontrados {} files para conductor (persona: {})", results.len(), id_persona);
+        info!("Encontrados {} files para conductor (persona: {})", results.len(), id_persona);
         Ok(results)
     }
     
@@ -426,7 +426,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             asignado_at: r.asignado_at,
         }).collect();
         
-        info!("📋 Encontrados {} files para restaurante: {}", results.len(), id_restaurante);
+        info!("Encontrados {} files para restaurante: {}", results.len(), id_restaurante);
         Ok(results)
     }
     
@@ -482,13 +482,13 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         
         if result.is_empty() {
             // Puede ser que ya fue confirmado o el guía no está asignado
-            warn!("⚠️ No se encontró asignación pendiente para guía (persona: {}) en file {}", id_persona, file_id);
+            warn!("No se encontró asignación pendiente para guía (persona: {}) en file {}", id_persona, file_id);
             return Err(ApplicationError::NotFound(
                 "No se encontró asignación pendiente o ya fue procesada".to_string()
             ));
         }
         
-        info!("✅ Guía (persona: {}) {} asignación al file {}", 
+        info!("Guía (persona: {}) {} asignación al file {}", 
               id_persona, if aceptar { "aceptó" } else { "rechazó" }, file_id);
         
         Ok(ConfirmAssignmentResponse {
@@ -554,13 +554,13 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error actualizando confirmación: {}", e)))?;
         
         if result.is_empty() {
-            warn!("⚠️ No se encontró asignación pendiente para conductor (persona: {}) en file {}", id_persona, file_id);
+            warn!("No se encontró asignación pendiente para conductor (persona: {}) en file {}", id_persona, file_id);
             return Err(ApplicationError::NotFound(
                 "No se encontró asignación pendiente o ya fue procesada".to_string()
             ));
         }
         
-        info!("✅ Conductor (persona: {}) {} asignación al file {}", 
+        info!("Conductor (persona: {}) {} asignación al file {}", 
               id_persona, if aceptar { "aceptó" } else { "rechazó" }, file_id);
         
         Ok(ConfirmAssignmentResponse {

@@ -53,7 +53,7 @@ impl TransporteService {
         offset: i64,
     ) -> Result<(Vec<TransporteListItemDto>, i64), ApplicationError> {
         let (items, total) = self.transporte_repository.list_with_encargado(limit, offset).await?;
-        info!("📋 Listados {} transportes (offset: {}, total: {})", items.len(), offset, total);
+        info!("Listados {} transportes (offset: {}, total: {})", items.len(), offset, total);
         Ok((items, total))
     }
 
@@ -65,7 +65,7 @@ impl TransporteService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Transporte {} no encontrado", id)))?;
         
-        info!("🔍 Transporte encontrado: {} (ID: {})", transporte.nombre, id);
+        info!("Transporte encontrado: {} (ID: {})", transporte.nombre, id);
         Ok(TransporteResponse::from(transporte))
     }
 
@@ -104,7 +104,7 @@ impl TransporteService {
         
         // Persistir
         let created = self.transporte_repository.create(&transporte).await?;
-        info!("✅ Transporte creado: {} (ID: {})", created.nombre, created.id);
+        info!("Transporte creado: {} (ID: {})", created.nombre, created.id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_create::<Transporte>(
@@ -116,7 +116,7 @@ impl TransporteService {
             Some(&created),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de creación de transporte: {}", e);
+            warn!("Error al registrar log de creación de transporte: {}", e);
         }
         
         // Notificación a admins
@@ -130,7 +130,7 @@ impl TransporteService {
             NotificationPriority::Low,
             Some(created_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de transporte creado: {}", e);
+            warn!("Error al enviar notificación de transporte creado: {}", e);
         }
         
         Ok(TransporteResponse::from(created))
@@ -172,7 +172,7 @@ impl TransporteService {
             if changed_fields.is_empty() { None } else { Some(changed_fields.clone()) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de transporte: {}", e);
+            warn!("Error al registrar log de actualización de transporte: {}", e);
         }
         
         // Notificación a admins
@@ -192,7 +192,7 @@ impl TransporteService {
             NotificationPriority::Low,
             Some(updated_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de transporte actualizado: {}", e);
+            warn!("Error al enviar notificación de transporte actualizado: {}", e);
         }
         
         Ok(TransporteResponse::from(result))
@@ -245,7 +245,7 @@ impl TransporteService {
             if changed_fields.is_empty() { None } else { Some(changed_fields) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de transporte: {}", e);
+            warn!("Error al registrar log de actualización de transporte: {}", e);
         }
         
         Ok(TransporteResponse::from(result))
@@ -281,7 +281,7 @@ impl TransporteService {
             Some(vec!["paleta_colores".to_string(), "media".to_string()]),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de interfaz: {}", e);
+            warn!("Error al registrar log de actualización de interfaz: {}", e);
         }
         
         Ok(TransporteResponse::from(result))
@@ -316,7 +316,7 @@ impl TransporteService {
             Some(&transporte),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de desactivación de transporte: {}", e);
+            warn!("Error al registrar log de desactivación de transporte: {}", e);
         }
         
         // Notificación a admins - Warning porque es una eliminación
@@ -330,7 +330,7 @@ impl TransporteService {
             NotificationPriority::Normal,
             Some(deleted_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de transporte desactivado: {}", e);
+            warn!("Error al enviar notificación de transporte desactivado: {}", e);
         }
         
         Ok(())
@@ -368,7 +368,7 @@ impl TransporteService {
             Some(vec!["is_active".to_string()]),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de restauración de transporte: {}", e);
+            warn!("Error al registrar log de restauración de transporte: {}", e);
         }
         
         // Notificación a admins - Success porque se recupera
@@ -382,7 +382,7 @@ impl TransporteService {
             NotificationPriority::Low,
             Some(restored_by),
         ).await {
-            warn!("⚠️ Error al enviar notificación de transporte restaurado: {}", e);
+            warn!("Error al enviar notificación de transporte restaurado: {}", e);
         }
         
         Ok(())

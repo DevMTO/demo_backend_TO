@@ -49,7 +49,7 @@ impl PersonaService {
         let pages = result.pages();
         let current_page = result.current_page();
         let items: Vec<PersonaResponse> = result.data.into_iter().map(Into::into).collect();
-        info!("📋 Listadas {} personas (página {}, total: {})", items.len(), current_page, total);
+        info!("Listadas {} personas (página {}, total: {})", items.len(), current_page, total);
         
         Ok((items, total, pages))
     }
@@ -62,7 +62,7 @@ impl PersonaService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Persona con ID {} no encontrada", id)))?;
         
-        info!("🔍 Persona encontrada: {} {} (ID: {})", persona.nombre, persona.apellidos, id);
+        info!("Persona encontrada: {} {} (ID: {})", persona.nombre, persona.apellidos, id);
         Ok(PersonaResponse::from(persona))
     }
 
@@ -92,7 +92,7 @@ impl PersonaService {
         
         // Persistir
         let created = self.persona_repository.create(&persona).await?;
-        info!("✅ Persona creada: {} {} (ID: {})", created.nombre, created.apellidos, created.id);
+        info!("Persona creada: {} {} (ID: {})", created.nombre, created.apellidos, created.id);
         
         // Logging del evento
         let nombre_completo = format!("{} {}", created.nombre, created.apellidos);
@@ -105,7 +105,7 @@ impl PersonaService {
             Some(&created),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de creación de persona: {}", e);
+            warn!("Error al registrar log de creación de persona: {}", e);
         }
         
         Ok(PersonaResponse::from(created))
@@ -164,7 +164,7 @@ impl PersonaService {
             if changed_fields.is_empty() { None } else { Some(changed_fields) },
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de actualización de persona: {}", e);
+            warn!("Error al registrar log de actualización de persona: {}", e);
         }
         
         Ok(PersonaResponse::from(result))
@@ -202,7 +202,7 @@ impl PersonaService {
             Some(&persona),
             None,
         ).await {
-            warn!("⚠️ Error al registrar log de eliminación de persona: {}", e);
+            warn!("Error al registrar log de eliminación de persona: {}", e);
         }
         
         Ok(())
@@ -215,7 +215,7 @@ impl PersonaService {
             .search(query)
             .await?;
         
-        info!("🔍 Búsqueda '{}' encontró {} personas", query, personas.len());
+        info!("Búsqueda '{}' encontró {} personas", query, personas.len());
         Ok(personas.into_iter().map(Into::into).collect())
     }
 

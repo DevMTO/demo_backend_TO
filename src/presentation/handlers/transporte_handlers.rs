@@ -73,7 +73,7 @@ pub async fn get_mi_transporte(
         if let Some(id_entidad) = auth.user.id_entidad {
             transporte = Some(state.container.transporte_service.get_transporte(id_entidad).await?);
             if transporte.is_some() {
-                info!("✅ Transporte encontrado por id_entidad: {}", id_entidad);
+                info!("Transporte encontrado por id_entidad: {}", id_entidad);
             }
         }
     }
@@ -83,7 +83,7 @@ pub async fn get_mi_transporte(
         if let Some(persona_id) = auth.user.id_persona {
             transporte = state.container.transporte_service.find_by_encargado(persona_id).await?;
             if transporte.is_some() {
-                info!("✅ Transporte encontrado por encargado (persona_id: {})", persona_id);
+                info!("Transporte encontrado por encargado (persona_id: {})", persona_id);
             }
         }
     }
@@ -118,7 +118,7 @@ pub async fn update_mi_transporte(
         .update_my_transporte(transporte_id, request, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("✅ Transporte actualizado por su usuario: {}", result.nombre);
+    info!("Transporte actualizado por su usuario: {}", result.nombre);
     Ok(json_ok(result))
 }
 
@@ -141,7 +141,7 @@ pub async fn patch_mi_transporte_interfaz(
         .update_interface(transporte_id, request, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("✅ Interfaz de transporte '{}' actualizada", result.nombre);
+    info!("Interfaz de transporte '{}' actualizada", result.nombre);
     Ok(json_ok(result))
 }
 
@@ -160,7 +160,7 @@ pub async fn create_transporte(
         .create_transporte(request, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("✅ Handler: Transporte creado: {} (ID: {})", created.nombre, created.id);
+    info!("Handler: Transporte creado: {} (ID: {})", created.nombre, created.id);
     Ok(json_created(created))
 }
 
