@@ -13,6 +13,7 @@ use validator::Validate;
 
 use crate::application::dtos::{CreateFileRequest, UpdateFileRequest};
 use crate::domain::errors::ApplicationError;
+use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use super::common::{PaginationParams, PaginatedResponse, PaginationInfo, json_ok, json_created, json_deleted};
@@ -109,6 +110,29 @@ pub async fn delete_file(
 ) -> Result<impl IntoResponse, ApplicationError> {
     state.container.file_service
         .delete_file(
+            id, 
+            auth.user.id,
+            Some(auth.user.username.clone()),
+        )
+        .await?;
+    
+    Ok(json_deleted())
+}
+
+/// Eliminación permanente de file (hard delete) - Solo SuperAdmin
+#[instrument(skip(state, auth))]
+pub async fn hard_delete_file(
+    State(state): State<AppState>, 
+    auth: AuthUser, 
+    Path(id): Path<i32>
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar permanentemente files".to_string()));
+    }
+    
+    state.container.file_service
+        .hard_delete_file(
             id, 
             auth.user.id,
             Some(auth.user.username.clone()),

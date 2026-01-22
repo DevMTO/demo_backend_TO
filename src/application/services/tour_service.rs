@@ -232,6 +232,58 @@ impl TourService {
         Ok(())
     }
 
+    /// Eliminación permanente de un tour (hard delete) - Solo SuperAdmin
+    #[instrument(skip(self))]
+    pub async fn hard_delete_tour(
+        &self,
+        id: i32,
+        deleted_by: i32,
+        deleted_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        // Obtener tour antes de eliminar
+        let tour = self.tour_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Tour {} no encontrado", id)))?;
+        
+        // Eliminar permanentemente
+        let deleted = self.tour_repository.hard_delete(id).await?;
+        
+        if !deleted {
+            return Err(ApplicationError::NotFound(format!("Tour {} no encontrado", id)));
+        }
+        
+        info!("🗑️ Tour ELIMINADO PERMANENTEMENTE: {} (ID: {})", tour.nombre, id);
+        
+        // Logging del evento
+        if let Err(e) = self.logging_service.log_delete::<Tour>(
+            Some(deleted_by),
+            deleted_by_username.clone(),
+            EntityType::Tour,
+            id,
+            Some(&tour),
+            Some("HARD_DELETE - Eliminación permanente".to_string()),
+        ).await {
+            warn!("Error al registrar log de eliminación permanente de tour: {}", e);
+        }
+        
+        // Notificación a SuperAdmins
+        let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin],
+            "Tour eliminado permanentemente",
+            &format!("{} ha eliminado permanentemente el tour '{}' (ID: {})", username, tour.nombre, id),
+            NotificationType::Warning,
+            NotificationCategory::Crud,
+            NotificationPriority::High,
+            Some(deleted_by),
+        ).await {
+            warn!("Error al enviar notificación de tour eliminado permanentemente: {}", e);
+        }
+        
+        Ok(())
+    }
+
     /// Restaurar un tour desactivado
     #[instrument(skip(self))]
     pub async fn restore_tour(

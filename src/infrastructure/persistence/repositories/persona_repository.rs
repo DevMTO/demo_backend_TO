@@ -64,6 +64,12 @@ impl PersonaRepositoryPort for PostgresPersonaRepository {
         Ok(affected > 0)
     }
     
+    /// Eliminación permanente (hard delete)
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        // Ya hace DELETE real, solo delegamos
+        self.delete(id).await
+    }
+    
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Persona>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let results = personas::table.order(personas::apellidos.asc())

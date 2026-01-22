@@ -20,11 +20,12 @@ use crate::application::dtos::{
     CreateTourRequest, UpdateTourRequest, TourResponse,
 };
 use crate::domain::errors::ApplicationError;
+use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use super::common::{
     PaginationParams, PaginatedResponse, PaginationInfo,
-    json_ok, json_created, json_message,
+    json_ok, json_created, json_message, json_deleted,
 };
 
 /// Listar tours con paginación (incluye activos e inactivos)
@@ -131,6 +132,31 @@ pub async fn delete_tour(
     
     info!("🗑️ Tour desactivado: ID {}", id);
     Ok(json_message("Tour desactivado correctamente"))
+}
+
+/// Eliminación permanente de tour (hard delete) - Solo SuperAdmin
+#[instrument(skip(state, auth))]
+pub async fn hard_delete_tour(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar permanentemente tours".to_string()));
+    }
+    
+    // Delegar al servicio
+    state.container.tour_service
+        .hard_delete_tour(
+            id,
+            auth.user.id,
+            Some(auth.user.username.clone()),
+        )
+        .await?;
+    
+    info!("🗑️ Tour ELIMINADO PERMANENTEMENTE: ID {}", id);
+    Ok(json_deleted())
 }
 
 /// Restaurar tour desactivado

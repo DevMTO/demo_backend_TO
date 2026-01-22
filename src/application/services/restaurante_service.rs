@@ -272,6 +272,55 @@ impl RestauranteService {
         Ok(())
     }
 
+    /// Eliminación permanente de un restaurante (hard delete) - Solo SuperAdmin
+    #[instrument(skip(self))]
+    pub async fn hard_delete_restaurante(
+        &self,
+        id: i32,
+        deleted_by: i32,
+        deleted_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        // Verificar que existe
+        let restaurante = self.restaurante_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Restaurante {} no encontrado", id)))?;
+        
+        // Eliminar permanentemente
+        if !self.restaurante_repository.hard_delete(id).await? {
+            return Err(ApplicationError::NotFound(format!("Restaurante {} no encontrado", id)));
+        }
+        info!("🗑️ Restaurante ELIMINADO PERMANENTEMENTE: {} (ID: {})", restaurante.nombre, id);
+        
+        // Logging del evento
+        if let Err(e) = self.logging_service.log_delete::<Restaurante>(
+            Some(deleted_by),
+            deleted_by_username.clone(),
+            EntityType::Restaurante,
+            id,
+            Some(&restaurante),
+            Some("HARD_DELETE - Eliminación permanente".to_string()),
+        ).await {
+            warn!("Error al registrar log de eliminación permanente de restaurante: {}", e);
+        }
+        
+        // Notificación a SuperAdmins
+        let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin],
+            "Restaurante eliminado permanentemente",
+            &format!("{} ha eliminado permanentemente el restaurante '{}' (ID: {})", username, restaurante.nombre, id),
+            NotificationType::Warning,
+            NotificationCategory::Crud,
+            NotificationPriority::High,
+            Some(deleted_by),
+        ).await {
+            warn!("Error al enviar notificación de restaurante eliminado permanentemente: {}", e);
+        }
+        
+        Ok(())
+    }
+
     /// Restaurar un restaurante desactivado
     #[instrument(skip(self))]
     pub async fn restore_restaurante(

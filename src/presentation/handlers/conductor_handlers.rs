@@ -4,6 +4,7 @@ use validator::Validate;
 
 use crate::application::dtos::{CreateConductorRequest, UpdateConductorRequest, ConductorListResponse};
 use crate::domain::errors::ApplicationError;
+use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use super::common::{PaginationParams, json_ok, json_created, json_deleted};
@@ -94,6 +95,27 @@ pub async fn delete_conductor(
         .await?;
     
     info!("🗑️ Handler: Conductor eliminado (ID: {})", id);
+    Ok(json_deleted())
+}
+
+/// DELETE /api/v1/conductores/:id/hard-delete - Eliminación permanente (Solo SuperAdmin)
+#[instrument(skip(state, auth))]
+pub async fn hard_delete_conductor(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar permanentemente conductores".to_string()));
+    }
+    
+    // Delegar al servicio
+    state.container.conductor_service
+        .hard_delete_conductor(id, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("🗑️ Handler: Conductor ELIMINADO PERMANENTEMENTE (ID: {})", id);
     Ok(json_deleted())
 }
 

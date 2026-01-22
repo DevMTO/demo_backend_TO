@@ -5,6 +5,7 @@ use validator::Validate;
 
 use crate::application::dtos::{CreateVehiculoRequest, UpdateVehiculoRequest};
 use crate::domain::errors::ApplicationError;
+use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use super::common::{json_ok, json_created, json_deleted, create_paginated_response};
@@ -110,6 +111,27 @@ pub async fn delete_vehiculo(
         .await?;
     
     info!("🗑️ Handler: Vehículo eliminado (ID: {})", id);
+    Ok(json_deleted())
+}
+
+/// DELETE /api/v1/vehiculos/:id/hard-delete - Eliminación permanente (Solo SuperAdmin)
+#[instrument(skip(state, auth))]
+pub async fn hard_delete_vehiculo(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar permanentemente vehículos".to_string()));
+    }
+    
+    // Delegar al servicio
+    state.container.vehiculo_service
+        .hard_delete_vehiculo(id, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("🗑️ Handler: Vehículo ELIMINADO PERMANENTEMENTE (ID: {})", id);
     Ok(json_deleted())
 }
 

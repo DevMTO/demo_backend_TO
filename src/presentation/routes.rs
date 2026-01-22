@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use axum::{
     Router,
-    routing::{get, post, patch},
+    routing::{get, post, patch, delete},
     middleware,
 };
 use tower_http::trace::TraceLayer;
@@ -140,7 +140,8 @@ pub fn create_router(
     let persona_routes = Router::new()
         .route("/", get(persona_handlers::list_personas).post(persona_handlers::create_persona))
         .route("/search", get(persona_handlers::search_personas))
-        .route("/{id}", get(persona_handlers::get_persona).put(persona_handlers::update_persona).delete(persona_handlers::delete_persona));
+        .route("/{id}", get(persona_handlers::get_persona).put(persona_handlers::update_persona).delete(persona_handlers::delete_persona))
+        .route("/{id}/hard-delete", delete(persona_handlers::hard_delete_persona));
 
     let agencia_routes = Router::new()
         .route("/", get(agencia_handlers::list_agencias).post(agencia_handlers::create_agencia))
@@ -154,6 +155,7 @@ pub fn create_router(
         .route("/", get(tour_handlers::list_tours).post(tour_handlers::create_tour))
         .route("/search", get(tour_handlers::search_tours))
         .route("/{id}", get(tour_handlers::get_tour).put(tour_handlers::update_tour).delete(tour_handlers::delete_tour))
+        .route("/{id}/hard-delete", delete(tour_handlers::hard_delete_tour))
         .route("/{id}/restore", patch(tour_handlers::restore_tour));
 
     let transporte_routes = Router::new()
@@ -168,30 +170,35 @@ pub fn create_router(
         .route("/", get(vehiculo_handlers::list_vehiculos).post(vehiculo_handlers::create_vehiculo))
         .route("/available", get(vehiculo_handlers::list_vehiculos_available))
         .route("/transporte/{transporte_id}", get(vehiculo_handlers::list_vehiculos_by_transporte))
-        .route("/{id}", get(vehiculo_handlers::get_vehiculo).put(vehiculo_handlers::update_vehiculo).delete(vehiculo_handlers::delete_vehiculo));
+        .route("/{id}", get(vehiculo_handlers::get_vehiculo).put(vehiculo_handlers::update_vehiculo).delete(vehiculo_handlers::delete_vehiculo))
+        .route("/{id}/hard-delete", delete(vehiculo_handlers::hard_delete_vehiculo));
 
     let conductor_routes = Router::new()
         .route("/", get(conductor_handlers::list_conductores).post(conductor_handlers::create_conductor))
         .route("/available", get(conductor_handlers::list_conductores_available))
         .route("/transporte/{transporte_id}", get(conductor_handlers::list_conductores_by_transporte))
-        .route("/{id}", get(conductor_handlers::get_conductor).put(conductor_handlers::update_conductor).delete(conductor_handlers::delete_conductor));
+        .route("/{id}", get(conductor_handlers::get_conductor).put(conductor_handlers::update_conductor).delete(conductor_handlers::delete_conductor))
+        .route("/{id}/hard-delete", delete(conductor_handlers::hard_delete_conductor));
 
     let guia_routes = Router::new()
         .route("/", get(guia_handlers::list_guias).post(guia_handlers::create_guia))
         .route("/search", get(guia_handlers::search_guias))
         .route("/available", get(guia_handlers::list_guias_available))
-        .route("/{id}", get(guia_handlers::get_guia).put(guia_handlers::update_guia).delete(guia_handlers::delete_guia));
+        .route("/{id}", get(guia_handlers::get_guia).put(guia_handlers::update_guia).delete(guia_handlers::delete_guia))
+        .route("/{id}/hard-delete", delete(guia_handlers::hard_delete_guia));
 
     let restaurante_routes = Router::new()
         .route("/", get(restaurante_handlers::list_restaurantes).post(restaurante_handlers::create_restaurante))
         .route("/search", get(restaurante_handlers::search_restaurantes))
         .route("/{id}", get(restaurante_handlers::get_restaurante).put(restaurante_handlers::update_restaurante).delete(restaurante_handlers::delete_restaurante))
+        .route("/{id}/hard-delete", delete(restaurante_handlers::hard_delete_restaurante))
         .route("/{id}/restore", patch(restaurante_handlers::restore_restaurante));
 
     let entrada_routes = Router::new()
         .route("/", get(entrada_handlers::list_entradas).post(entrada_handlers::create_entrada))
         .route("/search", get(entrada_handlers::search_entradas))
         .route("/{id}", get(entrada_handlers::get_entrada).put(entrada_handlers::update_entrada).delete(entrada_handlers::delete_entrada))
+        .route("/{id}/hard-delete", delete(entrada_handlers::hard_delete_entrada))
         .route("/{id}/restore", patch(entrada_handlers::restore_entrada))
         // Precios de entrada por ID de entrada
         .route("/{id}/precios", get(entrada_precio_handlers::list_precios_by_entrada))
@@ -215,6 +222,7 @@ pub fn create_router(
         .route("/by-date", get(file_handlers::list_files_by_date_range))
         .route("/agencia/{agencia_id}", get(file_handlers::list_files_by_agencia))
         .route("/{id}", get(file_handlers::get_file).put(file_handlers::update_file).delete(file_handlers::delete_file))
+        .route("/{id}/hard-delete", delete(file_handlers::hard_delete_file))
         // File Relations - Pasajeros (estos siguen vinculados al file, no al file_tour)
         .route("/{id}/pasajeros", get(file_relations_handlers::list_file_pasajeros).post(file_relations_handlers::add_pasajero_to_file))
         .route("/{id}/pasajeros/with-persona", post(file_relations_handlers::create_pasajero_with_persona))
@@ -251,6 +259,7 @@ pub fn create_router(
     let user_routes = Router::new()
         .route("/", get(user_handlers::list_users).post(user_handlers::create_user))
         .route("/{id}", get(user_handlers::get_user).put(user_handlers::update_user).delete(user_handlers::delete_user))
+        .route("/{id}/hard-delete", delete(user_handlers::hard_delete_user))
         .route("/{id}/activate", patch(user_handlers::activate_user))
         .route("/{id}/deactivate", patch(user_handlers::deactivate_user))
         .route("/{id}/change-password", patch(user_handlers::admin_change_password));

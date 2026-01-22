@@ -172,6 +172,18 @@ impl UserRepositoryPort for PostgresUserRepository {
         Ok(())
     }
     
+    /// Eliminación permanente de la base de datos (hard delete)
+    async fn hard_delete(&self, id: i32) -> Result<(), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        diesel::delete(users::table.filter(users::id.eq(id)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        Ok(())
+    }
+    
     async fn exists_by_email(&self, email: &str) -> Result<bool, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         

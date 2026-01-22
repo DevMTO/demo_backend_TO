@@ -83,6 +83,16 @@ impl TourRepositoryPort for PostgresTourRepository {
         Ok(affected > 0)
     }
     
+    /// Eliminación permanente (hard delete) - Borra de la base de datos
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::delete(tours::table.filter(tours::id.eq(id)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Tour>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let results = tours::table

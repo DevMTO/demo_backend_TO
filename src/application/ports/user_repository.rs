@@ -20,6 +20,9 @@ pub trait UserRepositoryPort: Send + Sync {
     
     async fn delete(&self, id: i32) -> Result<(), ApplicationError>;
     
+    /// Eliminación permanente (hard delete) - Solo SuperAdmin
+    async fn hard_delete(&self, id: i32) -> Result<(), ApplicationError>;
+    
     async fn exists_by_email(&self, email: &str) -> Result<bool, ApplicationError>;
     
     async fn exists_by_username(&self, username: &str) -> Result<bool, ApplicationError>;

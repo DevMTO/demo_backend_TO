@@ -381,6 +381,18 @@ impl FileService {
         Ok(())
     }
 
+    /// Eliminación permanente de file (hard delete) - Solo SuperAdmin
+    /// Alias de delete_file que ya hace eliminación permanente
+    #[instrument(skip(self))]
+    pub async fn hard_delete_file(
+        &self,
+        id: i32,
+        deleted_by: i32,
+        deleted_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        self.delete_file(id, deleted_by, deleted_by_username).await
+    }
+
     /// Listar files por agencia
     #[instrument(skip(self))]
     pub async fn list_files_by_agencia(&self, agencia_id: i32) -> Result<Vec<FileResponse>, ApplicationError> {

@@ -237,6 +237,17 @@ impl GuiaService {
         Ok(())
     }
 
+    /// Eliminación permanente de guía (hard delete) - Solo SuperAdmin
+    /// Alias de delete_guia que ya hace eliminación permanente
+    pub async fn hard_delete_guia(
+        &self,
+        id: i32,
+        actor_id: i32,
+        actor_username: &str,
+    ) -> Result<(), ApplicationError> {
+        self.delete_guia(id, actor_id, actor_username).await
+    }
+
     // ==================== PRIVATE HELPERS ====================
 
     /// Detect which fields changed between old and new guia

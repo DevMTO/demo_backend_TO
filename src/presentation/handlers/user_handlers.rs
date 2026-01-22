@@ -123,6 +123,28 @@ pub async fn delete_user(
     
     Ok(json_deleted())
 }
+
+/// Eliminación permanente de un usuario (hard delete)
+/// Solo SuperAdmin puede ejecutar esta acción
+#[instrument(skip(state, auth))]
+pub async fn hard_delete_user(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el usuario autenticado es SuperAdmin
+    if auth.user.role != UserRole::SuperAdmin {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar permanentemente usuarios".to_string()));
+    }
+    
+    // Delegar TODA la lógica al servicio (validaciones, logging, notificaciones)
+    let _user = state.container.user_service
+        .hard_delete_user(id, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    Ok(json_deleted())
+}
+
 /// Activar un usuario
 /// Solo SuperAdmin puede activar usuarios
 #[instrument(skip(state, auth))]

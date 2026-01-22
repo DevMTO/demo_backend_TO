@@ -208,6 +208,18 @@ impl PersonaService {
         Ok(())
     }
 
+    /// Eliminación permanente de persona (hard delete) - Solo SuperAdmin
+    /// Alias de delete_persona que ya hace eliminación permanente
+    #[instrument(skip(self))]
+    pub async fn hard_delete_persona(
+        &self,
+        id: i32,
+        deleted_by: i32,
+        deleted_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        self.delete_persona(id, deleted_by, deleted_by_username).await
+    }
+
     /// Buscar personas por texto
     #[instrument(skip(self))]
     pub async fn search_personas(&self, query: &str) -> Result<Vec<PersonaResponse>, ApplicationError> {

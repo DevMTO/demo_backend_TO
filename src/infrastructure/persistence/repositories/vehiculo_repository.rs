@@ -65,6 +65,11 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
         Ok(affected > 0)
     }
     
+    /// Eliminación permanente (hard delete)
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        self.delete(id).await
+    }
+    
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Vehiculo>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let results = vehiculos::table.order(vehiculos::placa.asc()).limit(limit).offset(offset)

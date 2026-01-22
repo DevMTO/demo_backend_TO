@@ -381,6 +381,64 @@ impl UserService {
         Ok(user)
     }
 
+    /// Eliminación permanente de un usuario (hard delete) - Solo SuperAdmin
+    /// 
+    /// # Validaciones de negocio:
+    /// - Usuario debe existir
+    /// - No se puede eliminar a uno mismo
+    /// - Solo SuperAdmin puede ejecutar esta acción
+    #[instrument(skip(self))]
+    pub async fn hard_delete_user(
+        &self,
+        id: i32,
+        deleted_by: i32,
+        deleted_by_username: Option<String>,
+    ) -> Result<User, ApplicationError> {
+        let user = self.user_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Usuario {} no encontrado", id)))?;
+        
+        // No permitir eliminar el propio usuario
+        if user.id == deleted_by {
+            return Err(ApplicationError::Forbidden("No puedes eliminar tu propio usuario".to_string()));
+        }
+        
+        // Guardar datos antes de eliminar para el log
+        let user_clone = user.clone();
+        
+        self.user_repository.hard_delete(id).await?;
+        info!("🗑️ Usuario ELIMINADO PERMANENTEMENTE: {} (ID: {})", user_clone.username, id);
+        
+        // Logging del evento
+        if let Err(e) = self.logging_service.log_delete::<User>(
+            Some(deleted_by),
+            deleted_by_username.clone(),
+            EntityType::User,
+            id,
+            Some(&user_clone),
+            Some("HARD_DELETE - Eliminación permanente".to_string()),
+        ).await {
+            warn!("Error al registrar log de eliminación permanente de usuario: {}", e);
+        }
+        
+        // Notificación a SuperAdmins
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin],
+            "Usuario eliminado permanentemente",
+            &format!("El usuario '{}' (ID: {}) ha sido eliminado permanentemente por {}", 
+                user_clone.username, id, deleted_by_username.as_deref().unwrap_or("sistema")),
+            NotificationType::Warning,
+            NotificationCategory::Auth,
+            NotificationPriority::High,
+            Some(deleted_by),
+        ).await {
+            warn!("Error al enviar notificación a superadmins: {}", e);
+        }
+        
+        Ok(user_clone)
+    }
+
     /// Activar un usuario
     /// 
     /// # Validaciones de negocio:

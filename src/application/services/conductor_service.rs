@@ -254,6 +254,18 @@ impl ConductorService {
         Ok(())
     }
 
+    /// Eliminación permanente de conductor (hard delete) - Solo SuperAdmin
+    /// Alias de delete_conductor que ya hace eliminación permanente
+    #[instrument(skip(self))]
+    pub async fn hard_delete_conductor(
+        &self,
+        id: i32,
+        deleted_by: i32,
+        deleted_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        self.delete_conductor(id, deleted_by, deleted_by_username).await
+    }
+
     // ===== Métodos auxiliares privados =====
 
     /// Detectar campos que fueron modificados

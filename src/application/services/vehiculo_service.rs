@@ -247,6 +247,18 @@ impl VehiculoService {
         Ok(())
     }
 
+    /// Eliminación permanente de vehículo (hard delete) - Solo SuperAdmin
+    /// Alias de delete_vehiculo que ya hace eliminación permanente
+    #[instrument(skip(self))]
+    pub async fn hard_delete_vehiculo(
+        &self,
+        id: i32,
+        deleted_by: i32,
+        deleted_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        self.delete_vehiculo(id, deleted_by, deleted_by_username).await
+    }
+
     // ===== Métodos auxiliares privados =====
 
     /// Detectar campos que fueron modificados

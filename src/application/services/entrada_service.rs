@@ -219,6 +219,62 @@ impl EntradaService {
         Ok(())
     }
 
+    /// Eliminación permanente de una entrada (hard delete) - Solo SuperAdmin
+    pub async fn hard_delete_entrada(
+        &self,
+        id: i32,
+        actor_id: i32,
+        actor_username: &str,
+    ) -> Result<(), ApplicationError> {
+        // Get entrada info before deleting
+        let entrada = self
+            .entrada_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Entrada {} no encontrada", id)))?;
+
+        // Hard delete
+        if !self.entrada_repository.hard_delete(id).await? {
+            return Err(ApplicationError::NotFound(format!(
+                "Entrada {} no encontrada",
+                id
+            )));
+        }
+        info!("🗑️ Entrada ELIMINADA PERMANENTEMENTE: {} (ID: {})", entrada.nombre, id);
+
+        // Log activity
+        let _ = self
+            .logging_service
+            .log_delete::<Entrada>(
+                Some(actor_id),
+                Some(actor_username.to_string()),
+                EntityType::Entrada,
+                id,
+                Some(&entrada),
+                Some("HARD_DELETE - Eliminación permanente".to_string()),
+            )
+            .await;
+
+        // Notify SuperAdmins
+        let _ = self
+            .notification_service
+            .notify_roles(
+                vec![UserRole::SuperAdmin],
+                "Entrada eliminada permanentemente",
+                &format!(
+                    "{} ha eliminado permanentemente la entrada '{}' (ID: {})",
+                    actor_username, entrada.nombre, id
+                ),
+                NotificationType::Warning,
+                NotificationCategory::Crud,
+                NotificationPriority::High,
+                Some(actor_id),
+            )
+            .await;
+
+        Ok(())
+    }
+
     /// Restore a deactivated entrada with logging and notifications
     pub async fn restore_entrada(
         &self,

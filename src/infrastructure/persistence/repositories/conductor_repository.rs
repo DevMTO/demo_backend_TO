@@ -63,6 +63,11 @@ impl ConductorRepositoryPort for PostgresConductorRepository {
         Ok(affected > 0)
     }
     
+    /// Eliminación permanente (hard delete)
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        self.delete(id).await
+    }
+    
     #[instrument(skip(self))]
     async fn list_with_details(&self, limit: i64, offset: i64) -> Result<(Vec<ConductorListItemDto>, i64), ApplicationError> {
         let mut conn = self.pool.get_connection().await?;

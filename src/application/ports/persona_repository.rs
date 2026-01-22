@@ -11,6 +11,8 @@ pub trait PersonaRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<Persona>, ApplicationError>;
     async fn update(&self, persona: &Persona) -> Result<Persona, ApplicationError>;
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError>;
+    /// Eliminación permanente (hard delete) - Solo SuperAdmin
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Persona>, ApplicationError>;
     async fn count(&self) -> Result<i64, ApplicationError>;
     async fn list_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Persona>, ApplicationError>;
