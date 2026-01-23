@@ -65,19 +65,20 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         
         let mut conn = self.pool.get_connection().await?;
         
-        // SQL con JOIN eficiente: guias -> file_guias -> files -> tours -> agencias
-        // Incluye más información del tour, agencia, guía y estado de confirmación
+        // SQL con JOIN eficiente: guias -> file_guias -> file_tours -> files -> tours -> agencias
+        // file_guias usa id_file_tour para conectar con file_tours, que tiene id_file
+        // lugar_recojo, hora_recojo y turno_tour están en file_tours (no en files)
         let query = diesel::sql_query(r#"
             SELECT 
                 f.id as file_id,
                 f.file_code,
                 f.fecha_inicio::text as fecha_inicio,
                 f.fecha_fin::text as fecha_fin,
-                f.lugar_recojo,
-                f.hora_recojo::text as hora_recojo,
+                ft.lugar_recojo,
+                ft.hora_recojo::text as hora_recojo,
                 f.status,
                 f.nro_pasajeros,
-                f.turno_tour,
+                ft.turno_tour,
                 f.notas,
                 t.id as tour_id,
                 t.nombre as tour_nombre,
@@ -99,12 +100,13 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             FROM guias g
             INNER JOIN personas p ON p.id = g.id_persona
             INNER JOIN file_guias fg ON fg.id_guia = g.id
-            INNER JOIN files f ON f.id = fg.id_file
-            INNER JOIN tours t ON t.id = f.id_tour
+            INNER JOIN file_tours ft ON ft.id = fg.id_file_tour
+            INNER JOIN files f ON f.id = ft.id_file
+            INNER JOIN tours t ON t.id = ft.id_tour
             INNER JOIN agencias a ON a.id = f.id_agencia
             WHERE g.id_persona = $1
               AND f.is_active = true
-            ORDER BY f.fecha_inicio DESC, f.hora_recojo ASC
+            ORDER BY f.fecha_inicio DESC, ft.hora_recojo ASC
         "#)
         .bind::<Integer, _>(id_persona);
         
@@ -213,16 +215,18 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         
         let mut conn = self.pool.get_connection().await?;
         
-        // SQL con JOIN eficiente: conductores -> file_vehiculos -> files -> tours -> agencias, vehiculos
-        // Incluye estado de confirmación
+        // SQL con JOIN: conductores -> file_vehiculos -> file_tours -> files -> tours -> agencias, vehiculos
+        // file_vehiculos usa id_file_tour para conectar con file_tours
+        // Nota: file_vehiculos no tiene columnas de confirmación, usamos valores por defecto
+        // lugar_recojo y hora_recojo están en file_tours
         let query = diesel::sql_query(r#"
             SELECT 
                 f.id as file_id,
                 f.file_code,
                 f.fecha_inicio::text as fecha_inicio,
                 f.fecha_fin::text as fecha_fin,
-                f.lugar_recojo,
-                f.hora_recojo::text as hora_recojo,
+                ft.lugar_recojo,
+                ft.hora_recojo::text as hora_recojo,
                 f.status,
                 f.nro_pasajeros,
                 f.notas,
@@ -237,18 +241,17 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
                 v.placa as vehiculo_placa,
                 v.capacidad as vehiculo_capacidad,
                 fv.created_at as asignado_at,
-                fv.estado_confirmacion,
-                fv.confirmado_at,
-                fv.motivo_rechazo
+                fv.status as vehiculo_status
             FROM conductores c
             INNER JOIN file_vehiculos fv ON fv.id_conductor = c.id
             INNER JOIN vehiculos v ON v.id = fv.id_vehiculo
-            INNER JOIN files f ON f.id = fv.id_file
-            INNER JOIN tours t ON t.id = f.id_tour
+            INNER JOIN file_tours ft ON ft.id = fv.id_file_tour
+            INNER JOIN files f ON f.id = ft.id_file
+            INNER JOIN tours t ON t.id = ft.id_tour
             INNER JOIN agencias a ON a.id = f.id_agencia
             WHERE c.id_persona = $1
               AND f.is_active = true
-            ORDER BY f.fecha_inicio DESC, f.hora_recojo ASC
+            ORDER BY f.fecha_inicio DESC, ft.hora_recojo ASC
         "#)
         .bind::<Integer, _>(id_persona);
         
@@ -295,11 +298,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             #[diesel(sql_type = Timestamptz)]
             asignado_at: chrono::DateTime<Utc>,
             #[diesel(sql_type = Text)]
-            estado_confirmacion: String,
-            #[diesel(sql_type = Nullable<Timestamptz>)]
-            confirmado_at: Option<chrono::DateTime<Utc>>,
-            #[diesel(sql_type = Nullable<Text>)]
-            motivo_rechazo: Option<String>,
+            vehiculo_status: String,
         }
         
         let rows: Vec<RawRow> = query
@@ -328,9 +327,10 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             vehiculo_placa: r.vehiculo_placa,
             vehiculo_capacidad: r.vehiculo_capacidad,
             asignado_at: r.asignado_at,
-            estado_confirmacion: r.estado_confirmacion,
-            confirmado_at: r.confirmado_at,
-            motivo_rechazo: r.motivo_rechazo,
+            // file_vehiculos no tiene campos de confirmación, usamos valores por defecto
+            estado_confirmacion: "aceptado".to_string(),  // Asumimos aceptado por defecto
+            confirmado_at: None,
+            motivo_rechazo: None,
         }).collect();
         
         info!("Encontrados {} files para conductor (persona: {})", results.len(), id_persona);
@@ -345,7 +345,8 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         
         let mut conn = self.pool.get_connection().await?;
         
-        // SQL con JOIN eficiente: file_restaurantes -> files -> tours -> agencias
+        // SQL con JOIN: file_restaurantes -> file_tours -> files -> tours -> agencias
+        // file_restaurantes usa id_file_tour para conectar con file_tours
         let query = diesel::sql_query(r#"
             SELECT 
                 f.id as file_id,
@@ -360,15 +361,16 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
                 a.id as agencia_id,
                 a.nombre as agencia_nombre,
                 fr.tipo_servicio,
-                fr.dia,
+                ft.orden as dia,
                 fr.created_at as asignado_at
             FROM file_restaurantes fr
-            INNER JOIN files f ON f.id = fr.id_file
-            INNER JOIN tours t ON t.id = f.id_tour
+            INNER JOIN file_tours ft ON ft.id = fr.id_file_tour
+            INNER JOIN files f ON f.id = ft.id_file
+            INNER JOIN tours t ON t.id = ft.id_tour
             INNER JOIN agencias a ON a.id = f.id_agencia
             WHERE fr.id_restaurante = $1
               AND f.is_active = true
-            ORDER BY f.fecha_inicio DESC, fr.dia ASC
+            ORDER BY f.fecha_inicio DESC, ft.orden ASC
         "#)
         .bind::<Integer, _>(id_restaurante);
         
@@ -448,7 +450,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         let now = Utc::now();
         
         // Actualizar el estado de confirmación usando raw SQL
-        // Solo permite actualizar si el guía está asignado al file
+        // Solo permite actualizar si el guía está asignado al file (via file_guias -> file_tours -> files)
         let query = diesel::sql_query(r#"
             UPDATE file_guias fg
             SET 
@@ -456,9 +458,10 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
                 confirmado_at = $2,
                 motivo_rechazo = $3
             FROM guias g
+            INNER JOIN file_tours ft ON ft.id = fg.id_file_tour
             WHERE fg.id_guia = g.id
               AND g.id_persona = $4
-              AND fg.id_file = $5
+              AND ft.id_file = $5
               AND fg.estado_confirmacion = 'pendiente'
             RETURNING fg.id
         "#)
@@ -511,33 +514,30 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         aceptar: bool, 
         motivo_rechazo: Option<String>
     ) -> Result<ConfirmAssignmentResponse, ApplicationError> {
+        // NOTA: file_vehiculos actualmente NO tiene campos de confirmación
+        // (estado_confirmacion, confirmado_at, motivo_rechazo)
+        // Por ahora, simplemente actualizamos el status del file_vehiculos
         use diesel::prelude::*;
         use diesel_async::RunQueryDsl;
-        use diesel::sql_types::{Integer, Text, Nullable};
+        use diesel::sql_types::{Integer, Text};
         
         let mut conn = self.pool.get_connection().await?;
         
-        let estado = if aceptar { "aceptado" } else { "rechazado" };
+        let nuevo_status = if aceptar { "asignado" } else { "cancelado" };
         let now = Utc::now();
         
-        // Actualizar el estado de confirmación usando raw SQL
-        // Solo permite actualizar si el conductor está asignado al file (via file_vehiculos)
+        // Actualizar el status del file_vehiculos (no tiene campos de confirmación aún)
         let query = diesel::sql_query(r#"
             UPDATE file_vehiculos fv
-            SET 
-                estado_confirmacion = $1,
-                confirmado_at = $2,
-                motivo_rechazo = $3
+            SET status = $1
             FROM conductores c
+            INNER JOIN file_tours ft ON ft.id = fv.id_file_tour
             WHERE fv.id_conductor = c.id
-              AND c.id_persona = $4
-              AND fv.id_file = $5
-              AND fv.estado_confirmacion = 'pendiente'
+              AND c.id_persona = $2
+              AND ft.id_file = $3
             RETURNING fv.id
         "#)
-        .bind::<Text, _>(estado)
-        .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .bind::<Nullable<Text>, _>(motivo_rechazo.as_deref())
+        .bind::<Text, _>(nuevo_status)
         .bind::<Integer, _>(id_persona)
         .bind::<Integer, _>(file_id);
         
@@ -551,26 +551,26 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         let result: Vec<UpdatedRow> = query
             .load(&mut conn)
             .await
-            .map_err(|e| ApplicationError::Repository(format!("Error actualizando confirmación: {}", e)))?;
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando status de conductor: {}", e)))?;
         
         if result.is_empty() {
-            warn!("No se encontró asignación pendiente para conductor (persona: {}) en file {}", id_persona, file_id);
+            warn!("No se encontró asignación para conductor (persona: {}) en file {}", id_persona, file_id);
             return Err(ApplicationError::NotFound(
-                "No se encontró asignación pendiente o ya fue procesada".to_string()
+                "No se encontró asignación de conductor para este file".to_string()
             ));
         }
         
-        info!("Conductor (persona: {}) {} asignación al file {}", 
-              id_persona, if aceptar { "aceptó" } else { "rechazó" }, file_id);
+        info!("Conductor (persona: {}) {} asignación al file {} (status: {})", 
+              id_persona, if aceptar { "confirmó" } else { "rechazó" }, file_id, nuevo_status);
         
         Ok(ConfirmAssignmentResponse {
             success: true,
             mensaje: if aceptar {
-                "Asignación aceptada correctamente".to_string()
+                "Asignación confirmada correctamente".to_string()
             } else {
                 "Asignación rechazada correctamente".to_string()
             },
-            estado_confirmacion: estado.to_string(),
+            estado_confirmacion: nuevo_status.to_string(),
             confirmado_at: Some(now),
         })
     }
