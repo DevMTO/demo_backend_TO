@@ -18,6 +18,8 @@ pub struct FileGuiaModel {
     pub confirmado_at: Option<DateTime<Utc>>,
     pub motivo_rechazo: Option<String>,
     pub id_file_tour: i32,
+    /// Estado: pendiente (si no aceptó), reservado (si aceptó), confirmado, cancelado
+    pub status: String,
 }
 
 /// Modelo insertable para crear file_guias
@@ -29,6 +31,8 @@ pub struct NewFileGuiaModel<'a> {
     pub rol: Option<&'a str>,
     pub created_by: Option<i32>,
     // estado_confirmacion usa DEFAULT 'pendiente' en la DB
+    /// Estado: pendiente (default para guías que no han aceptado)
+    pub status: Option<&'a str>,
 }
 
 /// Modelo para actualizar estado de confirmación

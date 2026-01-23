@@ -54,6 +54,9 @@ pub struct FileVehiculoWithDetailsModel {
     pub created_at: DateTime<Utc>,
     #[diesel(sql_type = Integer)]
     pub capacidad_asignada: i32,
+    /// Estado de la asignación: reservado, confirmado, cancelado
+    #[diesel(sql_type = Text)]
+    pub status: String,
     // Datos del file
     #[diesel(sql_type = Nullable<Text>)]
     pub file_code: Option<String>,
@@ -98,6 +101,8 @@ pub trait FileEntradaRepositoryPort: Send + Sync {
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileEntradaModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileEntradaModel>, ApplicationError>;
+    /// Actualiza el status de una file_entrada
+    async fn update_status(&self, id: i32, status: &str) -> Result<FileEntradaModel, ApplicationError>;
 }
 
 /// Repositorio para file_guias (vinculado a file_tours)
@@ -108,6 +113,8 @@ pub trait FileGuiaRepositoryPort: Send + Sync {
     async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileGuiaModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileGuiaModel>, ApplicationError>;
     async fn is_guia_assigned(&self, id_guia: i32, id_file_tour: i32) -> Result<bool, ApplicationError>;
+    /// Actualiza el status de una file_guia (permite 'pendiente')
+    async fn update_status(&self, id: i32, status: &str) -> Result<FileGuiaModel, ApplicationError>;
 }
 
 #[async_trait]
@@ -120,6 +127,8 @@ pub trait FilePasajeroRepositoryPort: Send + Sync {
     async fn find_by_file_with_persona(&self, id_file: i32) -> Result<Vec<FilePasajeroWithPersonaModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FilePasajeroModel>, ApplicationError>;
     async fn count_by_file(&self, id_file: i32) -> Result<i64, ApplicationError>;
+    /// Actualiza el status de un file_pasajero
+    async fn update_status(&self, id: i32, status: &str) -> Result<FilePasajeroModel, ApplicationError>;
 }
 
 /// Repositorio para file_restaurantes (vinculado a file_tours)
@@ -129,6 +138,8 @@ pub trait FileRestauranteRepositoryPort: Send + Sync {
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileRestauranteModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileRestauranteModel>, ApplicationError>;
+    /// Actualiza el status de una file_restaurante
+    async fn update_status(&self, id: i32, status: &str) -> Result<FileRestauranteModel, ApplicationError>;
 }
 
 /// Repositorio para file_vehiculos (vinculado a file_tours)
@@ -141,6 +152,8 @@ pub trait FileVehiculoRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<FileVehiculoModel>, ApplicationError>;
     async fn find_files_by_vehiculo(&self, id_vehiculo: i32) -> Result<Vec<i32>, ApplicationError>;
     async fn is_vehiculo_assigned(&self, id_vehiculo: i32, id_file_tour: i32) -> Result<bool, ApplicationError>;
+    /// Actualiza el status de un file_vehiculo
+    async fn update_status(&self, id: i32, status: &str) -> Result<FileVehiculoModel, ApplicationError>;
 }
 
 // ==================== IMPLEMENTACIONES ====================
@@ -167,6 +180,7 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
             cantidad,
             created_by,
             id_entrada_precio,
+            status: None, // Usa el default de la DB: 'reservado'
         };
         
         let result = diesel::insert_into(file_entradas::table)
@@ -213,6 +227,21 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
             .optional()
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
+    
+    #[instrument(skip(self))]
+    async fn update_status(&self, id: i32, status: &str) -> Result<FileEntradaModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(file_entradas::table.filter(file_entradas::id.eq(id)))
+            .set(file_entradas::status.eq(status))
+            .returning(FileEntradaModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando status de file_entrada: {}", e)))?;
+        
+        info!("Status de file_entrada {} actualizado a '{}'", id, status);
+        Ok(result)
+    }
 }
 
 // ==================== FILE GUIA REPOSITORY ====================
@@ -238,6 +267,7 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
             id_guia,
             rol,
             created_by,
+            status: None, // Usa el default de la DB: 'pendiente'
         };
         
         let result = diesel::insert_into(file_guias::table)
@@ -298,6 +328,21 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
         
         Ok(count > 0)
     }
+    
+    #[instrument(skip(self))]
+    async fn update_status(&self, id: i32, status: &str) -> Result<FileGuiaModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(file_guias::table.filter(file_guias::id.eq(id)))
+            .set(file_guias::status.eq(status))
+            .returning(FileGuiaModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando status de file_guia: {}", e)))?;
+        
+        info!("Status de file_guia {} actualizado a '{}'", id, status);
+        Ok(result)
+    }
 }
 
 // ==================== FILE PASAJERO REPOSITORY ====================
@@ -327,6 +372,7 @@ impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
             created_by,
             nacionalidad,
             edad,
+            status: None, // Usa el default de la DB: 'reservado'
         };
         
         let result = diesel::insert_into(file_pasajeros::table)
@@ -368,6 +414,7 @@ impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
                 fp.created_by,
                 fp.nacionalidad,
                 fp.edad,
+                fp.status,
                 p.nombre as pasajero_nombre,
                 p.apellidos as pasajero_apellidos,
                 p.nro_documento as pasajero_documento
@@ -405,6 +452,21 @@ impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
+    
+    #[instrument(skip(self))]
+    async fn update_status(&self, id: i32, status: &str) -> Result<FilePasajeroModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(file_pasajeros::table.filter(file_pasajeros::id.eq(id)))
+            .set(file_pasajeros::status.eq(status))
+            .returning(FilePasajeroModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando status de file_pasajero: {}", e)))?;
+        
+        info!("Status de file_pasajero {} actualizado a '{}'", id, status);
+        Ok(result)
+    }
 }
 
 // ==================== FILE RESTAURANTE REPOSITORY ====================
@@ -431,6 +493,7 @@ impl FileRestauranteRepositoryPort for PostgresFileRestauranteRepository {
             tipo_servicio,
             created_by,
             precio,
+            status: None, // Usa el default de la DB: 'reservado'
         };
         
         let result = diesel::insert_into(file_restaurantes::table)
@@ -477,6 +540,21 @@ impl FileRestauranteRepositoryPort for PostgresFileRestauranteRepository {
             .optional()
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
+    
+    #[instrument(skip(self))]
+    async fn update_status(&self, id: i32, status: &str) -> Result<FileRestauranteModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(file_restaurantes::table.filter(file_restaurantes::id.eq(id)))
+            .set(file_restaurantes::status.eq(status))
+            .returning(FileRestauranteModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando status de file_restaurante: {}", e)))?;
+        
+        info!("Status de file_restaurante {} actualizado a '{}'", id, status);
+        Ok(result)
+    }
 }
 
 // ==================== FILE VEHICULO REPOSITORY ====================
@@ -503,6 +581,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
             id_conductor,
             capacidad_asignada,
             created_by,
+            status: None, // Usa el default de la DB: 'reservado'
         };
         
         let result = diesel::insert_into(file_vehiculos::table)
@@ -550,6 +629,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
                 fv.id_conductor,
                 fv.created_at,
                 fv.capacidad_asignada,
+                fv.status,
                 f.file_code,
                 f.fecha_inicio::text as file_fecha_inicio,
                 f.fecha_fin::text as file_fecha_fin,
@@ -623,6 +703,21 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
         
         Ok(count > 0)
     }
+    
+    #[instrument(skip(self))]
+    async fn update_status(&self, id: i32, status: &str) -> Result<FileVehiculoModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(file_vehiculos::table.filter(file_vehiculos::id.eq(id)))
+            .set(file_vehiculos::status.eq(status))
+            .returning(FileVehiculoModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando status de file_vehiculo: {}", e)))?;
+        
+        info!("Status de file_vehiculo {} actualizado a '{}'", id, status);
+        Ok(result)
+    }
 }
 
 // ==================== FILE TOUR REPOSITORY ====================
@@ -639,6 +734,8 @@ pub trait FileTourRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<FileTourModel>, ApplicationError>;
     async fn find_by_tour(&self, id_tour: i32) -> Result<Vec<FileTourModel>, ApplicationError>;
     async fn get_next_orden(&self, id_file: i32) -> Result<i32, ApplicationError>;
+    /// Actualiza el status de un file_tour
+    async fn update_status(&self, id: i32, status: &str) -> Result<FileTourModel, ApplicationError>;
 }
 
 pub struct PostgresFileTourRepository {
@@ -839,5 +936,20 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
         Ok(max_orden.unwrap_or(0) + 1)
+    }
+    
+    #[instrument(skip(self))]
+    async fn update_status(&self, id: i32, status: &str) -> Result<FileTourModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(file_tours::table.filter(file_tours::id.eq(id)))
+            .set(file_tours::status.eq(status))
+            .returning(FileTourModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando status de file_tour: {}", e)))?;
+        
+        info!("Status de file_tour {} actualizado a '{}'", id, status);
+        Ok(result)
     }
 }

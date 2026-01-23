@@ -37,6 +37,7 @@ use super::handlers::{
     entrada_precio_handlers,
     file_handlers,
     file_relations_handlers,
+    relation_status_handlers,
     my_files_handlers,
     pago_handlers,
     activity_log_handlers,
@@ -227,6 +228,7 @@ pub fn create_router(
         .route("/{id}/pasajeros", get(file_relations_handlers::list_file_pasajeros).post(file_relations_handlers::add_pasajero_to_file))
         .route("/{id}/pasajeros/with-persona", post(file_relations_handlers::create_pasajero_with_persona))
         .route("/{id}/pasajeros/{pasajero_id}", axum::routing::delete(file_relations_handlers::remove_file_pasajero))
+        .route("/pasajeros/{id}/status", patch(relation_status_handlers::update_file_pasajero_status))
         // File Relations - Tours (lista los tours asignados al file)
         .route("/{id}/tours", get(file_relations_handlers::list_file_tours));
     
@@ -236,19 +238,25 @@ pub fn create_router(
         .route("/{file_tour_id}/entradas", get(file_relations_handlers::list_file_tour_entradas))
         .route("/entradas", post(file_relations_handlers::assign_entrada_to_file_tour))
         .route("/entradas/{entrada_asig_id}", axum::routing::delete(file_relations_handlers::remove_file_entrada))
+        .route("/entradas/{id}/status", patch(relation_status_handlers::update_file_entrada_status))
         // Restaurantes
         .route("/{file_tour_id}/restaurantes", get(file_relations_handlers::list_file_tour_restaurantes))
         .route("/restaurantes", post(file_relations_handlers::assign_restaurante_to_file_tour))
         .route("/restaurantes/{restaurante_asig_id}", axum::routing::delete(file_relations_handlers::remove_file_restaurante))
+        .route("/restaurantes/{id}/status", patch(relation_status_handlers::update_file_restaurante_status))
         // Guías
         .route("/{file_tour_id}/guias", get(file_relations_handlers::list_file_tour_guias))
         .route("/guias", post(file_relations_handlers::assign_guia_to_file_tour))
         .route("/guias/{guia_asig_id}", axum::routing::delete(file_relations_handlers::remove_file_guia))
+        .route("/guias/{id}/status", patch(relation_status_handlers::update_file_guia_status))
         // Vehículos
         .route("/{file_tour_id}/vehiculos", get(file_relations_handlers::list_file_tour_vehiculos))
         .route("/vehiculos", post(file_relations_handlers::assign_vehiculo_to_file_tour))
         .route("/vehiculos/{vehiculo_asig_id}", axum::routing::delete(file_relations_handlers::remove_file_vehiculo))
-        .route("/{file_tour_id}/vehiculos/{vehiculo_id}/status", axum::routing::put(file_relations_handlers::update_vehiculo_status));
+        .route("/vehiculos/{id}/status", patch(relation_status_handlers::update_file_vehiculo_status_relation))
+        .route("/{file_tour_id}/vehiculos/{vehiculo_id}/status", patch(file_relations_handlers::update_vehiculo_status))
+        // File Tour status
+        .route("/{id}/status", patch(relation_status_handlers::update_file_tour_status));
 
     let pago_routes = Router::new()
         .route("/", get(pago_handlers::list_pagos).post(pago_handlers::create_pago))

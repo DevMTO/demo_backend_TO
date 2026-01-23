@@ -16,15 +16,19 @@ pub struct FileEntradaModel {
     pub created_by: Option<i32>,
     pub id_file_tour: i32,
     pub id_entrada_precio: Option<i32>,
+    /// Estado: reservado, confirmado, cancelado
+    pub status: String,
 }
 
 /// Modelo insertable para crear file_entradas
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = file_entradas)]
-pub struct NewFileEntradaModel {
+pub struct NewFileEntradaModel<'a> {
     pub id_file_tour: i32,
     pub id_entrada: i32,
     pub cantidad: i32,
     pub created_by: Option<i32>,
     pub id_entrada_precio: Option<i32>,
+    /// Estado: reservado (default), confirmado, cancelado
+    pub status: Option<&'a str>,
 }

@@ -17,6 +17,8 @@ pub struct FileRestauranteModel {
     pub created_by: Option<i32>,
     pub precio: Option<BigDecimal>,
     pub id_file_tour: i32,
+    /// Estado: reservado, confirmado, cancelado
+    pub status: String,
 }
 
 /// Modelo insertable para crear file_restaurantes
@@ -28,4 +30,6 @@ pub struct NewFileRestauranteModel<'a> {
     pub tipo_servicio: Option<&'a str>,
     pub created_by: Option<i32>,
     pub precio: Option<BigDecimal>,
+    /// Estado: reservado (default), confirmado, cancelado
+    pub status: Option<&'a str>,
 }

@@ -16,15 +16,19 @@ pub struct FileVehiculoModel {
     pub created_by: Option<i32>,
     pub capacidad_asignada: i32,
     pub id_file_tour: i32,
+    /// Estado: reservado, confirmado, cancelado
+    pub status: String,
 }
 
 /// Modelo insertable para crear file_vehiculos
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = file_vehiculos)]
-pub struct NewFileVehiculoModel {
+pub struct NewFileVehiculoModel<'a> {
     pub id_file_tour: i32,
     pub id_vehiculo: i32,
     pub id_conductor: Option<i32>,
     pub created_by: Option<i32>,
     pub capacidad_asignada: i32,
+    /// Estado: reservado (default), confirmado, cancelado
+    pub status: Option<&'a str>,
 }

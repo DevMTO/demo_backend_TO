@@ -24,6 +24,8 @@ pub struct FileEntradaResponse {
     pub id_entrada_precio: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
+    /// Estado: reservado, confirmado, cancelado
+    pub status: String,
     // Datos de la entrada relacionada (se pueden poblar en el handler)
     pub entrada_nombre: Option<String>,
     pub entrada_precio: Option<String>,
@@ -39,6 +41,7 @@ impl From<FileEntradaModel> for FileEntradaResponse {
             id_entrada_precio: m.id_entrada_precio,
             created_at: m.created_at,
             created_by: m.created_by,
+            status: m.status,
             entrada_nombre: None,
             entrada_precio: None,
         }
@@ -80,6 +83,8 @@ pub struct FileGuiaResponse {
     pub rol: Option<String>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
+    /// Estado: pendiente (no aceptó), reservado (aceptó), confirmado, cancelado
+    pub status: String,
     // Datos del guía relacionado
     pub guia_nombre: Option<String>,
     pub guia_nro_carnet: Option<String>,
@@ -94,6 +99,7 @@ impl From<FileGuiaModel> for FileGuiaResponse {
             rol: m.rol,
             created_at: m.created_at,
             created_by: m.created_by,
+            status: m.status,
             guia_nombre: None,
             guia_nro_carnet: None,
         }
@@ -130,6 +136,8 @@ pub struct FilePasajeroResponse {
     pub edad: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
+    /// Estado: reservado, confirmado, no_show, cancelado
+    pub status: String,
     // Datos del pasajero relacionado (pueden ser None si id_persona es None)
     pub pasajero_nombre: Option<String>,
     pub pasajero_apellidos: Option<String>,
@@ -149,6 +157,7 @@ impl From<FilePasajeroModel> for FilePasajeroResponse {
             edad: m.edad,
             created_at: m.created_at,
             created_by: m.created_by,
+            status: m.status,
             pasajero_nombre: None,
             pasajero_apellidos: None,
             pasajero_documento: None,
@@ -169,6 +178,7 @@ impl From<FilePasajeroWithPersonaModel> for FilePasajeroResponse {
             edad: m.edad,
             created_at: m.created_at,
             created_by: m.created_by,
+            status: m.status,
             pasajero_nombre: m.pasajero_nombre,
             pasajero_apellidos: m.pasajero_apellidos,
             pasajero_documento: m.pasajero_documento,
@@ -271,6 +281,8 @@ pub struct FileRestauranteResponse {
     /// Precio del servicio de restaurante para este tour
     #[ts(type = "string | null")]
     pub precio: Option<BigDecimal>,
+    /// Estado: reservado, confirmado, cancelado
+    pub status: String,
     // Datos del restaurante relacionado
     pub restaurante_nombre: Option<String>,
     pub restaurante_direccion: Option<String>,
@@ -286,6 +298,7 @@ impl From<FileRestauranteModel> for FileRestauranteResponse {
             created_at: m.created_at,
             created_by: m.created_by,
             precio: m.precio,
+            status: m.status,
             restaurante_nombre: None,
             restaurante_direccion: None,
         }
@@ -321,6 +334,8 @@ pub struct FileVehiculoListItemDto {
     pub id_conductor: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub capacidad_asignada: i32,
+    /// Estado de la asignación: reservado, confirmado, cancelado
+    pub status: String,
     // Datos del file
     pub file_code: Option<String>,
     pub file_fecha_inicio: String,
@@ -354,6 +369,8 @@ pub struct FileVehiculoResponse {
     pub capacidad_asignada: i32,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
+    /// Estado: reservado, confirmado, cancelado
+    pub status: String,
     // Datos del vehículo relacionado
     pub vehiculo_nombre: Option<String>,
     pub vehiculo_placa: Option<String>,
@@ -373,6 +390,7 @@ impl From<FileVehiculoModel> for FileVehiculoResponse {
             capacidad_asignada: m.capacidad_asignada,
             created_at: m.created_at,
             created_by: m.created_by,
+            status: m.status,
             vehiculo_nombre: None,
             vehiculo_placa: None,
             vehiculo_capacidad: None,
@@ -618,4 +636,81 @@ pub struct ConfirmAssignmentResponse {
     pub mensaje: String,
     pub estado_confirmacion: String,
     pub confirmado_at: Option<DateTime<Utc>>,
+}
+
+// ==================== UPDATE STATUS REQUESTS ====================
+
+/// Estados válidos para file relations
+/// - reservado: Estado inicial por defecto
+/// - pendiente: Solo para file_guias (guía no ha aceptado aún)
+/// - asignado: Recurso asignado y confirmado
+/// - en_curso: Servicio en progreso
+/// - completado: Servicio finalizado
+/// - cancelado: Asignación cancelada
+
+/// Request para actualizar el status de una asignación
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateRelationStatusRequest {
+    /// Estado: reservado, asignado, en_curso, completado, cancelado (pendiente solo para guías)
+    #[validate(length(min = 1, max = 20, message = "El status debe tener entre 1 y 20 caracteres"))]
+    pub status: String,
+}
+
+/// Response estándar para operaciones de actualización de status
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateStatusResponse {
+    pub success: bool,
+    pub mensaje: String,
+    pub old_status: String,
+    pub new_status: String,
+}
+
+/// Enum para validar estados permitidos
+pub enum FileRelationStatus {
+    Reservado,
+    Pendiente, // Solo para guías
+    Asignado,
+    EnCurso,
+    Completado,
+    Cancelado,
+}
+
+impl FileRelationStatus {
+    /// Convierte string a enum, retorna error si no es válido
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "reservado" => Ok(Self::Reservado),
+            "pendiente" => Ok(Self::Pendiente),
+            "asignado" => Ok(Self::Asignado),
+            "en_curso" => Ok(Self::EnCurso),
+            "completado" => Ok(Self::Completado),
+            "cancelado" => Ok(Self::Cancelado),
+            _ => Err(format!("Status inválido: {}. Valores permitidos: reservado, pendiente, asignado, en_curso, completado, cancelado", s))
+        }
+    }
+    
+    /// Valida si el status es válido para una entidad específica
+    /// Pendiente solo es válido para file_guias
+    pub fn is_valid_for_guia(&self) -> bool {
+        true // Todos los estados son válidos para guías
+    }
+    
+    pub fn is_valid_for_other(&self) -> bool {
+        !matches!(self, Self::Pendiente) // Pendiente NO es válido para otras relaciones
+    }
+    
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Reservado => "reservado",
+            Self::Pendiente => "pendiente",
+            Self::Asignado => "asignado",
+            Self::EnCurso => "en_curso",
+            Self::Completado => "completado",
+            Self::Cancelado => "cancelado",
+        }
+    }
 }

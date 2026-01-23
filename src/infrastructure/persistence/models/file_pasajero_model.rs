@@ -19,7 +19,9 @@ pub struct FilePasajeroModel {
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub nacionalidad: Option<String>,
-    pub edad: Option<i32>,  // Nueva columna
+    pub edad: Option<i32>,
+    /// Estado: reservado, confirmado, no_show, cancelado
+    pub status: String,
 }
 
 /// Modelo con datos de persona incluidos (para queries con JOIN)
@@ -45,7 +47,10 @@ pub struct FilePasajeroWithPersonaModel {
     #[diesel(sql_type = Nullable<Text>)]
     pub nacionalidad: Option<String>,
     #[diesel(sql_type = Nullable<Integer>)]
-    pub edad: Option<i32>,  // Nueva columna
+    pub edad: Option<i32>,
+    /// Estado: reservado, confirmado, no_show, cancelado
+    #[diesel(sql_type = Text)]
+    pub status: String,
     // Datos de persona (LEFT JOIN = pueden ser NULL)
     #[diesel(sql_type = Nullable<Text>)]
     pub pasajero_nombre: Option<String>,
@@ -66,6 +71,8 @@ pub struct NewFilePasajeroModel<'a> {
     pub notas: Option<&'a str>,
     pub created_by: Option<i32>,
     pub nacionalidad: Option<&'a str>,
-    pub edad: Option<i32>,  // Nueva columna
+    pub edad: Option<i32>,
+    /// Estado: reservado (default), confirmado, no_show, cancelado
+    pub status: Option<&'a str>,
 }
 

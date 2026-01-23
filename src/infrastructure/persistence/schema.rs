@@ -110,6 +110,8 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         id_file_tour -> Int4,
         id_entrada_precio -> Nullable<Int4>,
+        #[max_length = 20]
+        status -> Varchar,
     }
 }
 
@@ -126,6 +128,8 @@ diesel::table! {
         confirmado_at -> Nullable<Timestamptz>,
         motivo_rechazo -> Nullable<Text>,
         id_file_tour -> Int4,
+        #[max_length = 20]
+        status -> Varchar,
     }
 }
 
@@ -144,6 +148,8 @@ diesel::table! {
         #[max_length = 60]
         nacionalidad -> Nullable<Varchar>,
         edad -> Nullable<Int4>,
+        #[max_length = 20]
+        status -> Varchar,
     }
 }
 
@@ -157,6 +163,8 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         precio -> Nullable<Numeric>,
         id_file_tour -> Int4,
+        #[max_length = 20]
+        status -> Varchar,
     }
 }
 
@@ -190,6 +198,8 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         capacidad_asignada -> Int4,
         id_file_tour -> Int4,
+        #[max_length = 20]
+        status -> Varchar,
     }
 }
 

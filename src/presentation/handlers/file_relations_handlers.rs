@@ -527,6 +527,7 @@ pub async fn list_all_file_vehiculos(
             id_conductor: v.id_conductor,
             created_at: v.created_at,
             capacidad_asignada: v.capacidad_asignada,
+            status: v.status,
             file_code: v.file_code,
             file_fecha_inicio: v.file_fecha_inicio,
             file_fecha_fin: v.file_fecha_fin,
