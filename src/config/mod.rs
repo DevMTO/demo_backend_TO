@@ -16,7 +16,6 @@ pub struct AppConfig {
     // Session Configuration (Cookies Ultra-Seguras)
     pub session_secret: String,
     pub session_expiration_hours: i64,
-    pub session_idle_timeout_minutes: i64,
     pub session_rotation_interval_minutes: i64,
     
     // Cookie Settings
@@ -85,10 +84,6 @@ impl AppConfig {
                 .unwrap_or_else(|_| "24".to_string())
                 .parse()
                 .unwrap_or(24),
-            session_idle_timeout_minutes: env::var("SESSION_IDLE_TIMEOUT_MINUTES")
-                .unwrap_or_else(|_| "30".to_string())
-                .parse()
-                .unwrap_or(30),
             session_rotation_interval_minutes: env::var("SESSION_ROTATION_INTERVAL_MINUTES")
                 .unwrap_or_else(|_| "15".to_string())
                 .parse()

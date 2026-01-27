@@ -67,14 +67,23 @@ impl LoggingService {
         &self,
         user_id: i32,
         username: &str,
+        session_id: i32,
         ip: Option<String>,
+        all_sessions: bool,
+        sessions_closed: u64,
     ) -> Result<(), ApplicationError> {
+        let description = if all_sessions {
+            format!("Usuario {} cerró todas sus sesiones ({} sesiones)", username, sessions_closed)
+        } else {
+            format!("Usuario {} cerró sesión (ID: {})", username, session_id)
+        };
+        
         let log = ActivityLogBuilder::new()
             .user(user_id, username)
             .action_type(ActionType::Auth)
             .action(Action::Logout)
-            .entity(EntityType::Session, None)
-            .description(format!("Usuario {} cerró sesión", username))
+            .entity(EntityType::Session, Some(session_id))
+            .description(description)
             .request_info(ip, None)
             .status(LogStatus::Success)
             .build();

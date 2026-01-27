@@ -139,7 +139,7 @@ pub async fn logout_handler(
     
     // Ejecutar caso de uso
     let count = state.container.logout_use_case
-        .execute(auth_user.user.id, auth_user.session_id, request)
+        .execute(auth_user.user.id, auth_user.session_id, request.clone())
         .await?;
     
     // Limpiar cookie de sesión
@@ -147,11 +147,14 @@ pub async fn logout_handler(
     
     info!("Logout completado: {} sesión(es) cerrada(s)", count);
     
-    // Logging del logout
+    // Logging del logout con información detallada
     if let Err(e) = state.container.logging_service.log_logout(
         auth_user.user.id,
         &auth_user.user.username,
+        auth_user.session_id,
         None,
+        request.all_sessions,
+        count,
     ).await {
         warn!("Error al registrar log de logout: {}", e);
     }

@@ -17,7 +17,6 @@ type HmacSha256 = Hmac<Sha256>;
 pub struct SecureSessionManager {
     secret_key: Vec<u8>,
     session_expiration_hours: i64,
-    idle_timeout_minutes: i64,
     rotation_interval_minutes: i64,
 }
 
@@ -32,18 +31,8 @@ impl SecureSessionManager {
         Ok(Self {
             secret_key: config.session_secret.as_bytes().to_vec(),
             session_expiration_hours: config.session_expiration_hours,
-            idle_timeout_minutes: config.session_idle_timeout_minutes,
             rotation_interval_minutes: config.session_rotation_interval_minutes,
         })
-    }
-
-    fn is_idle_timeout(&self, session: &UserSession) -> bool {
-        if let Some(last_activity) = session.last_activity {
-            let idle_threshold = Duration::minutes(self.idle_timeout_minutes);
-            Utc::now() - last_activity > idle_threshold
-        } else {
-            false
-        }
     }
 
     fn is_expired(&self, session: &UserSession) -> bool {
@@ -116,29 +105,17 @@ impl SessionManagerPort for SecureSessionManager {
 
     fn validate_session(&self, session: &UserSession) -> Result<(), ApplicationError> {
         debug!(
-            "Validando sesión {} - is_active: {}, remember_me: {}, expires_at: {}, last_activity: {:?}",
-            session.id, session.is_active, session.remember_me, session.expires_at, session.last_activity
+            "Validando sesión {} - is_active: {}, expires_at: {}, last_activity: {:?}",
+            session.id, session.is_active, session.expires_at, session.last_activity
         );
         
         if !session.is_active {
-            warn!("Sesión {} no está activa", session.id);
+            warn!("Sesión {} no está activa (revocada o cerrada)", session.id);
             return Err(ApplicationError::Authentication("Session is not active".to_string()));
         }
         if self.is_expired(session) {
             warn!("Sesión {} ha expirado (expires_at: {})", session.id, session.expires_at);
             return Err(ApplicationError::Authentication("Session has expired".to_string()));
-        }
-        // Solo verificar idle timeout si NO es una sesión "recordada"
-        if !session.remember_me {
-            if self.is_idle_timeout(session) {
-                warn!(
-                    "Sesión {} idle timeout (last_activity: {:?}, timeout: {} min, remember_me: {})",
-                    session.id, session.last_activity, self.idle_timeout_minutes, session.remember_me
-                );
-                return Err(ApplicationError::Authentication("Session idle timeout".to_string()));
-            }
-        } else {
-            debug!("Sesión {} tiene remember_me=true, saltando idle timeout check", session.id);
         }
         
         debug!("Sesión {} válida", session.id);
