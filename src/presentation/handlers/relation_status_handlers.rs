@@ -1,5 +1,7 @@
 //! Handlers para actualización de status de file_relations
 //! Separados del archivo principal para mantener el código organizado
+//! 
+//! Estados válidos: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado
 
 use axum::{extract::{Path, State}, response::IntoResponse, Json};
 use tracing::instrument;
@@ -26,10 +28,6 @@ pub async fn update_file_entrada_status(
     // Validar status
     let status = FileRelationStatus::from_str(&request.status)
         .map_err(|e| ApplicationError::Validation(e))?;
-    
-    if !status.is_valid_for_other() {
-        return Err(ApplicationError::Validation("El status 'pendiente' solo es válido para guías".to_string()));
-    }
     
     // Obtener registro actual
     let current = state.container.file_entrada_repository
@@ -105,10 +103,6 @@ pub async fn update_file_pasajero_status(
     let status = FileRelationStatus::from_str(&request.status)
         .map_err(|e| ApplicationError::Validation(e))?;
     
-    if !status.is_valid_for_other() {
-        return Err(ApplicationError::Validation("El status 'pendiente' solo es válido para guías".to_string()));
-    }
-    
     // Obtener registro actual
     let current = state.container.file_pasajero_repository
         .find_by_id(id)
@@ -145,10 +139,6 @@ pub async fn update_file_restaurante_status(
     // Validar status
     let status = FileRelationStatus::from_str(&request.status)
         .map_err(|e| ApplicationError::Validation(e))?;
-    
-    if !status.is_valid_for_other() {
-        return Err(ApplicationError::Validation("El status 'pendiente' solo es válido para guías".to_string()));
-    }
     
     // Obtener registro actual
     let current = state.container.file_restaurante_repository
@@ -187,10 +177,6 @@ pub async fn update_file_vehiculo_status_relation(
     let status = FileRelationStatus::from_str(&request.status)
         .map_err(|e| ApplicationError::Validation(e))?;
     
-    if !status.is_valid_for_other() {
-        return Err(ApplicationError::Validation("El status 'pendiente' solo es válido para guías".to_string()));
-    }
-    
     // Obtener registro actual
     let current = state.container.file_vehiculo_repository
         .find_by_id(id)
@@ -227,10 +213,6 @@ pub async fn update_file_tour_status(
     // Validar status
     let status = FileRelationStatus::from_str(&request.status)
         .map_err(|e| ApplicationError::Validation(e))?;
-    
-    if !status.is_valid_for_other() {
-        return Err(ApplicationError::Validation("El status 'pendiente' solo es válido para guías".to_string()));
-    }
     
     // Obtener registro actual
     let current = state.container.file_tour_repository

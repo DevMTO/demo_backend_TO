@@ -224,7 +224,7 @@ impl CreateFileRequest {
             fecha_fin: self.fecha_fin,
             // lugar_recojo, hora_recojo, turno_tour ahora están en file_tours
             notas: self.notas,
-            status: "reservado".to_string(),
+            status: "pendiente".to_string(),
             monto_total: BigDecimal::try_from(self.monto_total).unwrap_or_default(),
             monto_pagado: BigDecimal::from(0),
             nro_pasajeros: self.nro_pasajeros.unwrap_or(0),

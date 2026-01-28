@@ -653,7 +653,7 @@ pub struct ConfirmAssignmentResponse {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateRelationStatusRequest {
-    /// Estado: reservado, asignado, en_curso, completado, cancelado (pendiente solo para guías)
+    /// Estado: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado
     #[validate(length(min = 1, max = 20, message = "El status debe tener entre 1 y 20 caracteres"))]
     pub status: String,
 }
@@ -669,48 +669,55 @@ pub struct UpdateStatusResponse {
     pub new_status: String,
 }
 
-/// Enum para validar estados permitidos
+/// Enum para validar estados permitidos en relaciones de file
+/// Todos los estados son válidos para todas las relaciones
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FileRelationStatus {
+    Pendiente,
     Reservado,
-    Pendiente, // Solo para guías
     Asignado,
+    Confirmado,
     EnCurso,
     Completado,
     Cancelado,
+    Anulado,
 }
 
 impl FileRelationStatus {
     /// Convierte string a enum, retorna error si no es válido
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
-            "reservado" => Ok(Self::Reservado),
             "pendiente" => Ok(Self::Pendiente),
+            "reservado" => Ok(Self::Reservado),
             "asignado" => Ok(Self::Asignado),
+            "confirmado" => Ok(Self::Confirmado),
             "en_curso" => Ok(Self::EnCurso),
             "completado" => Ok(Self::Completado),
             "cancelado" => Ok(Self::Cancelado),
-            _ => Err(format!("Status inválido: {}. Valores permitidos: reservado, pendiente, asignado, en_curso, completado, cancelado", s))
+            "anulado" => Ok(Self::Anulado),
+            _ => Err(format!("Status inválido: {}. Valores permitidos: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado", s))
         }
     }
     
-    /// Valida si el status es válido para una entidad específica
-    /// Pendiente solo es válido para file_guias
+    /// Todos los estados son válidos para cualquier relación
     pub fn is_valid_for_guia(&self) -> bool {
-        true // Todos los estados son válidos para guías
+        true
     }
     
     pub fn is_valid_for_other(&self) -> bool {
-        !matches!(self, Self::Pendiente) // Pendiente NO es válido para otras relaciones
+        true // Ahora todos los estados son válidos para todas las relaciones
     }
     
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Reservado => "reservado",
             Self::Pendiente => "pendiente",
+            Self::Reservado => "reservado",
             Self::Asignado => "asignado",
+            Self::Confirmado => "confirmado",
             Self::EnCurso => "en_curso",
             Self::Completado => "completado",
             Self::Cancelado => "cancelado",
+            Self::Anulado => "anulado",
         }
     }
 }

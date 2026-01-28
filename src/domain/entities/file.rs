@@ -4,30 +4,36 @@ use serde::{Deserialize, Serialize};
 use bigdecimal::BigDecimal;
 
 /// Estados del flujo de trabajo de un File:
-/// - Reservado: Estado inicial al crear el file
-/// - Confirmado: File confirmado antes del deadline
+/// - Pendiente: Estado inicial (esperando confirmación)
+/// - Reservado: File con reserva confirmada
 /// - Asignado: File con recursos asignados (guías, vehículos)
+/// - Confirmado: File completamente confirmado y listo
 /// - EnCurso: El tour está en progreso
 /// - Completado: El tour finalizó exitosamente
-/// - Anulado: No se confirmó a tiempo o fue cancelado
+/// - Cancelado: File cancelado por el cliente o agencia
+/// - Anulado: File anulado por incumplimiento o fuerza mayor
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StatusFile {
+    Pendiente,
     Reservado,
-    Confirmado,
     Asignado,
+    Confirmado,
     EnCurso,
     Completado,
+    Cancelado,
     Anulado,
 }
 
 impl std::fmt::Display for StatusFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            StatusFile::Pendiente => write!(f, "pendiente"),
             StatusFile::Reservado => write!(f, "reservado"),
-            StatusFile::Confirmado => write!(f, "confirmado"),
             StatusFile::Asignado => write!(f, "asignado"),
+            StatusFile::Confirmado => write!(f, "confirmado"),
             StatusFile::EnCurso => write!(f, "en_curso"),
             StatusFile::Completado => write!(f, "completado"),
+            StatusFile::Cancelado => write!(f, "cancelado"),
             StatusFile::Anulado => write!(f, "anulado"),
         }
     }
@@ -38,23 +44,22 @@ impl std::str::FromStr for StatusFile {
     
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
+            "pendiente" => Ok(StatusFile::Pendiente),
             "reservado" => Ok(StatusFile::Reservado),
-            "confirmado" => Ok(StatusFile::Confirmado),
             "asignado" => Ok(StatusFile::Asignado),
+            "confirmado" => Ok(StatusFile::Confirmado),
             "en_curso" => Ok(StatusFile::EnCurso),
             "completado" => Ok(StatusFile::Completado),
+            "cancelado" => Ok(StatusFile::Cancelado),
             "anulado" => Ok(StatusFile::Anulado),
-            // Backward compatibility
-            "pendiente" => Ok(StatusFile::Reservado),
-            "cancelado" => Ok(StatusFile::Anulado),
-            _ => Err(format!("Status de file inválido: {s}")),
+            _ => Err(format!("Status de file inválido: {}. Valores: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado", s)),
         }
     }
 }
 
 impl Default for StatusFile {
     fn default() -> Self {
-        StatusFile::Reservado
+        StatusFile::Pendiente
     }
 }
 
@@ -89,7 +94,7 @@ impl File {
             fecha_inicio,
             fecha_fin,
             notas: None,
-            status: StatusFile::Reservado.to_string(),
+            status: StatusFile::Pendiente.to_string(),
             monto_total: BigDecimal::from(0),
             monto_pagado: BigDecimal::from(0),
             nro_pasajeros: 0,
@@ -121,18 +126,25 @@ impl File {
     /// Verifica si se puede anular
     pub fn puede_anular(&self) -> bool {
         let status = self.get_status();
-        matches!(status, StatusFile::Reservado | StatusFile::Confirmado | StatusFile::Asignado)
+        matches!(status, StatusFile::Pendiente | StatusFile::Reservado | StatusFile::Confirmado | StatusFile::Asignado)
+    }
+    
+    /// Verifica si se puede cancelar
+    pub fn puede_cancelar(&self) -> bool {
+        let status = self.get_status();
+        matches!(status, StatusFile::Pendiente | StatusFile::Reservado | StatusFile::Confirmado | StatusFile::Asignado)
     }
     
     /// Verifica si se puede confirmar
     pub fn puede_confirmar(&self) -> bool {
-        self.get_status() == StatusFile::Reservado
+        let status = self.get_status();
+        matches!(status, StatusFile::Pendiente | StatusFile::Reservado)
     }
     
     /// Verifica si se puede asignar recursos
     pub fn puede_asignar(&self) -> bool {
         let status = self.get_status();
-        matches!(status, StatusFile::Reservado | StatusFile::Confirmado)
+        matches!(status, StatusFile::Pendiente | StatusFile::Reservado | StatusFile::Confirmado)
     }
     
     /// Duración en días
