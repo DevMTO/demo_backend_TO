@@ -97,7 +97,7 @@ pub async fn remove_file_entrada(
 
 // ==================== FILE GUIAS (vinculadas a file_tours) ====================
 
-/// Lista los guías asignados a un file_tour
+/// Lista los guías asignados a un file_tour con info completa de persona
 #[instrument(skip(state, _auth))]
 pub async fn list_file_tour_guias(
     State(state): State<AppState>,
@@ -109,8 +109,9 @@ pub async fn list_file_tour_guias(
         .await?
         .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", file_tour_id)))?;
     
+    // Usar método con JOIN para obtener info completa de guía y persona
     let guias = state.container.file_guia_repository
-        .find_by_file_tour(file_tour_id)
+        .find_by_file_tour_with_persona(file_tour_id)
         .await?;
     
     let responses: Vec<FileGuiaResponse> = guias.into_iter()
@@ -670,7 +671,7 @@ pub async fn list_all_file_vehiculos(
     Ok(json_ok(responses))
 }
 
-/// Lista los vehículos asignados a un file_tour
+/// Lista los vehículos asignados a un file_tour con info completa
 #[instrument(skip(state, _auth))]
 pub async fn list_file_tour_vehiculos(
     State(state): State<AppState>,
@@ -682,8 +683,9 @@ pub async fn list_file_tour_vehiculos(
         .await?
         .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", file_tour_id)))?;
     
+    // Usar método con JOIN para obtener info completa de vehículo, transporte y conductor
     let vehiculos = state.container.file_vehiculo_repository
-        .find_by_file_tour(file_tour_id)
+        .find_by_file_tour_with_persona(file_tour_id)
         .await?;
     
     let responses: Vec<FileVehiculoResponse> = vehiculos.into_iter()
