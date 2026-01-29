@@ -20,8 +20,6 @@ use crate::application::ports::{
     PagoRepositoryPort,
     ActivityLogRepositoryPort,
     NotificationRepositoryPort,
-};
-use crate::infrastructure::persistence::repositories::{
     FileEntradaRepositoryPort,
     FileGuiaRepositoryPort,
     FilePasajeroRepositoryPort,

@@ -108,6 +108,17 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
         Ok(affected > 0)
     }
     
+    #[instrument(skip(self))]
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        debug!("Hard delete de agencia: {}", id);
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::delete(agencias::table.filter(agencias::id.eq(id)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Agencia>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let results = agencias::table

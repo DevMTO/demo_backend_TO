@@ -256,6 +256,26 @@ pub async fn restore_agencia(
     Ok(json_message("Agencia restaurada correctamente"))
 }
 
+/// Eliminación permanente de agencia (SOLO SuperAdmin)
+#[instrument(skip(state, auth))]
+pub async fn hard_delete_agencia(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Solo SuperAdmin puede eliminar permanentemente agencias
+    if !matches!(auth.user.role, UserRole::SuperAdmin) {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar permanentemente agencias".to_string()));
+    }
+    
+    // Delegar TODA la lógica al servicio (validaciones, logging, notificaciones críticas)
+    state.container.agencia_service
+        .hard_delete_agencia(id, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    Ok(json_message("Agencia eliminada permanentemente"))
+}
+
 #[instrument(skip(state, auth))]
 pub async fn get_agencia_by_ruc(
     State(state): State<AppState>,

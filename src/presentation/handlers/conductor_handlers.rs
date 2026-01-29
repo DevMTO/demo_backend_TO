@@ -7,7 +7,7 @@ use crate::domain::errors::ApplicationError;
 use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
-use super::common::{PaginationParams, json_ok, json_created, json_deleted};
+use super::common::{PaginationParams, json_ok, json_created, json_deleted, json_message};
 
 /// GET /api/v1/conductores - Listar conductores con paginación
 #[instrument(skip(state, _auth))]
@@ -117,6 +117,22 @@ pub async fn hard_delete_conductor(
     
     info!("[DELETE] Handler: Conductor ELIMINADO PERMANENTEMENTE (ID: {})", id);
     Ok(json_deleted())
+}
+
+/// PATCH /api/v1/conductores/:id/restore - Restaurar un conductor desactivado
+#[instrument(skip(state, auth))]
+pub async fn restore_conductor(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Delegar al servicio
+    state.container.conductor_service
+        .restore_conductor(id, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("♻️ Handler: Conductor restaurado (ID: {})", id);
+    Ok(json_message("Conductor restaurado"))
 }
 
 /// GET /api/v1/transportes/:transporte_id/conductores - Listar conductores por transporte

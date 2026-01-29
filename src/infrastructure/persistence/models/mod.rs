@@ -28,6 +28,9 @@ pub mod file_restaurante_model;
 pub mod file_vehiculo_model;
 pub mod file_tour_model;
 
+// Contabilidad models
+pub mod contabilidad_model;
+
 // Re-exports - Auth
 pub use user_model::*;
 pub use session_model::*;
@@ -57,3 +60,6 @@ pub use file_pasajero_model::*;
 pub use file_restaurante_model::*;
 pub use file_vehiculo_model::*;
 pub use file_tour_model::*;
+
+// Re-exports - Contabilidad
+pub use contabilidad_model::*;

@@ -48,5 +48,4 @@ pub use restaurante::Restaurante;
 pub use entrada::Entrada;
 pub use entrada_precio::EntradaPrecio;
 pub use file::File;
-pub use file_tour::FileTour;
 pub use pago::{Pago, TipoMovimiento};

@@ -5,8 +5,9 @@ use validator::Validate;
 use bigdecimal::BigDecimal;
 
 use crate::infrastructure::persistence::models::{
-    FileEntradaModel, FileGuiaModel, FilePasajeroModel, FilePasajeroWithPersonaModel,
-    FileRestauranteModel, FileVehiculoModel
+    FileEntradaModel, FileGuiaModel, FileGuiaWithPersonaModel, FilePasajeroModel, 
+    FilePasajeroWithPersonaModel, FileRestauranteModel, FileVehiculoModel,
+    FileVehiculoWithPersonaModel
 };
 
 // ==================== FILE ENTRADA ====================
@@ -85,9 +86,18 @@ pub struct FileGuiaResponse {
     pub created_by: Option<i32>,
     /// Estado: pendiente (no aceptó), reservado (aceptó), confirmado, cancelado
     pub status: String,
-    // Datos del guía relacionado
-    pub guia_nombre: Option<String>,
+    /// Estado de confirmación: pendiente, confirmado, rechazado
+    pub estado_confirmacion: Option<String>,
+    pub confirmado_at: Option<DateTime<Utc>>,
+    pub motivo_rechazo: Option<String>,
+    // Datos del guía relacionado (de tabla guias)
     pub guia_nro_carnet: Option<String>,
+    pub guia_idiomas: Option<String>,
+    // Datos de la persona asociada al guía (de tabla personas)
+    pub guia_nombre: Option<String>,
+    pub guia_apellidos: Option<String>,
+    pub guia_telefono: Option<String>,
+    pub guia_correo: Option<String>,
 }
 
 impl From<FileGuiaModel> for FileGuiaResponse {
@@ -100,8 +110,38 @@ impl From<FileGuiaModel> for FileGuiaResponse {
             created_at: m.created_at,
             created_by: m.created_by,
             status: m.status,
-            guia_nombre: None,
+            estado_confirmacion: Some(m.estado_confirmacion),
+            confirmado_at: m.confirmado_at,
+            motivo_rechazo: m.motivo_rechazo,
             guia_nro_carnet: None,
+            guia_idiomas: None,
+            guia_nombre: None,
+            guia_apellidos: None,
+            guia_telefono: None,
+            guia_correo: None,
+        }
+    }
+}
+
+impl From<FileGuiaWithPersonaModel> for FileGuiaResponse {
+    fn from(m: FileGuiaWithPersonaModel) -> Self {
+        Self {
+            id: m.id,
+            id_file_tour: m.id_file_tour,
+            id_guia: m.id_guia,
+            rol: m.rol,
+            created_at: m.created_at,
+            created_by: m.created_by,
+            status: m.status,
+            estado_confirmacion: Some(m.estado_confirmacion),
+            confirmado_at: m.confirmado_at,
+            motivo_rechazo: m.motivo_rechazo,
+            guia_nro_carnet: m.guia_nro_carnet,
+            guia_idiomas: m.guia_idiomas,
+            guia_nombre: m.guia_nombre,
+            guia_apellidos: m.guia_apellidos,
+            guia_telefono: m.guia_telefono,
+            guia_correo: m.guia_correo,
         }
     }
 }
@@ -393,13 +433,21 @@ pub struct FileVehiculoResponse {
     pub created_by: Option<i32>,
     /// Estado: reservado, confirmado, cancelado
     pub status: String,
-    // Datos del vehículo relacionado
+    // Datos del vehículo
     pub vehiculo_nombre: Option<String>,
     pub vehiculo_placa: Option<String>,
     pub vehiculo_capacidad: Option<i32>,
-    // Datos del conductor relacionado
-    pub conductor_nombre: Option<String>,
+    pub vehiculo_modelo: Option<String>,
+    // Datos del transporte (empresa)
+    pub transporte_id: Option<i32>,
+    pub transporte_nombre: Option<String>,
+    pub transporte_ruc: Option<String>,
+    pub transporte_telefono: Option<String>,
+    // Datos del conductor
     pub conductor_brevete: Option<String>,
+    pub conductor_nombre: Option<String>,
+    pub conductor_apellidos: Option<String>,
+    pub conductor_telefono: Option<String>,
 }
 
 impl From<FileVehiculoModel> for FileVehiculoResponse {
@@ -416,8 +464,42 @@ impl From<FileVehiculoModel> for FileVehiculoResponse {
             vehiculo_nombre: None,
             vehiculo_placa: None,
             vehiculo_capacidad: None,
-            conductor_nombre: None,
+            vehiculo_modelo: None,
+            transporte_id: None,
+            transporte_nombre: None,
+            transporte_ruc: None,
+            transporte_telefono: None,
             conductor_brevete: None,
+            conductor_nombre: None,
+            conductor_apellidos: None,
+            conductor_telefono: None,
+        }
+    }
+}
+
+impl From<FileVehiculoWithPersonaModel> for FileVehiculoResponse {
+    fn from(m: FileVehiculoWithPersonaModel) -> Self {
+        Self {
+            id: m.id,
+            id_file_tour: m.id_file_tour,
+            id_vehiculo: m.id_vehiculo,
+            id_conductor: m.id_conductor,
+            capacidad_asignada: m.capacidad_asignada,
+            created_at: m.created_at,
+            created_by: m.created_by,
+            status: m.status,
+            vehiculo_nombre: m.vehiculo_nombre,
+            vehiculo_placa: m.vehiculo_placa,
+            vehiculo_capacidad: m.vehiculo_capacidad,
+            vehiculo_modelo: m.vehiculo_modelo,
+            transporte_id: m.transporte_id,
+            transporte_nombre: m.transporte_nombre,
+            transporte_ruc: m.transporte_ruc,
+            transporte_telefono: m.transporte_telefono,
+            conductor_brevete: m.conductor_brevete,
+            conductor_nombre: m.conductor_nombre,
+            conductor_apellidos: m.conductor_apellidos,
+            conductor_telefono: m.conductor_telefono,
         }
     }
 }
@@ -732,16 +814,7 @@ impl FileRelationStatus {
             _ => Err(format!("Status inválido: {}. Valores permitidos: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado", s))
         }
     }
-    
-    /// Todos los estados son válidos para cualquier relación
-    pub fn is_valid_for_guia(&self) -> bool {
-        true
-    }
-    
-    pub fn is_valid_for_other(&self) -> bool {
-        true // Ahora todos los estados son válidos para todas las relaciones
-    }
-    
+
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Pendiente => "pendiente",

@@ -7,7 +7,7 @@ use crate::domain::errors::ApplicationError;
 use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
-use super::common::{PaginationParams, PaginatedResponse, PaginationInfo, json_ok, json_created, json_deleted};
+use super::common::{PaginationParams, PaginatedResponse, PaginationInfo, json_ok, json_created, json_deleted, json_message};
 
 #[instrument(skip(state, _auth))]
 pub async fn list_guias(State(state): State<AppState>, _auth: AuthUser, Query(params): Query<PaginationParams>) -> Result<impl IntoResponse, ApplicationError> {
@@ -61,6 +61,13 @@ pub async fn hard_delete_guia(State(state): State<AppState>, auth: AuthUser, Pat
     }
     state.container.guia_service.hard_delete_guia(id, auth.user.id, &auth.user.username).await?;
     Ok(json_deleted())
+}
+
+/// Restaurar un guía desactivado
+#[instrument(skip(state, auth))]
+pub async fn restore_guia(State(state): State<AppState>, auth: AuthUser, Path(id): Path<i32>) -> Result<impl IntoResponse, ApplicationError> {
+    state.container.guia_service.restore_guia(id, auth.user.id, &auth.user.username).await?;
+    Ok(json_message("Guía restaurado"))
 }
 
 #[derive(Debug, serde::Deserialize)]

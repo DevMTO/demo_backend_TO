@@ -474,20 +474,20 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         let now = Utc::now();
         
         // Actualizar el estado de confirmación usando raw SQL
-        // Solo permite actualizar si el guía está asignado al file (via file_guias -> file_tours -> files)
+        // NOTA: No se puede usar alias en UPDATE...FROM de PostgreSQL, usar nombre de tabla directamente
         let query = diesel::sql_query(r#"
-            UPDATE file_guias fg
+            UPDATE file_guias
             SET 
                 estado_confirmacion = $1,
                 confirmado_at = $2,
                 motivo_rechazo = $3
-            FROM guias g
-            INNER JOIN file_tours ft ON ft.id = fg.id_file_tour
-            WHERE fg.id_guia = g.id
+            FROM guias g, file_tours ft
+            WHERE file_guias.id_guia = g.id
+              AND ft.id = file_guias.id_file_tour
               AND g.id_persona = $4
               AND ft.id_file = $5
-              AND fg.estado_confirmacion = 'pendiente'
-            RETURNING fg.id
+              AND file_guias.estado_confirmacion = 'pendiente'
+            RETURNING file_guias.id
         "#)
         .bind::<Text, _>(estado)
         .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -536,7 +536,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         id_persona: i32, 
         file_id: i32, 
         aceptar: bool, 
-        motivo_rechazo: Option<String>
+        _motivo_rechazo: Option<String>  // Prefijo _ porque file_vehiculos no tiene campos de confirmación aún
     ) -> Result<ConfirmAssignmentResponse, ApplicationError> {
         // NOTA: file_vehiculos actualmente NO tiene campos de confirmación
         // (estado_confirmacion, confirmado_at, motivo_rechazo)

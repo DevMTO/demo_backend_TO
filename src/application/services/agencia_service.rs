@@ -315,6 +315,59 @@ impl AgenciaService {
         Ok(AgenciaResponse::from(agencia))
     }
 
+    /// Eliminación permanente de una agencia (HARD DELETE)
+    #[instrument(skip(self))]
+    pub async fn hard_delete_agencia(
+        &self,
+        id: i32,
+        deleted_by: i32,
+        deleted_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        // Obtener agencia antes de eliminar
+        let agencia = self.agencia_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id)))?;
+        
+        // Verificar que no tenga files activos asociados
+        // TODO: agregar verificación cuando se implemente la relación
+        
+        // Ejecutar hard delete
+        if !self.agencia_repository.hard_delete(id).await? {
+            return Err(ApplicationError::NotFound(format!("Agencia {} no encontrada", id)));
+        }
+        
+        info!("[HARD_DELETE] Agencia eliminada permanentemente: {} (ID: {})", agencia.nombre, id);
+        
+        // Logging del evento
+        if let Err(e) = self.logging_service.log_delete::<Agencia>(
+            Some(deleted_by),
+            deleted_by_username.clone(),
+            EntityType::Agencia,
+            id,
+            Some(&agencia),
+            Some("HARD_DELETE - Eliminacion permanente".to_string()),
+        ).await {
+            warn!("Error al registrar log de hard_delete de agencia: {}", e);
+        }
+        
+        // Notificación a admins (crítica)
+        let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin],
+            "Agencia ELIMINADA permanentemente",
+            &format!("{} ha eliminado permanentemente la agencia '{}' (ID: {})", username, agencia.nombre, id),
+            NotificationType::Warning,
+            NotificationCategory::Alert,
+            NotificationPriority::Urgent,
+            Some(deleted_by),
+        ).await {
+            warn!("Error al enviar notificación de agencia eliminada: {}", e);
+        }
+        
+        Ok(())
+    }
+
     /// Obtener la agencia del usuario actual
     #[instrument(skip(self))]
     pub async fn get_mi_agencia(

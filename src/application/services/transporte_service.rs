@@ -388,6 +388,58 @@ impl TransporteService {
         Ok(())
     }
 
+    /// Eliminar permanentemente un transporte (SOLO SuperAdmin)
+    #[instrument(skip(self))]
+    pub async fn hard_delete_transporte(
+        &self,
+        id: i32,
+        deleted_by: i32,
+        deleted_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        // Obtener transporte antes de eliminar para el log
+        let transporte = self.transporte_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Transporte {} no encontrado", id)))?;
+        
+        // Eliminar permanentemente
+        if !self.transporte_repository.hard_delete(id).await? {
+            return Err(ApplicationError::NotFound(format!("Transporte {} no encontrado", id)));
+        }
+        info!("🗑️ Transporte ELIMINADO PERMANENTEMENTE: {} (ID: {})", transporte.nombre, id);
+        
+        // Logging del evento (acción crítica)
+        if let Err(e) = self.logging_service.log_delete::<Transporte>(
+            Some(deleted_by),
+            deleted_by_username.clone(),
+            EntityType::Transporte,
+            id,
+            Some(&transporte),
+            Some("HARD_DELETE - Eliminación permanente".to_string()),
+        ).await {
+            warn!("Error al registrar log de eliminación permanente de transporte: {}", e);
+        }
+        
+        // Notificación CRÍTICA a SuperAdmin únicamente
+        let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin],
+            "⚠️ TRANSPORTE ELIMINADO PERMANENTEMENTE",
+            &format!(
+                "ACCIÓN CRÍTICA: {} ha eliminado PERMANENTEMENTE el transporte '{}' (RUC: {}). Esta acción NO se puede deshacer.",
+                username, transporte.nombre, transporte.ruc
+            ),
+            NotificationType::Error,
+            NotificationCategory::Crud,
+            NotificationPriority::Urgent,
+            Some(deleted_by),
+        ).await {
+            warn!("Error al enviar notificación de eliminación permanente de transporte: {}", e);
+        }
+        
+        Ok(())
+    }
+
     // ===== Métodos auxiliares privados =====
 
     /// Detectar campos que fueron modificados

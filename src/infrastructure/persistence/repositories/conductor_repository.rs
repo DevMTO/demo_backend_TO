@@ -63,6 +63,22 @@ impl ConductorRepositoryPort for PostgresConductorRepository {
         Ok(affected > 0)
     }
     
+    async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::update(conductores::table.filter(conductores::id.eq(id)))
+            .set((conductores::is_active.eq(false), conductores::updated_by.eq(Some(user_id))))
+            .execute(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
+    async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::update(conductores::table.filter(conductores::id.eq(id)))
+            .set((conductores::is_active.eq(true), conductores::updated_by.eq(Some(user_id))))
+            .execute(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
     /// Eliminación permanente (hard delete)
     async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
         self.delete(id).await

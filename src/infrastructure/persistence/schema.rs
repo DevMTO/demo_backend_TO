@@ -68,6 +68,125 @@ diesel::table! {
     }
 }
 
+// ========================================================================
+// CONTABILIDAD - Cuentas financieras
+// ========================================================================
+diesel::table! {
+    cuentas (id) {
+        id -> Int4,
+        #[max_length = 100]
+        nombre -> Varchar,
+        #[max_length = 20]
+        tipo -> Varchar,
+        id_agencia -> Nullable<Int4>,
+        saldo_actual -> Numeric,
+        is_active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
+// ========================================================================
+// CONTABILIDAD - Movimientos (ingresos/egresos)
+// ========================================================================
+diesel::table! {
+    movimientos (id) {
+        id -> Int4,
+        id_cuenta -> Int4,
+        #[max_length = 10]
+        tipo -> Varchar,
+        monto -> Numeric,
+        #[max_length = 255]
+        concepto -> Varchar,
+        #[max_length = 50]
+        referencia_tipo -> Nullable<Varchar>,
+        referencia_id -> Nullable<Int4>,
+        fecha_movimiento -> Timestamptz,
+        saldo_anterior -> Numeric,
+        saldo_posterior -> Numeric,
+        notas -> Nullable<Text>,
+        comprobante_url -> Nullable<Text>,
+        comprobante_key -> Nullable<Text>,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
+// ========================================================================
+// CONTABILIDAD - Pagos de files (agencias al admin)
+// ========================================================================
+diesel::table! {
+    pagos_files (id) {
+        id -> Int4,
+        id_file -> Int4,
+        id_agencia -> Int4,
+        monto_total -> Numeric,
+        monto_pagado -> Numeric,
+        #[max_length = 20]
+        estado -> Varchar,
+        fecha_vencimiento -> Nullable<Date>,
+        comprobante_url -> Nullable<Text>,
+        comprobante_key -> Nullable<Text>,
+        verificado_por -> Nullable<Int4>,
+        verificado_at -> Nullable<Timestamptz>,
+        notas -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
+// ========================================================================
+// CONTABILIDAD - Pagos a proveedores (admin a transportes/restaurantes/guías)
+// ========================================================================
+diesel::table! {
+    pagos_proveedores (id) {
+        id -> Int4,
+        #[max_length = 20]
+        tipo_proveedor -> Varchar,
+        id_transporte -> Nullable<Int4>,
+        id_restaurante -> Nullable<Int4>,
+        id_guia -> Nullable<Int4>,
+        id_file_tour -> Nullable<Int4>,
+        id_file_vehiculo -> Nullable<Int4>,
+        id_file_restaurante -> Nullable<Int4>,
+        id_file_guia -> Nullable<Int4>,
+        monto -> Numeric,
+        #[max_length = 20]
+        estado -> Varchar,
+        fecha_pago -> Nullable<Timestamptz>,
+        comprobante_url -> Nullable<Text>,
+        comprobante_key -> Nullable<Text>,
+        notas -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        pagado_by -> Nullable<Int4>,
+    }
+}
+
+// ========================================================================
+// CONTABILIDAD - Tarifas de servicios (precio venta vs costo)
+// ========================================================================
+diesel::table! {
+    tarifas_servicios (id) {
+        id -> Int4,
+        #[max_length = 20]
+        tipo_servicio -> Varchar,
+        id_servicio -> Int4,
+        precio_venta -> Numeric,
+        precio_costo -> Numeric,
+        margen -> Numeric,
+        vigente_desde -> Date,
+        vigente_hasta -> Nullable<Date>,
+        is_active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
 diesel::table! {
     entrada_precios (id) {
         id -> Int4,
@@ -471,6 +590,7 @@ diesel::joinable!(activity_logs -> users (user_id));
 diesel::joinable!(agencias -> personas (encargado));
 diesel::joinable!(conductores -> personas (id_persona));
 diesel::joinable!(conductores -> transportes (id_transporte));
+diesel::joinable!(cuentas -> agencias (id_agencia));
 diesel::joinable!(entrada_precios -> entradas (id_entrada));
 diesel::joinable!(file_entradas -> entrada_precios (id_entrada_precio));
 diesel::joinable!(file_entradas -> entradas (id_entrada));
@@ -494,9 +614,19 @@ diesel::joinable!(file_vehiculos -> users (created_by));
 diesel::joinable!(file_vehiculos -> vehiculos (id_vehiculo));
 diesel::joinable!(files -> agencias (id_agencia));
 diesel::joinable!(guias -> personas (id_persona));
+diesel::joinable!(movimientos -> cuentas (id_cuenta));
 diesel::joinable!(notification_users -> notifications (notification_id));
 diesel::joinable!(notification_users -> users (user_id));
 diesel::joinable!(pagos -> files (id_file));
+diesel::joinable!(pagos_files -> files (id_file));
+diesel::joinable!(pagos_files -> agencias (id_agencia));
+diesel::joinable!(pagos_proveedores -> file_tours (id_file_tour));
+diesel::joinable!(pagos_proveedores -> file_vehiculos (id_file_vehiculo));
+diesel::joinable!(pagos_proveedores -> file_restaurantes (id_file_restaurante));
+diesel::joinable!(pagos_proveedores -> file_guias (id_file_guia));
+diesel::joinable!(pagos_proveedores -> transportes (id_transporte));
+diesel::joinable!(pagos_proveedores -> restaurantes (id_restaurante));
+diesel::joinable!(pagos_proveedores -> guias (id_guia));
 diesel::joinable!(restaurantes -> personas (encargado));
 diesel::joinable!(transportes -> personas (encargado));
 diesel::joinable!(user_sessions -> users (user_id));
@@ -506,6 +636,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     activity_logs,
     agencias,
     conductores,
+    cuentas,
     entrada_precios,
     entradas,
     file_entradas,
@@ -516,11 +647,15 @@ diesel::allow_tables_to_appear_in_same_query!(
     file_vehiculos,
     files,
     guias,
+    movimientos,
     notification_users,
     notifications,
     pagos,
+    pagos_files,
+    pagos_proveedores,
     personas,
     restaurantes,
+    tarifas_servicios,
     tours,
     transportes,
     user_sessions,

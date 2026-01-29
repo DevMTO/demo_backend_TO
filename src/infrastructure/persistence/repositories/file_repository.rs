@@ -95,6 +95,26 @@ impl FileRepositoryPort for PostgresFileRepository {
         Ok(affected > 0)
     }
     
+    async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::update(files::table.filter(files::id.eq(id)))
+            .set((files::is_active.eq(false), files::updated_by.eq(Some(user_id))))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
+    async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::update(files::table.filter(files::id.eq(id)))
+            .set((files::is_active.eq(true), files::updated_by.eq(Some(user_id))))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
     /// Eliminación permanente (hard delete)
     async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
         self.delete(id).await
@@ -192,31 +212,5 @@ impl FileRepositoryPort for PostgresFileRepository {
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
         Ok(results.into_iter().map(Into::into).collect())
-    }
-    
-    async fn update_pasajeros_count(&self, file_id: i32) -> Result<i32, ApplicationError> {
-        use crate::infrastructure::persistence::schema::file_pasajeros;
-        
-        let mut conn = self.pool.get_connection().await?;
-        
-        // Contar pasajeros en file_pasajeros
-        let count: i64 = file_pasajeros::table
-            .filter(file_pasajeros::id_file.eq(file_id))
-            .count()
-            .get_result(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        
-        let count_i32 = count as i32;
-        
-        // Actualizar nro_pasajeros en files
-        diesel::update(files::table.filter(files::id.eq(file_id)))
-            .set(files::nro_pasajeros.eq(count_i32))
-            .execute(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        
-        info!("Actualizado nro_pasajeros del file {} a {}", file_id, count_i32);
-        Ok(count_i32)
     }
 }

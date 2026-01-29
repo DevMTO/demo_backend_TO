@@ -21,6 +21,9 @@ pub mod file_dto;
 pub mod file_relations_dto;
 pub mod pago_dto;
 
+// Contabilidad DTOs
+pub mod contabilidad_dto;
+
 // Re-exports - Auth
 // auth_dto y user_dto se usan internamente
 
@@ -49,4 +52,7 @@ pub use user_dto::{
     UpdateUserRequest,
     AdminChangePasswordRequest,
 };
+
+// Re-exports - Contabilidad
+pub use contabilidad_dto::*;
 

@@ -23,6 +23,9 @@ pub trait TransporteRepositoryPort: Send + Sync {
     async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
     async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
     
+    // Hard delete (eliminación permanente - SOLO SuperAdmin)
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
+    
     // Específicos de Transporte
     async fn find_by_ruc(&self, ruc: &str) -> Result<Option<Transporte>, ApplicationError>;
     async fn exists_by_ruc(&self, ruc: &str) -> Result<bool, ApplicationError>;

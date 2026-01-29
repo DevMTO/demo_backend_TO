@@ -181,7 +181,7 @@ impl GuiaService {
         Ok(result)
     }
 
-    /// Hard delete a guia with logging and notifications
+    /// Desactivar un guía (soft delete)
     pub async fn delete_guia(
         &self,
         id: i32,
@@ -195,14 +195,14 @@ impl GuiaService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Guía {} no encontrado", id)))?;
 
-        // Delete
-        if !self.guia_repository.delete(id).await? {
+        // Soft delete
+        if !self.guia_repository.soft_delete(id, actor_id).await? {
             return Err(ApplicationError::NotFound(format!(
                 "Guía {} no encontrado",
                 id
             )));
         }
-        info!("[DELETE] Guía eliminado: {} (ID: {})", guia.nro_carnet, id);
+        info!("[DELETE] Guía desactivado: {} (ID: {})", guia.nro_carnet, id);
 
         // Log activity
         let _ = self
@@ -222,9 +222,9 @@ impl GuiaService {
             .notification_service
             .notify_roles(
                 vec![UserRole::SuperAdmin, UserRole::Admin],
-                "Guía eliminado",
+                "Guía desactivado",
                 &format!(
-                    "{} ha eliminado el guía con carnet '{}'",
+                    "{} ha desactivado el guía con carnet '{}'",
                     actor_username, guia.nro_carnet
                 ),
                 NotificationType::Warning,
@@ -237,15 +237,119 @@ impl GuiaService {
         Ok(())
     }
 
+    /// Restaurar un guía desactivado
+    pub async fn restore_guia(
+        &self,
+        id: i32,
+        actor_id: i32,
+        actor_username: &str,
+    ) -> Result<(), ApplicationError> {
+        // Restore via repository
+        if !self.guia_repository.restore(id, actor_id).await? {
+            return Err(ApplicationError::NotFound(format!(
+                "Guía {} no encontrado",
+                id
+            )));
+        }
+
+        // Obtener guía restaurado
+        let guia = self
+            .guia_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Guía {} no encontrado", id)))?;
+
+        info!("♻️ Guía restaurado: {} (ID: {})", guia.nro_carnet, id);
+
+        // Log activity
+        let _ = self
+            .logging_service
+            .log_update::<Guia>(
+                Some(actor_id),
+                Some(actor_username.to_string()),
+                EntityType::Guia,
+                id,
+                None,
+                Some(&guia),
+                Some(vec!["is_active".to_string()]),
+                None,
+            )
+            .await;
+
+        // Notify admins - Success
+        let _ = self
+            .notification_service
+            .notify_roles(
+                vec![UserRole::SuperAdmin, UserRole::Admin],
+                "Guía restaurado",
+                &format!(
+                    "{} ha restaurado el guía con carnet '{}'",
+                    actor_username, guia.nro_carnet
+                ),
+                NotificationType::Success,
+                NotificationCategory::Crud,
+                NotificationPriority::Low,
+                Some(actor_id),
+            )
+            .await;
+
+        Ok(())
+    }
+
     /// Eliminación permanente de guía (hard delete) - Solo SuperAdmin
-    /// Alias de delete_guia que ya hace eliminación permanente
     pub async fn hard_delete_guia(
         &self,
         id: i32,
         actor_id: i32,
         actor_username: &str,
     ) -> Result<(), ApplicationError> {
-        self.delete_guia(id, actor_id, actor_username).await
+        // Obtener guía antes de eliminar
+        let guia = self
+            .guia_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Guía {} no encontrado", id)))?;
+
+        // Eliminar permanentemente
+        if !self.guia_repository.hard_delete(id).await? {
+            return Err(ApplicationError::NotFound(format!(
+                "Guía {} no encontrado",
+                id
+            )));
+        }
+        info!("🗑️ Guía ELIMINADO PERMANENTEMENTE: {} (ID: {})", guia.nro_carnet, id);
+
+        // Log activity (acción crítica)
+        let _ = self
+            .logging_service
+            .log_delete::<Guia>(
+                Some(actor_id),
+                Some(actor_username.to_string()),
+                EntityType::Guia,
+                id,
+                Some(&guia),
+                Some("HARD_DELETE - Eliminación permanente".to_string()),
+            )
+            .await;
+
+        // Notificación CRÍTICA a SuperAdmin únicamente
+        let _ = self
+            .notification_service
+            .notify_roles(
+                vec![UserRole::SuperAdmin],
+                "⚠️ GUÍA ELIMINADO PERMANENTEMENTE",
+                &format!(
+                    "ACCIÓN CRÍTICA: {} ha eliminado PERMANENTEMENTE el guía con carnet '{}'. Esta acción NO se puede deshacer.",
+                    actor_username, guia.nro_carnet
+                ),
+                NotificationType::Error,
+                NotificationCategory::Crud,
+                NotificationPriority::Urgent,
+                Some(actor_id),
+            )
+            .await;
+
+        Ok(())
     }
 
     // ==================== PRIVATE HELPERS ====================

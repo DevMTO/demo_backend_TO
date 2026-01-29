@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
+use diesel::sql_types::{Integer, Nullable, Text, Timestamptz};
 use serde::{Deserialize, Serialize};
 
 use crate::infrastructure::persistence::schema::file_vehiculos;
@@ -20,6 +21,57 @@ pub struct FileVehiculoModel {
     pub status: String,
 }
 
+/// Modelo con datos completos de vehículo, conductor, transporte y persona del conductor
+/// JOIN: file_vehiculos -> vehiculos -> transportes
+///       file_vehiculos -> conductores -> personas
+#[derive(Debug, Clone, QueryableByName)]
+pub struct FileVehiculoWithPersonaModel {
+    #[diesel(sql_type = Integer)]
+    pub id: i32,
+    #[diesel(sql_type = Integer)]
+    pub id_file_tour: i32,
+    #[diesel(sql_type = Integer)]
+    pub id_vehiculo: i32,
+    #[diesel(sql_type = Nullable<Integer>)]
+    pub id_conductor: Option<i32>,
+    #[diesel(sql_type = Integer)]
+    pub capacidad_asignada: i32,
+    #[diesel(sql_type = Timestamptz)]
+    pub created_at: DateTime<Utc>,
+    #[diesel(sql_type = Nullable<Integer>)]
+    pub created_by: Option<i32>,
+    #[diesel(sql_type = Text)]
+    pub status: String,
+    // Datos del vehículo
+    #[diesel(sql_type = Nullable<Text>)]
+    pub vehiculo_nombre: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub vehiculo_placa: Option<String>,
+    #[diesel(sql_type = Nullable<Integer>)]
+    pub vehiculo_capacidad: Option<i32>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub vehiculo_modelo: Option<String>,
+    // Datos del transporte (empresa dueña del vehículo)
+    #[diesel(sql_type = Nullable<Integer>)]
+    pub transporte_id: Option<i32>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub transporte_nombre: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub transporte_ruc: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub transporte_telefono: Option<String>,
+    // Datos del conductor
+    #[diesel(sql_type = Nullable<Text>)]
+    pub conductor_brevete: Option<String>,
+    // Datos de la persona del conductor
+    #[diesel(sql_type = Nullable<Text>)]
+    pub conductor_nombre: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub conductor_apellidos: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub conductor_telefono: Option<String>,
+}
+
 /// Modelo insertable para crear file_vehiculos
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = file_vehiculos)]
@@ -32,3 +84,4 @@ pub struct NewFileVehiculoModel<'a> {
     /// Estado: reservado (default), confirmado, cancelado
     pub status: Option<&'a str>,
 }
+

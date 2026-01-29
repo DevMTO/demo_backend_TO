@@ -24,6 +24,12 @@ pub mod entrada_precio_repository;
 pub mod file_repository;
 pub mod pago_repository;
 
+// File relations ports
+pub mod file_relations_repository;
+
+// Contabilidad ports
+pub mod contabilidad_repository;
+
 // Re-exports core
 pub use generic_repository::{PaginationOptions, PaginatedResult};
 pub use user_repository::UserRepositoryPort;
@@ -49,3 +55,16 @@ pub use entrada_repository::EntradaRepositoryPort;
 pub use entrada_precio_repository::EntradaPrecioRepositoryPort;
 pub use file_repository::FileRepositoryPort;
 pub use pago_repository::PagoRepositoryPort;
+
+// Re-exports file relations
+pub use file_relations_repository::{
+    FileEntradaRepositoryPort, FileGuiaRepositoryPort, FilePasajeroRepositoryPort,
+    FileRestauranteRepositoryPort, FileVehiculoRepositoryPort, FileTourRepositoryPort,
+    FileTourInputData,
+};
+
+// Re-exports contabilidad
+pub use contabilidad_repository::{
+    CuentaRepositoryPort, MovimientoRepositoryPort, PagoFileRepositoryPort,
+    PagoProveedorRepositoryPort, TarifaServicioRepositoryPort,
+};

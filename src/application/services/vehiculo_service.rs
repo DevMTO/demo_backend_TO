@@ -198,7 +198,7 @@ impl VehiculoService {
         Ok(VehiculoResponse::from(result))
     }
 
-    /// Eliminar un vehículo (hard delete)
+    /// Desactivar un vehículo (soft delete)
     #[instrument(skip(self))]
     pub async fn delete_vehiculo(
         &self,
@@ -212,11 +212,11 @@ impl VehiculoService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)))?;
         
-        // Eliminar
-        if !self.vehiculo_repository.delete(id).await? {
+        // Soft delete
+        if !self.vehiculo_repository.soft_delete(id, deleted_by).await? {
             return Err(ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)));
         }
-        info!("[DELETE] Vehículo eliminado: {} (ID: {})", vehiculo.placa, id);
+        info!("[DELETE] Vehículo desactivado: {} (ID: {})", vehiculo.placa, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Vehiculo>(
@@ -227,28 +227,79 @@ impl VehiculoService {
             Some(&vehiculo),
             None,
         ).await {
-            warn!("Error al registrar log de eliminación de vehículo: {}", e);
+            warn!("Error al registrar log de desactivación de vehículo: {}", e);
         }
         
         // Notificación a admins - Warning porque es una eliminación
         let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
         if let Err(e) = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
-            "Vehículo eliminado",
-            &format!("{} ha eliminado el vehículo '{}' con placa '{}'", username, vehiculo.nombre, vehiculo.placa),
+            "Vehículo desactivado",
+            &format!("{} ha desactivado el vehículo '{}' con placa '{}'", username, vehiculo.nombre, vehiculo.placa),
             NotificationType::Warning,
             NotificationCategory::Crud,
             NotificationPriority::Normal,
             Some(deleted_by),
         ).await {
-            warn!("Error al enviar notificación de vehículo eliminado: {}", e);
+            warn!("Error al enviar notificación de vehículo desactivado: {}", e);
+        }
+        
+        Ok(())
+    }
+
+    /// Restaurar un vehículo desactivado
+    #[instrument(skip(self))]
+    pub async fn restore_vehiculo(
+        &self,
+        id: i32,
+        restored_by: i32,
+        restored_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        // Restore via repository
+        if !self.vehiculo_repository.restore(id, restored_by).await? {
+            return Err(ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)));
+        }
+        
+        // Obtener vehículo restaurado
+        let vehiculo = self.vehiculo_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)))?;
+        
+        info!("♻️ Vehículo restaurado: {} (ID: {})", vehiculo.placa, id);
+        
+        // Logging del evento
+        if let Err(e) = self.logging_service.log_update::<Vehiculo>(
+            Some(restored_by),
+            restored_by_username.clone(),
+            EntityType::Vehiculo,
+            id,
+            None,
+            Some(&vehiculo),
+            Some(vec!["is_active".to_string()]),
+            None,
+        ).await {
+            warn!("Error al registrar log de restauración de vehículo: {}", e);
+        }
+        
+        // Notificación a admins - Success porque se recupera
+        let username = restored_by_username.unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin, UserRole::Admin],
+            "Vehículo restaurado",
+            &format!("{} ha restaurado el vehículo '{}' (placa: {})", username, vehiculo.nombre, vehiculo.placa),
+            NotificationType::Success,
+            NotificationCategory::Crud,
+            NotificationPriority::Low,
+            Some(restored_by),
+        ).await {
+            warn!("Error al enviar notificación de vehículo restaurado: {}", e);
         }
         
         Ok(())
     }
 
     /// Eliminación permanente de vehículo (hard delete) - Solo SuperAdmin
-    /// Alias de delete_vehiculo que ya hace eliminación permanente
     #[instrument(skip(self))]
     pub async fn hard_delete_vehiculo(
         &self,
@@ -256,7 +307,48 @@ impl VehiculoService {
         deleted_by: i32,
         deleted_by_username: Option<String>,
     ) -> Result<(), ApplicationError> {
-        self.delete_vehiculo(id, deleted_by, deleted_by_username).await
+        // Obtener vehículo antes de eliminar
+        let vehiculo = self.vehiculo_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)))?;
+        
+        // Eliminar permanentemente
+        if !self.vehiculo_repository.hard_delete(id).await? {
+            return Err(ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)));
+        }
+        info!("🗑️ Vehículo ELIMINADO PERMANENTEMENTE: {} (ID: {})", vehiculo.placa, id);
+        
+        // Logging del evento (acción crítica)
+        if let Err(e) = self.logging_service.log_delete::<Vehiculo>(
+            Some(deleted_by),
+            deleted_by_username.clone(),
+            EntityType::Vehiculo,
+            id,
+            Some(&vehiculo),
+            Some("HARD_DELETE - Eliminación permanente".to_string()),
+        ).await {
+            warn!("Error al registrar log de eliminación permanente de vehículo: {}", e);
+        }
+        
+        // Notificación CRÍTICA a SuperAdmin únicamente
+        let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin],
+            "⚠️ VEHÍCULO ELIMINADO PERMANENTEMENTE",
+            &format!(
+                "ACCIÓN CRÍTICA: {} ha eliminado PERMANENTEMENTE el vehículo '{}' (placa: {}). Esta acción NO se puede deshacer.",
+                username, vehiculo.nombre, vehiculo.placa
+            ),
+            NotificationType::Error,
+            NotificationCategory::Crud,
+            NotificationPriority::Urgent,
+            Some(deleted_by),
+        ).await {
+            warn!("Error al enviar notificación de eliminación permanente de vehículo: {}", e);
+        }
+        
+        Ok(())
     }
 
     // ===== Métodos auxiliares privados =====

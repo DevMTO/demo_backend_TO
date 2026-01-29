@@ -85,6 +85,7 @@ impl<'a> From<&'a User> for NewUserModel<'a> {
                 UserRole::SuperAdmin => "superadmin",
                 UserRole::Admin => "admin",
                 UserRole::Agencias => "agencias",
+                UserRole::AgenciasContador => "agencias_contador",
                 UserRole::Transportes => "transportes",
                 UserRole::Conductores => "conductores",
                 UserRole::Guias => "guias",

@@ -100,6 +100,15 @@ impl TransporteRepositoryPort for PostgresTransporteRepository {
         Ok(affected > 0)
     }
     
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::delete(transportes::table.filter(transportes::id.eq(id)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
     async fn find_by_ruc(&self, ruc: &str) -> Result<Option<Transporte>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let result = transportes::table.filter(transportes::ruc.eq(ruc))

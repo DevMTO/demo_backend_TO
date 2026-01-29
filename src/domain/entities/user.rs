@@ -7,10 +7,12 @@ use serde::{Deserialize, Serialize};
 pub enum UserRole {
     /// Administrador supremo con acceso total al sistema (SYSCO)
     SuperAdmin,
-    /// Administrador de agencia - gestiona files, tours, personal
+    /// Administrador/Operador - gestiona files, tours, personal y contabilidad general
     Admin,
-    /// Personal de agencias - acceso a consultas y reportes
+    /// Personal de agencias - gestión de agencia
     Agencias,
+    /// Contador de agencia - maneja contabilidad de una agencia específica (vinculado a id_entidad)
+    AgenciasContador,
     /// Empresa de transporte - gestiona vehículos y conductores
     Transportes,
     /// Conductor - ve sus asignaciones y puede aceptar/rechazar
@@ -27,6 +29,7 @@ impl std::fmt::Display for UserRole {
             UserRole::SuperAdmin => write!(f, "superadmin"),
             UserRole::Admin => write!(f, "admin"),
             UserRole::Agencias => write!(f, "agencias"),
+            UserRole::AgenciasContador => write!(f, "agencias_contador"),
             UserRole::Transportes => write!(f, "transportes"),
             UserRole::Conductores => write!(f, "conductores"),
             UserRole::Guias => write!(f, "guias"),
@@ -43,6 +46,7 @@ impl std::str::FromStr for UserRole {
             "superadmin" => Ok(UserRole::SuperAdmin),
             "admin" => Ok(UserRole::Admin),
             "agencias" | "agencia" => Ok(UserRole::Agencias),
+            "agencias_contador" | "contador_agencia" => Ok(UserRole::AgenciasContador),
             "transportes" | "transporte" => Ok(UserRole::Transportes),
             "conductores" | "conductor" => Ok(UserRole::Conductores),
             "guias" | "guia" | "guide" => Ok(UserRole::Guias),
@@ -69,9 +73,24 @@ impl UserRole {
         matches!(self, UserRole::SuperAdmin | UserRole::Admin)
     }
     
-    /// Verifica si es Agencias o superior
+    /// Verifica si es Agencias o superior (incluye contador)
     pub fn is_agencias(&self) -> bool {
-        matches!(self, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias)
+        matches!(self, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias | UserRole::AgenciasContador)
+    }
+    
+    /// Verifica si tiene acceso a contabilidad de agencia
+    pub fn has_agencia_accounting_access(&self) -> bool {
+        matches!(self, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
+    }
+    
+    /// Verifica si tiene acceso a contabilidad general (admin)
+    pub fn has_admin_accounting_access(&self) -> bool {
+        matches!(self, UserRole::SuperAdmin | UserRole::Admin)
+    }
+    
+    /// Verifica si es un proveedor de servicios
+    pub fn is_proveedor(&self) -> bool {
+        matches!(self, UserRole::Transportes | UserRole::Conductores | UserRole::Guias | UserRole::Restaurantes)
     }
 }
 

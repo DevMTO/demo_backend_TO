@@ -20,29 +20,3 @@ pub struct FileTour {
     /// Estado del file_tour: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado
     pub status: String,
 }
-
-impl FileTour {
-    pub fn new(id_file: i32, id_tour: i32, orden: i32) -> Self {
-        Self {
-            id: 0,
-            id_file,
-            id_tour,
-            orden,
-            precio_aplicado: None,
-            notas: None,
-            created_at: Utc::now(),
-            created_by: None,
-            status: "pendiente".to_string(),
-        }
-    }
-    
-    pub fn with_precio(mut self, precio: BigDecimal) -> Self {
-        self.precio_aplicado = Some(precio);
-        self
-    }
-    
-    pub fn with_notas(mut self, notas: String) -> Self {
-        self.notas = Some(notas);
-        self
-    }
-}

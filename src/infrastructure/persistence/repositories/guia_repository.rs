@@ -63,6 +63,22 @@ impl GuiaRepositoryPort for PostgresGuiaRepository {
         Ok(affected > 0)
     }
     
+    async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::update(guias::table.filter(guias::id.eq(id)))
+            .set((guias::is_active.eq(false), guias::updated_by.eq(Some(user_id))))
+            .execute(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
+    async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::update(guias::table.filter(guias::id.eq(id)))
+            .set((guias::is_active.eq(true), guias::updated_by.eq(Some(user_id))))
+            .execute(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
     /// Eliminación permanente (hard delete)
     async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
         self.delete(id).await

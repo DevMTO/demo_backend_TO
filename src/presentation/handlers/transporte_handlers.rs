@@ -216,6 +216,27 @@ pub async fn restore_transporte(
     Ok(json_message("Transporte restaurado"))
 }
 
+/// DELETE /api/v1/transportes/:id/hard-delete - Eliminación permanente (SOLO SuperAdmin)
+#[instrument(skip(state, auth))]
+pub async fn hard_delete_transporte(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Solo SuperAdmin puede eliminar permanentemente
+    if !matches!(auth.user.role, UserRole::SuperAdmin) {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar permanentemente transportes".to_string()));
+    }
+    
+    // Delegar al servicio
+    state.container.transporte_service
+        .hard_delete_transporte(id, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("🗑️ Handler: Transporte ELIMINADO PERMANENTEMENTE (ID: {})", id);
+    Ok(json_message("Transporte eliminado permanentemente"))
+}
+
 /// GET /api/v1/transportes/with-vehicles - Listar transportes con vehículos disponibles
 #[instrument(skip(state, _auth))]
 pub async fn list_transportes_with_vehicles(

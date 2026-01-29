@@ -10,6 +10,11 @@ pub trait ConductorRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<Conductor>, ApplicationError>;
     async fn update(&self, conductor: &Conductor) -> Result<Conductor, ApplicationError>;
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError>;
+    
+    // Soft delete y restore
+    async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
+    async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
+    
     /// Eliminación permanente (hard delete) - Solo SuperAdmin
     async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
 

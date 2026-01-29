@@ -8,7 +8,7 @@ use crate::domain::errors::ApplicationError;
 use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
-use super::common::{json_ok, json_created, json_deleted, create_paginated_response};
+use super::common::{json_ok, json_created, json_deleted, json_message, create_paginated_response};
 
 /// Query params para listar vehículos
 #[derive(Debug, Deserialize)]
@@ -133,6 +133,22 @@ pub async fn hard_delete_vehiculo(
     
     info!("[DELETE] Handler: Vehículo ELIMINADO PERMANENTEMENTE (ID: {})", id);
     Ok(json_deleted())
+}
+
+/// PATCH /api/v1/vehiculos/:id/restore - Restaurar un vehículo desactivado
+#[instrument(skip(state, auth))]
+pub async fn restore_vehiculo(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Delegar al servicio
+    state.container.vehiculo_service
+        .restore_vehiculo(id, auth.user.id, Some(auth.user.username.clone()))
+        .await?;
+    
+    info!("♻️ Handler: Vehículo restaurado (ID: {})", id);
+    Ok(json_message("Vehículo restaurado"))
 }
 
 /// GET /api/v1/transportes/:transporte_id/vehiculos - Listar vehículos por transporte

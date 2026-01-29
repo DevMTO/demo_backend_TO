@@ -150,7 +150,8 @@ pub fn create_router(
         .route("/mi-agencia/interfaz", patch(agencia_handlers::patch_mi_agencia_interfaz))
         .route("/ruc/{ruc}", get(agencia_handlers::get_agencia_by_ruc))
         .route("/{id}", get(agencia_handlers::get_agencia).put(agencia_handlers::update_agencia).delete(agencia_handlers::delete_agencia))
-        .route("/{id}/restore", patch(agencia_handlers::restore_agencia));
+        .route("/{id}/restore", patch(agencia_handlers::restore_agencia))
+        .route("/{id}/hard-delete", delete(agencia_handlers::hard_delete_agencia));
 
     let tour_routes = Router::new()
         .route("/", get(tour_handlers::list_tours).post(tour_handlers::create_tour))
@@ -165,13 +166,15 @@ pub fn create_router(
         .route("/mi-transporte/interfaz", patch(transporte_handlers::patch_mi_transporte_interfaz))
         .route("/with-vehicles", get(transporte_handlers::list_transportes_with_vehicles))
         .route("/{id}", get(transporte_handlers::get_transporte).put(transporte_handlers::update_transporte).delete(transporte_handlers::delete_transporte))
-        .route("/{id}/restore", patch(transporte_handlers::restore_transporte));
+        .route("/{id}/restore", patch(transporte_handlers::restore_transporte))
+        .route("/{id}/hard-delete", delete(transporte_handlers::hard_delete_transporte));
 
     let vehiculo_routes = Router::new()
         .route("/", get(vehiculo_handlers::list_vehiculos).post(vehiculo_handlers::create_vehiculo))
         .route("/available", get(vehiculo_handlers::list_vehiculos_available))
         .route("/transporte/{transporte_id}", get(vehiculo_handlers::list_vehiculos_by_transporte))
         .route("/{id}", get(vehiculo_handlers::get_vehiculo).put(vehiculo_handlers::update_vehiculo).delete(vehiculo_handlers::delete_vehiculo))
+        .route("/{id}/restore", patch(vehiculo_handlers::restore_vehiculo))
         .route("/{id}/hard-delete", delete(vehiculo_handlers::hard_delete_vehiculo));
 
     let conductor_routes = Router::new()
@@ -179,6 +182,7 @@ pub fn create_router(
         .route("/available", get(conductor_handlers::list_conductores_available))
         .route("/transporte/{transporte_id}", get(conductor_handlers::list_conductores_by_transporte))
         .route("/{id}", get(conductor_handlers::get_conductor).put(conductor_handlers::update_conductor).delete(conductor_handlers::delete_conductor))
+        .route("/{id}/restore", patch(conductor_handlers::restore_conductor))
         .route("/{id}/hard-delete", delete(conductor_handlers::hard_delete_conductor));
 
     let guia_routes = Router::new()
@@ -186,6 +190,7 @@ pub fn create_router(
         .route("/search", get(guia_handlers::search_guias))
         .route("/available", get(guia_handlers::list_guias_available))
         .route("/{id}", get(guia_handlers::get_guia).put(guia_handlers::update_guia).delete(guia_handlers::delete_guia))
+        .route("/{id}/restore", patch(guia_handlers::restore_guia))
         .route("/{id}/hard-delete", delete(guia_handlers::hard_delete_guia));
 
     let restaurante_routes = Router::new()
@@ -223,6 +228,7 @@ pub fn create_router(
         .route("/by-date", get(file_handlers::list_files_by_date_range))
         .route("/agencia/{agencia_id}", get(file_handlers::list_files_by_agencia))
         .route("/{id}", get(file_handlers::get_file).put(file_handlers::update_file).delete(file_handlers::delete_file))
+        .route("/{id}/restore", patch(file_handlers::restore_file))
         .route("/{id}/hard-delete", delete(file_handlers::hard_delete_file))
         // File Relations - Pasajeros (estos siguen vinculados al file, no al file_tour)
         .route("/{id}/pasajeros", get(file_relations_handlers::list_file_pasajeros).post(file_relations_handlers::add_pasajero_to_file))

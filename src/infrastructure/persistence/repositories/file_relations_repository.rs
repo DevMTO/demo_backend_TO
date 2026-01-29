@@ -11,31 +11,21 @@ use crate::infrastructure::persistence::{
     database::DatabasePool,
     models::{
         FileEntradaModel, NewFileEntradaModel,
-        FileGuiaModel, NewFileGuiaModel,
+        FileGuiaModel, FileGuiaWithPersonaModel, NewFileGuiaModel,
         FilePasajeroModel, FilePasajeroWithPersonaModel, NewFilePasajeroModel,
         FileRestauranteModel, NewFileRestauranteModel,
-        FileVehiculoModel, NewFileVehiculoModel,
+        FileVehiculoModel, FileVehiculoWithPersonaModel, NewFileVehiculoModel,
         FileTourModel, NewFileTourModel, FileTourWithTourModel,
     },
     schema::{file_entradas, file_guias, file_pasajeros, file_restaurantes, file_vehiculos, file_tours, tours},
 };
 
-// ==================== STRUCTS DE INPUT ====================
-
-/// Datos de entrada para agregar un tour a un file
-#[derive(Debug, Clone)]
-pub struct FileTourInputData {
-    pub id_tour: i32,
-    pub orden: i32,
-    pub precio_aplicado: Option<BigDecimal>,
-    pub notas: Option<String>,
-    pub fecha_tour: Option<chrono::NaiveDate>,
-    pub turno_tour: Option<String>,
-    pub lugar_recojo: Option<String>,
-    pub hora_recojo: Option<chrono::NaiveTime>,
-    /// Estado del file_tour (default: reservado)
-    pub status: Option<String>,
-}
+// Importar traits y structs de input desde application/ports
+use crate::application::ports::{
+    FileEntradaRepositoryPort, FileGuiaRepositoryPort, FilePasajeroRepositoryPort,
+    FileRestauranteRepositoryPort, FileVehiculoRepositoryPort, FileTourRepositoryPort,
+    FileTourInputData,
+};
 
 // ==================== MODELOS EXTENDIDOS ====================
 
@@ -90,72 +80,6 @@ pub struct FileVehiculoWithDetailsModel {
     pub conductor_nombre: Option<String>,
     #[diesel(sql_type = Nullable<Text>)]
     pub conductor_brevete: Option<String>,
-}
-
-// ==================== TRAITS (PORTS) ====================
-
-/// Repositorio para file_entradas (vinculado a file_tours)
-#[async_trait]
-pub trait FileEntradaRepositoryPort: Send + Sync {
-    async fn add(&self, id_file_tour: i32, id_entrada: i32, cantidad: i32, id_entrada_precio: Option<i32>, created_by: Option<i32>) -> Result<FileEntradaModel, ApplicationError>;
-    async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileEntradaModel>, ApplicationError>;
-    async fn find_by_id(&self, id: i32) -> Result<Option<FileEntradaModel>, ApplicationError>;
-    /// Actualiza el status de una file_entrada
-    async fn update_status(&self, id: i32, status: &str) -> Result<FileEntradaModel, ApplicationError>;
-}
-
-/// Repositorio para file_guias (vinculado a file_tours)
-#[async_trait]
-pub trait FileGuiaRepositoryPort: Send + Sync {
-    async fn add(&self, id_file_tour: i32, id_guia: i32, rol: Option<&str>, created_by: Option<i32>) -> Result<FileGuiaModel, ApplicationError>;
-    async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileGuiaModel>, ApplicationError>;
-    async fn find_by_id(&self, id: i32) -> Result<Option<FileGuiaModel>, ApplicationError>;
-    async fn is_guia_assigned(&self, id_guia: i32, id_file_tour: i32) -> Result<bool, ApplicationError>;
-    /// Actualiza el status de una file_guia (permite 'pendiente')
-    async fn update_status(&self, id: i32, status: &str) -> Result<FileGuiaModel, ApplicationError>;
-}
-
-#[async_trait]
-pub trait FilePasajeroRepositoryPort: Send + Sync {
-    /// Agrega un pasajero a un file
-    /// - id_persona es opcional para permitir pasajeros anónimos
-    /// - edad es opcional
-    async fn add(&self, id_file: i32, id_persona: Option<i32>, asiento: Option<&str>, tipo_pasajero: Option<&str>, nacionalidad: Option<&str>, notas: Option<&str>, edad: Option<i32>, created_by: Option<i32>) -> Result<FilePasajeroModel, ApplicationError>;
-    async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file_with_persona(&self, id_file: i32) -> Result<Vec<FilePasajeroWithPersonaModel>, ApplicationError>;
-    async fn find_by_id(&self, id: i32) -> Result<Option<FilePasajeroModel>, ApplicationError>;
-    async fn count_by_file(&self, id_file: i32) -> Result<i64, ApplicationError>;
-    /// Actualiza el status de un file_pasajero
-    async fn update_status(&self, id: i32, status: &str) -> Result<FilePasajeroModel, ApplicationError>;
-    /// Actualiza la información de un file_pasajero
-    async fn update(&self, id: i32, data: crate::infrastructure::persistence::models::file_pasajero_model::UpdateFilePasajeroModel) -> Result<FilePasajeroModel, ApplicationError>;
-}
-
-/// Repositorio para file_restaurantes (vinculado a file_tours)
-#[async_trait]
-pub trait FileRestauranteRepositoryPort: Send + Sync {
-    async fn add(&self, id_file_tour: i32, id_restaurante: i32, tipo_servicio: Option<&str>, precio: Option<BigDecimal>, created_by: Option<i32>) -> Result<FileRestauranteModel, ApplicationError>;
-    async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileRestauranteModel>, ApplicationError>;
-    async fn find_by_id(&self, id: i32) -> Result<Option<FileRestauranteModel>, ApplicationError>;
-    /// Actualiza el status de una file_restaurante
-    async fn update_status(&self, id: i32, status: &str) -> Result<FileRestauranteModel, ApplicationError>;
-}
-
-/// Repositorio para file_vehiculos (vinculado a file_tours)
-#[async_trait]
-pub trait FileVehiculoRepositoryPort: Send + Sync {
-    async fn add(&self, id_file_tour: i32, id_vehiculo: i32, id_conductor: Option<i32>, capacidad_asignada: i32, created_by: Option<i32>) -> Result<FileVehiculoModel, ApplicationError>;
-    async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileVehiculoModel>, ApplicationError>;
-    async fn find_all_with_details(&self) -> Result<Vec<FileVehiculoWithDetailsModel>, ApplicationError>;
-    async fn find_by_id(&self, id: i32) -> Result<Option<FileVehiculoModel>, ApplicationError>;
-    async fn find_files_by_vehiculo(&self, id_vehiculo: i32) -> Result<Vec<i32>, ApplicationError>;
-    async fn is_vehiculo_assigned(&self, id_vehiculo: i32, id_file_tour: i32) -> Result<bool, ApplicationError>;
-    /// Actualiza el status de un file_vehiculo
-    async fn update_status(&self, id: i32, status: &str) -> Result<FileVehiculoModel, ApplicationError>;
 }
 
 // ==================== IMPLEMENTACIONES ====================
@@ -344,6 +268,42 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
         
         info!("Status de file_guia {} actualizado a '{}'", id, status);
         Ok(result)
+    }
+    
+    #[instrument(skip(self))]
+    async fn find_by_file_tour_with_persona(&self, id_file_tour: i32) -> Result<Vec<FileGuiaWithPersonaModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        // JOIN: file_guias -> guias -> personas
+        let query = diesel::sql_query(r#"
+            SELECT 
+                fg.id,
+                fg.id_file_tour,
+                fg.id_guia,
+                fg.rol,
+                fg.created_at,
+                fg.created_by,
+                fg.estado_confirmacion,
+                fg.confirmado_at,
+                fg.motivo_rechazo,
+                fg.status,
+                g.nro_carnet as guia_nro_carnet,
+                g.idiomas as guia_idiomas,
+                p.nombre as guia_nombre,
+                p.apellidos as guia_apellidos,
+                p.telefono as guia_telefono,
+                p.correo as guia_correo
+            FROM file_guias fg
+            INNER JOIN guias g ON g.id = fg.id_guia
+            LEFT JOIN personas p ON p.id = g.id_persona
+            WHERE fg.id_file_tour = $1
+            ORDER BY fg.created_at ASC
+        "#)
+        .bind::<Integer, _>(id_file_tour);
+        
+        query.load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error obteniendo guías con persona: {}", e)))
     }
 }
 
@@ -735,25 +695,52 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
         info!("Status de file_vehiculo {} actualizado a '{}'", id, status);
         Ok(result)
     }
+    
+    #[instrument(skip(self))]
+    async fn find_by_file_tour_with_persona(&self, id_file_tour: i32) -> Result<Vec<FileVehiculoWithPersonaModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        // JOIN: file_vehiculos -> vehiculos -> transportes
+        //       file_vehiculos -> conductores -> personas
+        let query = diesel::sql_query(r#"
+            SELECT 
+                fv.id,
+                fv.id_file_tour,
+                fv.id_vehiculo,
+                fv.id_conductor,
+                fv.capacidad_asignada,
+                fv.created_at,
+                fv.created_by,
+                fv.status,
+                v.nombre as vehiculo_nombre,
+                v.placa as vehiculo_placa,
+                v.capacidad as vehiculo_capacidad,
+                v.modelo as vehiculo_modelo,
+                tr.id as transporte_id,
+                tr.nombre as transporte_nombre,
+                tr.ruc as transporte_ruc,
+                tr.telefono as transporte_telefono,
+                c.nro_brevete as conductor_brevete,
+                p.nombre as conductor_nombre,
+                p.apellidos as conductor_apellidos,
+                p.telefono as conductor_telefono
+            FROM file_vehiculos fv
+            INNER JOIN vehiculos v ON v.id = fv.id_vehiculo
+            LEFT JOIN transportes tr ON tr.id = v.id_transporte
+            LEFT JOIN conductores c ON c.id = fv.id_conductor
+            LEFT JOIN personas p ON p.id = c.id_persona
+            WHERE fv.id_file_tour = $1
+            ORDER BY fv.created_at ASC
+        "#)
+        .bind::<Integer, _>(id_file_tour);
+        
+        query.load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error obteniendo vehículos con detalles: {}", e)))
+    }
 }
 
 // ==================== FILE TOUR REPOSITORY ====================
-
-#[async_trait]
-pub trait FileTourRepositoryPort: Send + Sync {
-    async fn add(&self, id_file: i32, data: FileTourInputData, created_by: Option<i32>) -> Result<FileTourModel, ApplicationError>;
-    async fn add_many(&self, id_file: i32, tours: Vec<FileTourInputData>, created_by: Option<i32>) -> Result<Vec<FileTourModel>, ApplicationError>;
-    async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn remove_by_file(&self, id_file: i32) -> Result<usize, ApplicationError>;
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileTourModel>, ApplicationError>;
-    /// Busca tours de un file con información del tour (INNER JOIN)
-    async fn find_by_file_with_tour(&self, id_file: i32) -> Result<Vec<FileTourWithTourModel>, ApplicationError>;
-    async fn find_by_id(&self, id: i32) -> Result<Option<FileTourModel>, ApplicationError>;
-    async fn find_by_tour(&self, id_tour: i32) -> Result<Vec<FileTourModel>, ApplicationError>;
-    async fn get_next_orden(&self, id_file: i32) -> Result<i32, ApplicationError>;
-    /// Actualiza el status de un file_tour
-    async fn update_status(&self, id: i32, status: &str) -> Result<FileTourModel, ApplicationError>;
-}
 
 pub struct PostgresFileTourRepository {
     pool: DatabasePool,

@@ -12,6 +12,11 @@ pub trait VehiculoRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<Vehiculo>, ApplicationError>;
     async fn update(&self, vehiculo: &Vehiculo) -> Result<Vehiculo, ApplicationError>;
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError>;
+    
+    // Soft delete y restore
+    async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
+    async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
+    
     /// Eliminación permanente (hard delete) - Solo SuperAdmin
     async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Vehiculo>, ApplicationError>;

@@ -17,13 +17,13 @@ use crate::application::dtos::{
     CreateFileRequest, UpdateFileRequest, FileResponse, FileTourDto,
 };
 use crate::application::ports::{FileRepositoryPort, PaginationOptions, NotificationServicePort};
+use crate::application::ports::{FileTourRepositoryPort, FileTourInputData};
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
     File, EntityType, UserRole,
     NotificationType, NotificationCategory, NotificationPriority,
 };
 use crate::domain::errors::ApplicationError;
-use crate::infrastructure::persistence::repositories::{FileTourRepositoryPort, FileTourInputData};
 
 /// Servicio de files - contiene la lógica de negocio
 pub struct FileService {
@@ -329,7 +329,7 @@ impl FileService {
         Ok(FileResponse::from_file_with_tours(result, tours_dto))
     }
 
-    /// Eliminar un file
+    /// Desactivar un file (soft delete)
     #[instrument(skip(self))]
     pub async fn delete_file(
         &self,
@@ -337,20 +337,20 @@ impl FileService {
         deleted_by: i32,
         deleted_by_username: Option<String>,
     ) -> Result<(), ApplicationError> {
-        // Obtener file antes de eliminar
+        // Obtener file antes de desactivar
         let file = self.file_repository
             .find_by_id(id)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", id)))?;
         
-        // Eliminar
-        let deleted = self.file_repository.delete(id).await?;
+        // Soft delete
+        let deleted = self.file_repository.soft_delete(id, deleted_by).await?;
         
         if !deleted {
             return Err(ApplicationError::NotFound(format!("File {} no encontrado", id)));
         }
         
-        info!("[DELETE] File eliminado: ID {}", id);
+        info!("[DELETE] File desactivado: ID {}", id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<File>(
@@ -361,28 +361,79 @@ impl FileService {
             Some(&file),
             None,
         ).await {
-            warn!("Error al registrar log de eliminación de file: {}", e);
+            warn!("Error al registrar log de desactivación de file: {}", e);
         }
         
-        // Notificación a admins (eliminar es crítico)
+        // Notificación a admins
         let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
         if let Err(e) = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
-            "File eliminado",
-            &format!("{} ha eliminado el file #{} (fechas: {} - {})", username, id, file.fecha_inicio, file.fecha_fin),
+            "File desactivado",
+            &format!("{} ha desactivado el file #{} (fechas: {} - {})", username, id, file.fecha_inicio, file.fecha_fin),
             NotificationType::Warning,
             NotificationCategory::Crud,
             NotificationPriority::High,
             Some(deleted_by),
         ).await {
-            warn!("Error al enviar notificación de file eliminado: {}", e);
+            warn!("Error al enviar notificación de file desactivado: {}", e);
+        }
+        
+        Ok(())
+    }
+
+    /// Restaurar un file desactivado
+    #[instrument(skip(self))]
+    pub async fn restore_file(
+        &self,
+        id: i32,
+        restored_by: i32,
+        restored_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        // Restore via repository
+        if !self.file_repository.restore(id, restored_by).await? {
+            return Err(ApplicationError::NotFound(format!("File {} no encontrado", id)));
+        }
+        
+        // Obtener file restaurado
+        let file = self.file_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", id)))?;
+        
+        info!("♻️ File restaurado: ID {}", id);
+        
+        // Logging del evento
+        if let Err(e) = self.logging_service.log_update::<File>(
+            Some(restored_by),
+            restored_by_username.clone(),
+            EntityType::File,
+            id,
+            None,
+            Some(&file),
+            Some(vec!["is_active".to_string()]),
+            None,
+        ).await {
+            warn!("Error al registrar log de restauración de file: {}", e);
+        }
+        
+        // Notificación a admins - Success
+        let username = restored_by_username.unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin, UserRole::Admin],
+            "File restaurado",
+            &format!("{} ha restaurado el file #{} (fechas: {} - {})", username, id, file.fecha_inicio, file.fecha_fin),
+            NotificationType::Success,
+            NotificationCategory::Crud,
+            NotificationPriority::Normal,
+            Some(restored_by),
+        ).await {
+            warn!("Error al enviar notificación de file restaurado: {}", e);
         }
         
         Ok(())
     }
 
     /// Eliminación permanente de file (hard delete) - Solo SuperAdmin
-    /// Alias de delete_file que ya hace eliminación permanente
     #[instrument(skip(self))]
     pub async fn hard_delete_file(
         &self,
@@ -390,7 +441,51 @@ impl FileService {
         deleted_by: i32,
         deleted_by_username: Option<String>,
     ) -> Result<(), ApplicationError> {
-        self.delete_file(id, deleted_by, deleted_by_username).await
+        // Obtener file antes de eliminar para el log
+        let file = self.file_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", id)))?;
+        
+        // Eliminar permanentemente
+        let deleted = self.file_repository.hard_delete(id).await?;
+        
+        if !deleted {
+            return Err(ApplicationError::NotFound(format!("File {} no encontrado", id)));
+        }
+        
+        info!("🗑️ File ELIMINADO PERMANENTEMENTE: ID {}", id);
+        
+        // Logging del evento (acción crítica)
+        if let Err(e) = self.logging_service.log_delete::<File>(
+            Some(deleted_by),
+            deleted_by_username.clone(),
+            EntityType::File,
+            id,
+            Some(&file),
+            Some("HARD_DELETE - Eliminación permanente".to_string()),
+        ).await {
+            warn!("Error al registrar log de eliminación permanente de file: {}", e);
+        }
+        
+        // Notificación CRÍTICA a SuperAdmin únicamente
+        let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin],
+            "⚠️ FILE ELIMINADO PERMANENTEMENTE",
+            &format!(
+                "ACCIÓN CRÍTICA: {} ha eliminado PERMANENTEMENTE el file #{} (fechas: {} - {}). Esta acción NO se puede deshacer.",
+                username, id, file.fecha_inicio, file.fecha_fin
+            ),
+            NotificationType::Error,
+            NotificationCategory::Alert,
+            NotificationPriority::Urgent,
+            Some(deleted_by),
+        ).await {
+            warn!("Error al enviar notificación de eliminación permanente de file: {}", e);
+        }
+        
+        Ok(())
     }
 
     /// Listar files por agencia

@@ -12,6 +12,7 @@ pub trait AgenciaRepositoryPort: Send + Sync {
     async fn find_by_encargado(&self, persona_id: i32) -> Result<Option<Agencia>, ApplicationError>;
     async fn update(&self, agencia: &Agencia) -> Result<Agencia, ApplicationError>;
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError>;
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Agencia>, ApplicationError>;
     async fn count(&self) -> Result<i64, ApplicationError>;
     async fn list_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<Agencia>, ApplicationError>;

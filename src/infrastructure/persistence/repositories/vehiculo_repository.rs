@@ -65,6 +65,22 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
         Ok(affected > 0)
     }
     
+    async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::update(vehiculos::table.filter(vehiculos::id.eq(id)))
+            .set((vehiculos::is_active.eq(false), vehiculos::updated_by.eq(Some(user_id))))
+            .execute(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
+    async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let affected = diesel::update(vehiculos::table.filter(vehiculos::id.eq(id)))
+            .set((vehiculos::is_active.eq(true), vehiculos::updated_by.eq(Some(user_id))))
+            .execute(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(affected > 0)
+    }
+    
     /// Eliminación permanente (hard delete)
     async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
         self.delete(id).await

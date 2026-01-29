@@ -16,7 +16,7 @@ use crate::domain::errors::ApplicationError;
 use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
-use super::common::{PaginationParams, PaginatedResponse, PaginationInfo, json_ok, json_created, json_deleted};
+use super::common::{PaginationParams, PaginatedResponse, PaginationInfo, json_ok, json_created, json_deleted, json_message};
 
 /// Listar files con paginación
 #[instrument(skip(state, _auth))]
@@ -140,6 +140,24 @@ pub async fn hard_delete_file(
         .await?;
     
     Ok(json_deleted())
+}
+
+/// Restaurar un file desactivado
+#[instrument(skip(state, auth))]
+pub async fn restore_file(
+    State(state): State<AppState>, 
+    auth: AuthUser, 
+    Path(id): Path<i32>
+) -> Result<impl IntoResponse, ApplicationError> {
+    state.container.file_service
+        .restore_file(
+            id, 
+            auth.user.id,
+            Some(auth.user.username.clone()),
+        )
+        .await?;
+    
+    Ok(json_message("File restaurado"))
 }
 
 /// Listar files por agencia

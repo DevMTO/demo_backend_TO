@@ -205,7 +205,7 @@ impl ConductorService {
         Ok(ConductorResponse::from(result))
     }
 
-    /// Eliminar un conductor (hard delete)
+    /// Desactivar un conductor (soft delete)
     #[instrument(skip(self))]
     pub async fn delete_conductor(
         &self,
@@ -219,11 +219,11 @@ impl ConductorService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Conductor {} no encontrado", id)))?;
         
-        // Eliminar
-        if !self.conductor_repository.delete(id).await? {
+        // Soft delete
+        if !self.conductor_repository.soft_delete(id, deleted_by).await? {
             return Err(ApplicationError::NotFound(format!("Conductor {} no encontrado", id)));
         }
-        info!("[DELETE] Conductor eliminado: {} (ID: {})", conductor.nro_brevete, id);
+        info!("[DELETE] Conductor desactivado: {} (ID: {})", conductor.nro_brevete, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Conductor>(
@@ -234,28 +234,79 @@ impl ConductorService {
             Some(&conductor),
             None,
         ).await {
-            warn!("Error al registrar log de eliminación de conductor: {}", e);
+            warn!("Error al registrar log de desactivación de conductor: {}", e);
         }
         
         // Notificación a admins - Warning porque es una eliminación
         let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
         if let Err(e) = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
-            "Conductor eliminado",
-            &format!("{} ha eliminado el conductor con brevete '{}'", username, conductor.nro_brevete),
+            "Conductor desactivado",
+            &format!("{} ha desactivado el conductor con brevete '{}'", username, conductor.nro_brevete),
             NotificationType::Warning,
             NotificationCategory::Crud,
             NotificationPriority::Normal,
             Some(deleted_by),
         ).await {
-            warn!("Error al enviar notificación de conductor eliminado: {}", e);
+            warn!("Error al enviar notificación de conductor desactivado: {}", e);
+        }
+        
+        Ok(())
+    }
+
+    /// Restaurar un conductor desactivado
+    #[instrument(skip(self))]
+    pub async fn restore_conductor(
+        &self,
+        id: i32,
+        restored_by: i32,
+        restored_by_username: Option<String>,
+    ) -> Result<(), ApplicationError> {
+        // Restore via repository
+        if !self.conductor_repository.restore(id, restored_by).await? {
+            return Err(ApplicationError::NotFound(format!("Conductor {} no encontrado", id)));
+        }
+        
+        // Obtener conductor restaurado
+        let conductor = self.conductor_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Conductor {} no encontrado", id)))?;
+        
+        info!("♻️ Conductor restaurado: {} (ID: {})", conductor.nro_brevete, id);
+        
+        // Logging del evento
+        if let Err(e) = self.logging_service.log_update::<Conductor>(
+            Some(restored_by),
+            restored_by_username.clone(),
+            EntityType::Conductor,
+            id,
+            None,
+            Some(&conductor),
+            Some(vec!["is_active".to_string()]),
+            None,
+        ).await {
+            warn!("Error al registrar log de restauración de conductor: {}", e);
+        }
+        
+        // Notificación a admins - Success porque se recupera
+        let username = restored_by_username.unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin, UserRole::Admin],
+            "Conductor restaurado",
+            &format!("{} ha restaurado el conductor con brevete '{}'", username, conductor.nro_brevete),
+            NotificationType::Success,
+            NotificationCategory::Crud,
+            NotificationPriority::Low,
+            Some(restored_by),
+        ).await {
+            warn!("Error al enviar notificación de conductor restaurado: {}", e);
         }
         
         Ok(())
     }
 
     /// Eliminación permanente de conductor (hard delete) - Solo SuperAdmin
-    /// Alias de delete_conductor que ya hace eliminación permanente
     #[instrument(skip(self))]
     pub async fn hard_delete_conductor(
         &self,
@@ -263,7 +314,48 @@ impl ConductorService {
         deleted_by: i32,
         deleted_by_username: Option<String>,
     ) -> Result<(), ApplicationError> {
-        self.delete_conductor(id, deleted_by, deleted_by_username).await
+        // Obtener conductor antes de eliminar
+        let conductor = self.conductor_repository
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Conductor {} no encontrado", id)))?;
+        
+        // Eliminar permanentemente
+        if !self.conductor_repository.hard_delete(id).await? {
+            return Err(ApplicationError::NotFound(format!("Conductor {} no encontrado", id)));
+        }
+        info!("🗑️ Conductor ELIMINADO PERMANENTEMENTE: {} (ID: {})", conductor.nro_brevete, id);
+        
+        // Logging del evento (acción crítica)
+        if let Err(e) = self.logging_service.log_delete::<Conductor>(
+            Some(deleted_by),
+            deleted_by_username.clone(),
+            EntityType::Conductor,
+            id,
+            Some(&conductor),
+            Some("HARD_DELETE - Eliminación permanente".to_string()),
+        ).await {
+            warn!("Error al registrar log de eliminación permanente de conductor: {}", e);
+        }
+        
+        // Notificación CRÍTICA a SuperAdmin únicamente
+        let username = deleted_by_username.unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin],
+            "⚠️ CONDUCTOR ELIMINADO PERMANENTEMENTE",
+            &format!(
+                "ACCIÓN CRÍTICA: {} ha eliminado PERMANENTEMENTE el conductor con brevete '{}'. Esta acción NO se puede deshacer.",
+                username, conductor.nro_brevete
+            ),
+            NotificationType::Error,
+            NotificationCategory::Crud,
+            NotificationPriority::Urgent,
+            Some(deleted_by),
+        ).await {
+            warn!("Error al enviar notificación de eliminación permanente de conductor: {}", e);
+        }
+        
+        Ok(())
     }
 
     // ===== Métodos auxiliares privados =====
