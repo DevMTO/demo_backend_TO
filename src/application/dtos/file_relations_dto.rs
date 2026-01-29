@@ -525,11 +525,15 @@ pub struct VehiculoDisponibilidadResponse {
 // ==================== MY FILES (Para usuarios autenticados) ====================
 
 /// File asignado a un guía con todos los detalles necesarios
+/// La relación principal es con file_tour (no directamente con file)
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct MyFileAsGuiaDto {
-    // Info del file
+    // Info de la relación principal (file_tour)
+    pub file_tour_id: i32,
+    pub file_guia_id: i32,
+    // Info del file (padre)
     pub file_id: i32,
     pub file_code: Option<String>,
     pub fecha_inicio: String,
@@ -564,11 +568,15 @@ pub struct MyFileAsGuiaDto {
 }
 
 /// File asignado a un conductor/vehículo con todos los detalles
+/// La relación principal es con file_tour (no directamente con file)
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct MyFileAsConductorDto {
-    // Info del file
+    // Info de la relación principal (file_tour)
+    pub file_tour_id: i32,
+    pub file_vehiculo_id: i32,
+    // Info del file (padre)
     pub file_id: i32,
     pub file_code: Option<String>,
     pub fecha_inicio: String,
@@ -599,11 +607,15 @@ pub struct MyFileAsConductorDto {
 }
 
 /// File asignado a un restaurante con todos los detalles
+/// La relación principal es con file_tour (no directamente con file)
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct MyFileAsRestauranteDto {
-    // Info del file
+    // Info de la relación principal (file_tour)
+    pub file_tour_id: i32,
+    pub file_restaurante_id: i32,
+    // Info del file (padre)
     pub file_id: i32,
     pub file_code: Option<String>,
     pub fecha_inicio: String,

@@ -70,6 +70,8 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         // lugar_recojo, hora_recojo y turno_tour están en file_tours (no en files)
         let query = diesel::sql_query(r#"
             SELECT 
+                ft.id as file_tour_id,
+                fg.id as file_guia_id,
                 f.id as file_id,
                 f.file_code,
                 f.fecha_inicio::text as fecha_inicio,
@@ -112,6 +114,10 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         
         #[derive(QueryableByName)]
         struct RawRow {
+            #[diesel(sql_type = Integer)]
+            file_tour_id: i32,
+            #[diesel(sql_type = Integer)]
+            file_guia_id: i32,
             #[diesel(sql_type = Integer)]
             file_id: i32,
             #[diesel(sql_type = Nullable<Text>)]
@@ -174,6 +180,8 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error consultando files para guía: {}", e)))?;
         
         let results: Vec<MyFileAsGuiaDto> = rows.into_iter().map(|r| MyFileAsGuiaDto {
+            file_tour_id: r.file_tour_id,
+            file_guia_id: r.file_guia_id,
             file_id: r.file_id,
             file_code: r.file_code,
             fecha_inicio: r.fecha_inicio,
@@ -221,6 +229,8 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         // lugar_recojo y hora_recojo están en file_tours
         let query = diesel::sql_query(r#"
             SELECT 
+                ft.id as file_tour_id,
+                fv.id as file_vehiculo_id,
                 f.id as file_id,
                 f.file_code,
                 f.fecha_inicio::text as fecha_inicio,
@@ -257,6 +267,10 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         
         #[derive(QueryableByName)]
         struct RawRow {
+            #[diesel(sql_type = Integer)]
+            file_tour_id: i32,
+            #[diesel(sql_type = Integer)]
+            file_vehiculo_id: i32,
             #[diesel(sql_type = Integer)]
             file_id: i32,
             #[diesel(sql_type = Nullable<Text>)]
@@ -307,6 +321,8 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error consultando files para conductor: {}", e)))?;
         
         let results: Vec<MyFileAsConductorDto> = rows.into_iter().map(|r| MyFileAsConductorDto {
+            file_tour_id: r.file_tour_id,
+            file_vehiculo_id: r.file_vehiculo_id,
             file_id: r.file_id,
             file_code: r.file_code,
             fecha_inicio: r.fecha_inicio,
@@ -349,6 +365,8 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         // file_restaurantes usa id_file_tour para conectar con file_tours
         let query = diesel::sql_query(r#"
             SELECT 
+                ft.id as file_tour_id,
+                fr.id as file_restaurante_id,
                 f.id as file_id,
                 f.file_code,
                 f.fecha_inicio::text as fecha_inicio,
@@ -376,6 +394,10 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         
         #[derive(QueryableByName)]
         struct RawRow {
+            #[diesel(sql_type = Integer)]
+            file_tour_id: i32,
+            #[diesel(sql_type = Integer)]
+            file_restaurante_id: i32,
             #[diesel(sql_type = Integer)]
             file_id: i32,
             #[diesel(sql_type = Nullable<Text>)]
@@ -412,6 +434,8 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error consultando files para restaurante: {}", e)))?;
         
         let results: Vec<MyFileAsRestauranteDto> = rows.into_iter().map(|r| MyFileAsRestauranteDto {
+            file_tour_id: r.file_tour_id,
+            file_restaurante_id: r.file_restaurante_id,
             file_id: r.file_id,
             file_code: r.file_code,
             fecha_inicio: r.fecha_inicio,
