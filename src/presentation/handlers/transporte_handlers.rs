@@ -196,7 +196,7 @@ pub async fn delete_transporte(
         .deactivate_transporte(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("🗑️ Handler: Transporte desactivado (ID: {})", id);
+    info!("[DELETE] Handler: Transporte desactivado (ID: {})", id);
     Ok(json_message("Transporte desactivado"))
 }
 

@@ -230,7 +230,7 @@ impl AgenciaService {
             return Err(ApplicationError::NotFound(format!("Agencia {} no encontrada", id)));
         }
         
-        info!("🗑️ Agencia desactivada: {} (ID: {})", agencia.nombre, id);
+        info!("[DELETE] Agencia desactivada: {} (ID: {})", agencia.nombre, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Agencia>(

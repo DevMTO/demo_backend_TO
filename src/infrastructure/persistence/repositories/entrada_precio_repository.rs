@@ -158,7 +158,7 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
             .await
             .map_err(|e| ApplicationError::Repository(format!("Error al eliminar precio: {e}")))?;
         
-        debug!("🗑️ Precio de entrada eliminado: ID {}", id);
+        debug!("[DELETE] Precio de entrada eliminado: ID {}", id);
         Ok(deleted > 0)
     }
     
@@ -173,7 +173,7 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
         .await
         .map_err(|e| ApplicationError::Repository(format!("Error al eliminar precios: {e}")))?;
         
-        debug!("🗑️ {} precios eliminados para entrada {}", deleted, id_entrada);
+        debug!("[DELETE] {} precios eliminados para entrada {}", deleted, id_entrada);
         Ok(deleted as i64)
     }
     

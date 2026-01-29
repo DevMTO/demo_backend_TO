@@ -223,7 +223,7 @@ impl ConductorService {
         if !self.conductor_repository.delete(id).await? {
             return Err(ApplicationError::NotFound(format!("Conductor {} no encontrado", id)));
         }
-        info!("🗑️ Conductor eliminado: {} (ID: {})", conductor.nro_brevete, id);
+        info!("[DELETE] Conductor eliminado: {} (ID: {})", conductor.nro_brevete, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Conductor>(

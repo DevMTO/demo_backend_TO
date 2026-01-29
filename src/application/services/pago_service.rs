@@ -208,7 +208,7 @@ impl PagoService {
             return Err(ApplicationError::NotFound(format!("Pago {} no encontrado", id)));
         }
         
-        info!("🗑️ Pago eliminado: {} ${} (ID: {})", pago.tipo_movimiento, pago.monto, id);
+        info!("[DELETE] Pago eliminado: {} ${} (ID: {})", pago.tipo_movimiento, pago.monto, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Pago>(

@@ -226,8 +226,9 @@ pub fn create_router(
         .route("/{id}/hard-delete", delete(file_handlers::hard_delete_file))
         // File Relations - Pasajeros (estos siguen vinculados al file, no al file_tour)
         .route("/{id}/pasajeros", get(file_relations_handlers::list_file_pasajeros).post(file_relations_handlers::add_pasajero_to_file))
+        .route("/{id}/pasajeros/bulk", post(file_relations_handlers::bulk_add_pasajeros_to_file))
         .route("/{id}/pasajeros/with-persona", post(file_relations_handlers::create_pasajero_with_persona))
-        .route("/{id}/pasajeros/{pasajero_id}", axum::routing::delete(file_relations_handlers::remove_file_pasajero))
+        .route("/{id}/pasajeros/{pasajero_id}", axum::routing::delete(file_relations_handlers::remove_file_pasajero).put(file_relations_handlers::update_file_pasajero))
         .route("/pasajeros/{id}/status", patch(relation_status_handlers::update_file_pasajero_status))
         // File Relations - Tours (lista los tours asignados al file)
         .route("/{id}/tours", get(file_relations_handlers::list_file_tours));

@@ -149,7 +149,7 @@ impl EntradaPrecioService {
         if !self.entrada_precio_repository.delete(id).await? {
             return Err(ApplicationError::NotFound(format!("Precio {} no encontrado", id)));
         }
-        info!("🗑️ Precio eliminado: ID {}", id);
+        info!("[DELETE] Precio eliminado: ID {}", id);
         Ok(())
     }
 

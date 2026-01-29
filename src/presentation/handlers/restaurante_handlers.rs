@@ -96,7 +96,7 @@ pub async fn delete_restaurante(
         .deactivate_restaurante(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("🗑️ Handler: Restaurante desactivado (ID: {})", id);
+    info!("[DELETE] Handler: Restaurante desactivado (ID: {})", id);
     Ok(json_message("Restaurante desactivado correctamente"))
 }
 
@@ -117,7 +117,7 @@ pub async fn hard_delete_restaurante(
         .hard_delete_restaurante(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("🗑️ Handler: Restaurante ELIMINADO PERMANENTEMENTE (ID: {})", id);
+    info!("[DELETE] Handler: Restaurante ELIMINADO PERMANENTEMENTE (ID: {})", id);
     Ok(json_deleted())
 }
 

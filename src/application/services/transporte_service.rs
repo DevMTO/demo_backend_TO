@@ -305,7 +305,7 @@ impl TransporteService {
         if !self.transporte_repository.soft_delete(id, deleted_by).await? {
             return Err(ApplicationError::NotFound(format!("Transporte {} no encontrado", id)));
         }
-        info!("🗑️ Transporte desactivado: {} (ID: {})", transporte.nombre, id);
+        info!("[DELETE] Transporte desactivado: {} (ID: {})", transporte.nombre, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Transporte>(

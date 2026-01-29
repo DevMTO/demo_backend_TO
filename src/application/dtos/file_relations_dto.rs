@@ -265,6 +265,28 @@ pub struct CreatePasajeroWithPersonaResponse {
     pub persona_created: bool, // true si se creó, false si ya existía
 }
 
+/// Request para actualizar información de un pasajero en el file
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateFilePasajeroRequest {
+    /// ID de persona (opcional para pasajeros anónimos)
+    pub id_persona: Option<i32>,
+    #[validate(length(max = 10))]
+    pub asiento: Option<String>,
+    #[validate(length(max = 30))]
+    pub tipo_pasajero: Option<String>, // "adulto", "niño", "infante", "tercera_edad"
+    #[validate(length(max = 60))]
+    pub nacionalidad: Option<String>,
+    /// Edad del pasajero al momento del viaje
+    #[validate(range(min = 0, max = 120))]
+    pub edad: Option<i32>,
+    pub notas: Option<String>,
+    /// Estado: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado
+    #[validate(length(max = 20))]
+    pub status: Option<String>,
+}
+
 // ==================== FILE RESTAURANTE ====================
 
 #[derive(Debug, Clone, Serialize, TS)]

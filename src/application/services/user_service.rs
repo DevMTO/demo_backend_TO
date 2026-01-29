@@ -338,7 +338,7 @@ impl UserService {
         }
         
         self.user_repository.delete(id).await?;
-        info!("🗑️ Usuario desactivado: {} (ID: {})", user.username, id);
+        info!("[DELETE] Usuario desactivado: {} (ID: {})", user.username, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<User>(
@@ -408,7 +408,7 @@ impl UserService {
         let user_clone = user.clone();
         
         self.user_repository.hard_delete(id).await?;
-        info!("🗑️ Usuario ELIMINADO PERMANENTEMENTE: {} (ID: {})", user_clone.username, id);
+        info!("[DELETE] Usuario ELIMINADO PERMANENTEMENTE: {} (ID: {})", user_clone.username, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<User>(

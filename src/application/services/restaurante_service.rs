@@ -241,7 +241,7 @@ impl RestauranteService {
         updated.updated_at = chrono::Utc::now();
         
         self.restaurante_repository.update(&updated).await?;
-        info!("🗑️ Restaurante desactivado: {} (ID: {})", restaurante.nombre, id);
+        info!("[DELETE] Restaurante desactivado: {} (ID: {})", restaurante.nombre, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Restaurante>(
@@ -290,7 +290,7 @@ impl RestauranteService {
         if !self.restaurante_repository.hard_delete(id).await? {
             return Err(ApplicationError::NotFound(format!("Restaurante {} no encontrado", id)));
         }
-        info!("🗑️ Restaurante ELIMINADO PERMANENTEMENTE: {} (ID: {})", restaurante.nombre, id);
+        info!("[DELETE] Restaurante ELIMINADO PERMANENTEMENTE: {} (ID: {})", restaurante.nombre, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Restaurante>(

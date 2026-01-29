@@ -262,7 +262,7 @@ impl ActivityLogRepositoryPort for PostgresActivityLogRepository {
         .await
         .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        debug!("🗑️ Eliminados {} logs antiguos", deleted);
+        debug!("[DELETE] Eliminados {} logs antiguos", deleted);
         Ok(deleted as i64)
     }
 }

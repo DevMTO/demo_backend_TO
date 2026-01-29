@@ -202,7 +202,7 @@ impl GuiaService {
                 id
             )));
         }
-        info!("🗑️ Guía eliminado: {} (ID: {})", guia.nro_carnet, id);
+        info!("[DELETE] Guía eliminado: {} (ID: {})", guia.nro_carnet, id);
 
         // Log activity
         let _ = self

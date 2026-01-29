@@ -76,3 +76,15 @@ pub struct NewFilePasajeroModel<'a> {
     pub status: Option<&'a str>,
 }
 
+/// Modelo para actualizar file_pasajeros
+#[derive(Debug, Clone, AsChangeset)]
+#[diesel(table_name = file_pasajeros)]
+pub struct UpdateFilePasajeroModel {
+    pub id_persona: Option<Option<i32>>,  // Option<Option> para poder setear a NULL
+    pub asiento: Option<String>,
+    pub tipo_pasajero: Option<String>,
+    pub notas: Option<String>,
+    pub nacionalidad: Option<String>,
+    pub edad: Option<i32>,
+    pub status: Option<String>,
+}

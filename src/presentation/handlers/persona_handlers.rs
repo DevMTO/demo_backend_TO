@@ -133,7 +133,7 @@ pub async fn delete_persona(
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    debug!("🗑️ Eliminando persona ID: {}", id);
+    debug!("[DELETE] Eliminando persona ID: {}", id);
     
     // Delegar al servicio
     state.container.persona_service
@@ -160,7 +160,7 @@ pub async fn hard_delete_persona(
         return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar permanentemente personas".to_string()));
     }
     
-    debug!("🗑️ HARD DELETE persona ID: {}", id);
+    debug!("[DELETE] HARD DELETE persona ID: {}", id);
     
     // Delegar al servicio
     state.container.persona_service

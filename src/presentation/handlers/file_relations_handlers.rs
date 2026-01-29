@@ -1,6 +1,6 @@
 use axum::{extract::{Path, State}, response::IntoResponse, Json};
 use chrono::Datelike;
-use tracing::instrument;
+use tracing::{instrument, info};
 use validator::Validate;
 
 use crate::application::dtos::{
@@ -8,7 +8,7 @@ use crate::application::dtos::{
     AssignRestauranteToFileTourRequest, AssignVehiculoToFileTourRequest,
     FileEntradaResponse, FileGuiaResponse, FilePasajeroResponse,
     FileRestauranteResponse, FileVehiculoResponse, FileVehiculoListItemDto,
-    ResourceStatusUpdateResponse, FileTourDto,
+    ResourceStatusUpdateResponse, FileTourDto, BulkAddPasajerosRequest,
 };
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::{StatusGuia, StatusConductor};
@@ -294,10 +294,86 @@ pub async fn add_pasajero_to_file(
         )
         .await?;
     
-    // Actualizar conteo de pasajeros en el file
-    state.container.file_repository.update_pasajeros_count(file_id).await?;
+    // NOTA: nro_pasajeros es un valor fijo contratado, no se actualiza al agregar pasajeros
     
     Ok(json_created(FilePasajeroResponse::from(result)))
+}
+
+/// Agrega múltiples pasajeros a un file (bulk import desde Excel)
+/// NOTA: nro_pasajeros es un valor fijo contratado y no se modifica
+#[instrument(skip(state, auth, request))]
+pub async fn bulk_add_pasajeros_to_file(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(file_id): Path<i32>,
+    Json(request): Json<BulkAddPasajerosRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Verificar que el file existe
+    state.container.file_repository
+        .find_by_id(file_id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+    
+    let mut results: Vec<FilePasajeroResponse> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    
+    for (idx, pasajero) in request.pasajeros.iter().enumerate() {
+        // Validar cada pasajero
+        if let Err(e) = pasajero.validate() {
+            errors.push(format!("Pasajero {}: {}", idx + 1, e));
+            continue;
+        }
+        
+        // Si se proporciona id_persona, verificar que existe
+        if let Some(persona_id) = pasajero.id_persona {
+            if state.container.persona_repository.find_by_id(persona_id).await?.is_none() {
+                errors.push(format!("Pasajero {}: Persona {} no encontrada", idx + 1, persona_id));
+                continue;
+            }
+        }
+        
+        match state.container.file_pasajero_repository
+            .add(
+                file_id, 
+                pasajero.id_persona, 
+                pasajero.asiento.as_deref(),
+                pasajero.tipo_pasajero.as_deref(),
+                pasajero.nacionalidad.as_deref(),
+                pasajero.notas.as_deref(),
+                pasajero.edad,
+                Some(auth.user.id),
+            )
+            .await
+        {
+            Ok(result) => results.push(FilePasajeroResponse::from(result)),
+            Err(e) => errors.push(format!("Pasajero {}: {}", idx + 1, e)),
+        }
+    }
+    
+    // NOTA: nro_pasajeros es un valor fijo contratado, NO se actualiza al agregar pasajeros
+    // Solo contamos cuántos pasajeros se asignaron para informar al usuario
+    let current_count = state.container.file_pasajero_repository
+        .count_by_file(file_id)
+        .await? as i32;
+    
+    info!("Bulk import: {} pasajeros agregados al file {}, total asignados: {}", results.len(), file_id, current_count);
+    
+    #[derive(serde::Serialize)]
+    struct BulkAddResponse {
+        success: bool,
+        added_count: usize,
+        total_asignados: i32,  // Renombrado para claridad: es el conteo de pasajeros asignados, no nro_pasajeros contratado
+        errors: Vec<String>,
+        pasajeros: Vec<FilePasajeroResponse>,
+    }
+    
+    Ok(json_ok(BulkAddResponse {
+        success: errors.is_empty(),
+        added_count: results.len(),
+        total_asignados: current_count,
+        errors,
+        pasajeros: results,
+    }))
 }
 
 /// Elimina un pasajero de un file
@@ -318,10 +394,57 @@ pub async fn remove_file_pasajero(
     
     state.container.file_pasajero_repository.remove(pasajero_asig_id).await?;
     
-    // Actualizar conteo de pasajeros en el file
-    state.container.file_repository.update_pasajeros_count(file_id).await?;
+    // NOTA: nro_pasajeros es un valor fijo contratado, no se modifica al eliminar pasajeros
     
     Ok(json_deleted())
+}
+
+/// Actualiza la información de un pasajero en el file
+#[instrument(skip(state, _auth, request))]
+pub async fn update_file_pasajero(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path((file_id, pasajero_id)): Path<(i32, i32)>,
+    Json(request): Json<crate::application::dtos::UpdateFilePasajeroRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    use crate::infrastructure::persistence::models::file_pasajero_model::UpdateFilePasajeroModel;
+    
+    request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    
+    // Verificar que el pasajero existe y pertenece al file
+    let existing = state.container.file_pasajero_repository
+        .find_by_id(pasajero_id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Pasajero {} no encontrado", pasajero_id)))?;
+    
+    if existing.id_file != file_id {
+        return Err(ApplicationError::Validation("El pasajero no pertenece a este file".to_string()));
+    }
+    
+    // Validar status si se proporciona
+    if let Some(ref status) = request.status {
+        crate::application::dtos::FileRelationStatus::from_str(status)
+            .map_err(|e| ApplicationError::Validation(e))?;
+    }
+    
+    // Construir modelo de actualización
+    let update_data = UpdateFilePasajeroModel {
+        id_persona: request.id_persona.map(Some), // Convierte Option<i32> a Option<Option<i32>>
+        asiento: request.asiento.clone(),
+        tipo_pasajero: request.tipo_pasajero.clone(),
+        notas: request.notas.clone(),
+        nacionalidad: request.nacionalidad.clone(),
+        edad: request.edad,
+        status: request.status.clone(),
+    };
+    
+    let result = state.container.file_pasajero_repository
+        .update(pasajero_id, update_data)
+        .await?;
+    
+    info!("Pasajero {} actualizado en file {}", pasajero_id, file_id);
+    
+    Ok(json_ok(FilePasajeroResponse::from(result)))
 }
 
 /// Crea un pasajero con persona (si no existe la persona, la crea)
@@ -403,8 +526,7 @@ pub async fn create_pasajero_with_persona(
         )
         .await?;
     
-    // Actualizar conteo de pasajeros en el file
-    state.container.file_repository.update_pasajeros_count(file_id).await?;
+    // NOTA: nro_pasajeros es un valor fijo contratado, no se actualiza al agregar pasajeros
     
     let mut pasajero_response = FilePasajeroResponse::from(pasajero_result);
     pasajero_response.pasajero_nombre = Some(persona_nombre.clone());

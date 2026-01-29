@@ -216,7 +216,7 @@ impl VehiculoService {
         if !self.vehiculo_repository.delete(id).await? {
             return Err(ApplicationError::NotFound(format!("Vehículo {} no encontrado", id)));
         }
-        info!("🗑️ Vehículo eliminado: {} (ID: {})", vehiculo.placa, id);
+        info!("[DELETE] Vehículo eliminado: {} (ID: {})", vehiculo.placa, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Vehiculo>(

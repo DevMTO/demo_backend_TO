@@ -283,7 +283,7 @@ pub async fn delete_agencia_logo(
     auth_user: AuthUser,
     Path(agencia_id): Path<i32>,
 ) -> Result<Json<StorageDeleteResponse>, (StatusCode, Json<StorageErrorResponse>)> {
-    info!("🗑️ Eliminando logo para agencia {}", agencia_id);
+    info!("[DELETE] Eliminando logo para agencia {}", agencia_id);
     
     let storage = state.container.tigris_storage.as_ref()
         .ok_or_else(|| {
@@ -365,7 +365,7 @@ pub async fn delete_agencia_banner(
     auth_user: AuthUser,
     Path(agencia_id): Path<i32>,
 ) -> Result<Json<StorageDeleteResponse>, (StatusCode, Json<StorageErrorResponse>)> {
-    info!("🗑️ Eliminando banner para agencia {}", agencia_id);
+    info!("[DELETE] Eliminando banner para agencia {}", agencia_id);
     
     let storage = state.container.tigris_storage.as_ref()
         .ok_or_else(|| {

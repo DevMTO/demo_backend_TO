@@ -130,7 +130,7 @@ pub async fn delete_tour(
         )
         .await?;
     
-    info!("🗑️ Tour desactivado: ID {}", id);
+    info!("[DELETE] Tour desactivado: ID {}", id);
     Ok(json_message("Tour desactivado correctamente"))
 }
 
@@ -155,7 +155,7 @@ pub async fn hard_delete_tour(
         )
         .await?;
     
-    info!("🗑️ Tour ELIMINADO PERMANENTEMENTE: ID {}", id);
+    info!("[DELETE] Tour ELIMINADO PERMANENTEMENTE: ID {}", id);
     Ok(json_deleted())
 }
 

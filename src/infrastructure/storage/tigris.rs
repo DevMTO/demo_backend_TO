@@ -162,7 +162,7 @@ impl TigrisStorage {
     pub async fn delete(&self, path: &str) -> Result<(), String> {
         let full_path = self.get_full_path(path);
         
-        debug!("🗑️ Eliminando archivo: {}", full_path);
+        debug!("[DELETE] Eliminando archivo: {}", full_path);
 
         let response = self.bucket
             .delete_object(&full_path)

@@ -201,7 +201,7 @@ impl TourService {
             return Err(ApplicationError::NotFound(format!("Tour {} no encontrado", id)));
         }
         
-        info!("🗑️ Tour desactivado: {} (ID: {})", tour.nombre, id);
+        info!("[DELETE] Tour desactivado: {} (ID: {})", tour.nombre, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Tour>(
@@ -253,7 +253,7 @@ impl TourService {
             return Err(ApplicationError::NotFound(format!("Tour {} no encontrado", id)));
         }
         
-        info!("🗑️ Tour ELIMINADO PERMANENTEMENTE: {} (ID: {})", tour.nombre, id);
+        info!("[DELETE] Tour ELIMINADO PERMANENTEMENTE: {} (ID: {})", tour.nombre, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Tour>(

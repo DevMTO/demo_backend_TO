@@ -184,7 +184,7 @@ impl EntradaService {
                 id
             )));
         }
-        info!("🗑️ Entrada desactivada: {} (ID: {})", entrada.nombre, id);
+        info!("[DELETE] Entrada desactivada: {} (ID: {})", entrada.nombre, id);
 
         // Log activity
         let _ = self
@@ -240,7 +240,7 @@ impl EntradaService {
                 id
             )));
         }
-        info!("🗑️ Entrada ELIMINADA PERMANENTEMENTE: {} (ID: {})", entrada.nombre, id);
+        info!("[DELETE] Entrada ELIMINADA PERMANENTEMENTE: {} (ID: {})", entrada.nombre, id);
 
         // Log activity
         let _ = self

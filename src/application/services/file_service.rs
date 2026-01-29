@@ -350,7 +350,7 @@ impl FileService {
             return Err(ApplicationError::NotFound(format!("File {} no encontrado", id)));
         }
         
-        info!("🗑️ File eliminado: ID {}", id);
+        info!("[DELETE] File eliminado: ID {}", id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<File>(
@@ -400,8 +400,15 @@ impl FileService {
             .find_by_agencia(agencia_id)
             .await?;
         
-        info!("{} files encontrados para agencia {}", files.len(), agencia_id);
-        Ok(files.into_iter().map(Into::into).collect())
+        // Cargar tours para cada file
+        let mut items = Vec::new();
+        for file in files {
+            let tours = self.load_file_tours(file.id).await?;
+            items.push(FileResponse::from_file_with_tours(file, tours));
+        }
+        
+        info!("{} files encontrados para agencia {} (con tours cargados)", items.len(), agencia_id);
+        Ok(items)
     }
 
     /// Buscar files por rango de fechas
@@ -415,8 +422,15 @@ impl FileService {
             .find_by_date_range(from, to)
             .await?;
         
-        info!("{} files encontrados entre {} y {}", files.len(), from, to);
-        Ok(files.into_iter().map(Into::into).collect())
+        // Cargar tours para cada file
+        let mut items = Vec::new();
+        for file in files {
+            let tours = self.load_file_tours(file.id).await?;
+            items.push(FileResponse::from_file_with_tours(file, tours));
+        }
+        
+        info!("{} files encontrados entre {} y {} (con tours cargados)", items.len(), from, to);
+        Ok(items)
     }
 
     /// Listar files próximos (en los próximos 7 días)

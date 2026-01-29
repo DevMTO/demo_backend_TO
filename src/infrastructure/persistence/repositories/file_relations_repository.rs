@@ -129,6 +129,8 @@ pub trait FilePasajeroRepositoryPort: Send + Sync {
     async fn count_by_file(&self, id_file: i32) -> Result<i64, ApplicationError>;
     /// Actualiza el status de un file_pasajero
     async fn update_status(&self, id: i32, status: &str) -> Result<FilePasajeroModel, ApplicationError>;
+    /// Actualiza la información de un file_pasajero
+    async fn update(&self, id: i32, data: crate::infrastructure::persistence::models::file_pasajero_model::UpdateFilePasajeroModel) -> Result<FilePasajeroModel, ApplicationError>;
 }
 
 /// Repositorio para file_restaurantes (vinculado a file_tours)
@@ -465,6 +467,21 @@ impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error actualizando status de file_pasajero: {}", e)))?;
         
         info!("Status de file_pasajero {} actualizado a '{}'", id, status);
+        Ok(result)
+    }
+    
+    #[instrument(skip(self, data))]
+    async fn update(&self, id: i32, data: crate::infrastructure::persistence::models::file_pasajero_model::UpdateFilePasajeroModel) -> Result<FilePasajeroModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(file_pasajeros::table.filter(file_pasajeros::id.eq(id)))
+            .set(&data)
+            .returning(FilePasajeroModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando file_pasajero: {}", e)))?;
+        
+        info!("FilePasajero {} actualizado", id);
         Ok(result)
     }
 }

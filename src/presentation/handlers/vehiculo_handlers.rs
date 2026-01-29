@@ -110,7 +110,7 @@ pub async fn delete_vehiculo(
         .delete_vehiculo(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("🗑️ Handler: Vehículo eliminado (ID: {})", id);
+    info!("[DELETE] Handler: Vehículo eliminado (ID: {})", id);
     Ok(json_deleted())
 }
 
@@ -131,7 +131,7 @@ pub async fn hard_delete_vehiculo(
         .hard_delete_vehiculo(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("🗑️ Handler: Vehículo ELIMINADO PERMANENTEMENTE (ID: {})", id);
+    info!("[DELETE] Handler: Vehículo ELIMINADO PERMANENTEMENTE (ID: {})", id);
     Ok(json_deleted())
 }
 

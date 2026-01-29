@@ -191,7 +191,7 @@ impl PersonaService {
             return Err(ApplicationError::NotFound(format!("Persona con ID {} no encontrada", id)));
         }
         
-        info!("🗑️ Persona eliminada: {} {} (ID: {})", persona.nombre, persona.apellidos, id);
+        info!("[DELETE] Persona eliminada: {} {} (ID: {})", persona.nombre, persona.apellidos, id);
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Persona>(

@@ -94,7 +94,7 @@ pub async fn delete_conductor(
         .delete_conductor(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("🗑️ Handler: Conductor eliminado (ID: {})", id);
+    info!("[DELETE] Handler: Conductor eliminado (ID: {})", id);
     Ok(json_deleted())
 }
 
@@ -115,7 +115,7 @@ pub async fn hard_delete_conductor(
         .hard_delete_conductor(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    info!("🗑️ Handler: Conductor ELIMINADO PERMANENTEMENTE (ID: {})", id);
+    info!("[DELETE] Handler: Conductor ELIMINADO PERMANENTEMENTE (ID: {})", id);
     Ok(json_deleted())
 }
 

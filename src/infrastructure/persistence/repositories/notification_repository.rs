@@ -159,7 +159,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
 
     #[instrument(skip(self))]
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError> {
-        debug!("🗑️ Eliminando notificación: {}", id);
+        debug!("[DELETE] Eliminando notificación: {}", id);
         let mut conn = self.pool.get_connection().await?;
         
         let deleted = diesel::delete(notifications::table.filter(notifications::id.eq(id)))
@@ -172,7 +172,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
 
     #[instrument(skip(self))]
     async fn cleanup_expired(&self) -> Result<i64, ApplicationError> {
-        debug!("🗑️ Limpiando notificaciones expiradas");
+        debug!("[DELETE] Limpiando notificaciones expiradas");
         let mut conn = self.pool.get_connection().await?;
         let now = Utc::now();
         
@@ -200,7 +200,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
     ) -> Result<crate::application::ports::CleanupResult, ApplicationError> {
         use diesel::sql_types::Integer;
         
-        debug!("🗑️ Ejecutando cleanup de notificaciones por prioridad");
+        debug!("[DELETE] Ejecutando cleanup de notificaciones por prioridad");
         let mut conn = self.pool.get_connection().await?;
         
         // Ejecutar la función de cleanup que creamos en la migración
@@ -494,7 +494,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
 
     #[instrument(skip(self, notification_ids))]
     async fn dismiss(&self, user_id: i32, notification_ids: Vec<i32>) -> Result<i64, ApplicationError> {
-        debug!("🗑️ Descartando {} notificaciones", notification_ids.len());
+        debug!("[DELETE] Descartando {} notificaciones", notification_ids.len());
         let mut conn = self.pool.get_connection().await?;
         let now = Utc::now();
         
@@ -516,7 +516,7 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
 
     #[instrument(skip(self))]
     async fn dismiss_all(&self, user_id: i32) -> Result<i64, ApplicationError> {
-        debug!("🗑️ Descartando todas las notificaciones para usuario: {}", user_id);
+        debug!("[DELETE] Descartando todas las notificaciones para usuario: {}", user_id);
         let mut conn = self.pool.get_connection().await?;
         let now = Utc::now();
         

@@ -338,7 +338,7 @@ pub async fn delete_notification(
         ));
     }
     
-    info!("🗑️ Eliminando notificación: {}", notification_id);
+    info!("[DELETE] Eliminando notificación: {}", notification_id);
     
     // Verificar que existe
     let _ = state.container.notification_repository
@@ -391,7 +391,7 @@ pub async fn cleanup_notifications(
         ));
     }
     
-    info!("🗑️ Ejecutando cleanup de notificaciones");
+    info!("[DELETE] Ejecutando cleanup de notificaciones");
     
     let result = state.container.notification_repository
         .cleanup_by_priority(
