@@ -253,8 +253,8 @@ pub struct TarifaServicioResponse {
     pub precio_venta: BigDecimal,
     #[ts(type = "string")]
     pub precio_costo: BigDecimal,
-    #[ts(type = "string")]
-    pub margen: BigDecimal,
+    #[ts(type = "string | null")]
+    pub margen: Option<BigDecimal>,
     pub vigente_desde: String,
     pub vigente_hasta: Option<String>,
     pub is_active: bool,

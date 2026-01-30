@@ -217,7 +217,7 @@ pub struct TarifaServicioModel {
     pub id_servicio: i32,
     pub precio_venta: BigDecimal,
     pub precio_costo: BigDecimal,
-    pub margen: BigDecimal,  // GENERATED ALWAYS AS (precio_venta - precio_costo)
+    pub margen: Option<BigDecimal>,
     pub vigente_desde: NaiveDate,
     pub vigente_hasta: Option<NaiveDate>,
     pub is_active: bool,
