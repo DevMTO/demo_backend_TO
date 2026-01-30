@@ -177,4 +177,73 @@ impl ConductorRepositoryPort for PostgresConductorRepository {
         info!("Conductor {} status actualizado a: {}", id, status);
         Ok(affected > 0)
     }
+    
+    #[instrument(skip(self))]
+    async fn list_by_transporte_paginated(&self, transporte_id: i32, limit: i64, offset: i64) -> Result<(Vec<ConductorListItemDto>, i64), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let total: i64 = conductores::table
+            .filter(conductores::id_transporte.eq(transporte_id))
+            .count()
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let results: Vec<(ConductorModel, Option<(String, String, String)>, Option<String>)> = conductores::table
+            .left_join(personas::table.on(conductores::id_persona.eq(personas::id)))
+            .left_join(transportes::table.on(conductores::id_transporte.eq(transportes::id.nullable())))
+            .filter(conductores::id_transporte.eq(transporte_id))
+            .select((
+                ConductorModel::as_select(),
+                (personas::nombre, personas::apellidos, personas::nro_documento).nullable(),
+                transportes::nombre.nullable(),
+            ))
+            .order(conductores::nro_brevete.asc())
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let items: Vec<ConductorListItemDto> = results
+            .into_iter()
+            .map(|(conductor, persona_data, transporte_nombre)| {
+                let (persona_nombre, persona_documento) = persona_data
+                    .map(|(nombre, apellidos, doc)| {
+                        (Some(format!("{} {}", nombre, apellidos)), Some(doc))
+                    })
+                    .unwrap_or((None, None));
+                
+                ConductorListItemDto {
+                    id: conductor.id,
+                    id_persona: conductor.id_persona,
+                    persona_nombre,
+                    persona_documento,
+                    id_transporte: conductor.id_transporte,
+                    transporte_nombre,
+                    nro_brevete: conductor.nro_brevete,
+                    tiene_soat: conductor.tiene_soat,
+                    status: conductor.status,
+                    is_active: conductor.is_active,
+                    created_at: conductor.created_at,
+                    updated_at: conductor.updated_at,
+                }
+            })
+            .collect();
+        
+        info!("Listados {} conductores del transporte {} de {} total", items.len(), transporte_id, total);
+        Ok((items, total))
+    }
+    
+    async fn list_available_by_transporte(&self, transporte_id: i32) -> Result<Vec<Conductor>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let results = conductores::table
+            .filter(conductores::id_transporte.eq(transporte_id))
+            .filter(conductores::status.eq("disponible"))
+            .filter(conductores::is_active.eq(true))
+            .load::<ConductorModel>(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(results.into_iter().map(Into::into).collect())
+    }
 }

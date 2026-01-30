@@ -29,4 +29,10 @@ pub trait ConductorRepositoryPort: Send + Sync {
     
     /// Actualiza el status del conductor (disponible, ocupado, etc.)
     async fn update_status(&self, id: i32, status: &str) -> Result<bool, ApplicationError>;
+    
+    /// Listar conductores de un transporte con paginación
+    async fn list_by_transporte_paginated(&self, transporte_id: i32, limit: i64, offset: i64) -> Result<(Vec<ConductorListItemDto>, i64), ApplicationError>;
+    
+    /// Listar conductores disponibles de un transporte específico
+    async fn list_available_by_transporte(&self, transporte_id: i32) -> Result<Vec<Conductor>, ApplicationError>;
 }

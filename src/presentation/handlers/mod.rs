@@ -1,24 +1,30 @@
-pub mod common;
-pub mod auth_handlers;
-pub mod user_handlers;
-pub mod persona_handlers;
-pub mod agencia_handlers;
-pub mod tour_handlers;
-pub mod transporte_handlers;
-pub mod vehiculo_handlers;
-pub mod conductor_handlers;
-pub mod guia_handlers;
-pub mod restaurante_handlers;
-pub mod entrada_handlers;
-pub mod entrada_precio_handlers;
-pub mod file_handlers;
-pub mod file_relations_handlers;
-pub mod relation_status_handlers;
-pub mod my_files_handlers;
-pub mod pago_handlers;
-pub mod activity_log_handlers;
-pub mod notification_handlers;
-pub mod storage_handlers;
+//! Módulo de handlers - Organizado por entidad con archivos separados por método HTTP
 
-pub use auth_handlers::{login_handler, logout_handler, verify_session_handler, health_check, get_profile_handler, update_profile_handler};
+pub mod common;
+
+// Handlers organizados en carpetas por entidad
+pub mod activity_log;
+pub mod agencia;
+pub mod auth;
+pub mod conductor;
+pub mod contabilidad;
+pub mod entrada;
+pub mod entrada_precio;
+pub mod file;
+pub mod file_relations;
+pub mod guia;
+pub mod my_files;
+pub mod notification;
+pub mod pago;
+pub mod persona;
+pub mod relation_status;
+pub mod restaurante;
+pub mod storage;
+pub mod tour;
+pub mod transporte;
+pub mod user;
+pub mod vehiculo;
+
+// Re-exports para compatibilidad con rutas existentes
+pub use auth::{login_handler, logout_handler, verify_session_handler, health_check, get_profile_handler, update_profile_handler};
 

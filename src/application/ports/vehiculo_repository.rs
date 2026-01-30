@@ -33,4 +33,10 @@ pub trait VehiculoRepositoryPort: Send + Sync {
     async fn find_by_transporte_with_details(&self, id_transporte: i32) -> Result<Vec<VehiculoListItemDto>, ApplicationError>;
     async fn list_available(&self) -> Result<Vec<Vehiculo>, ApplicationError>;
     async fn update_status(&self, id: i32, status: &str) -> Result<bool, ApplicationError>;
+    
+    // Listado paginado por transporte (para rol transportes)
+    async fn list_by_transporte_paginated(&self, transporte_id: i32, limit: i64, offset: i64) -> Result<(Vec<VehiculoListItemDto>, i64), ApplicationError>;
+    
+    // Vehículos disponibles por transporte
+    async fn list_available_by_transporte(&self, transporte_id: i32) -> Result<Vec<Vehiculo>, ApplicationError>;
 }

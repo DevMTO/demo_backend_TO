@@ -225,6 +225,17 @@ pub struct PagarProveedorRequest {
     pub comprobante_filename: Option<String>,
 }
 
+/// Request para marcar pago a proveedor como pagado
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct MarcarPagoProveedorPagadoRequest {
+    /// Notas adicionales sobre el pago
+    pub notas: Option<String>,
+    /// URL del comprobante de pago (si ya se subió)
+    pub comprobante_url: Option<String>,
+}
+
 // ============================================================================
 // TARIFAS DE SERVICIOS
 // ============================================================================

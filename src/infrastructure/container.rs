@@ -26,6 +26,12 @@ use crate::application::ports::{
     FileRestauranteRepositoryPort,
     FileVehiculoRepositoryPort,
     FileTourRepositoryPort,
+    // Contabilidad ports
+    CuentaRepositoryPort,
+    MovimientoRepositoryPort,
+    PagoFileRepositoryPort,
+    PagoProveedorRepositoryPort,
+    TarifaServicioRepositoryPort,
 };
 use crate::application::services::{
     LoggingService,
@@ -45,6 +51,7 @@ use crate::application::services::{
     GuiaService,
     MyFilesService,
     PostgresMyFilesRepository,
+    ContabilidadService,
 };
 use crate::application::use_cases::auth::{
     LoginUseCase,
@@ -77,6 +84,12 @@ use crate::infrastructure::persistence::{
         PostgresFileRestauranteRepository,
         PostgresFileVehiculoRepository,
         PostgresFileTourRepository,
+        // Contabilidad repositories
+        PostgresCuentaRepository,
+        PostgresMovimientoRepository,
+        PostgresPagoFileRepository,
+        PostgresPagoProveedorRepository,
+        PostgresTarifaServicioRepository,
     },
 };
 use crate::infrastructure::security::{
@@ -116,6 +129,7 @@ pub struct DependencyContainer {
     pub entrada_precio_service: Arc<EntradaPrecioService>,
     pub guia_service: Arc<GuiaService>,
     pub my_files_service: Arc<MyFilesService>,
+    pub contabilidad_service: Arc<ContabilidadService>,
     
     // Object Storage (Tigris) - Opcional, puede ser None si no está configurado
     pub tigris_storage: Option<Arc<crate::infrastructure::storage::TigrisStorage>>,
@@ -383,6 +397,33 @@ impl DependencyContainer {
         let my_files_repository = Arc::new(PostgresMyFilesRepository::new(db_pool.clone()));
         let my_files_service = Arc::new(MyFilesService::new(my_files_repository));
         
+        // ========== Crear repositorios y servicio - Contabilidad ==========
+        let cuenta_repository: Arc<dyn CuentaRepositoryPort> = Arc::new(
+            PostgresCuentaRepository::new(db_pool.clone())
+        );
+        let movimiento_repository: Arc<dyn MovimientoRepositoryPort> = Arc::new(
+            PostgresMovimientoRepository::new(db_pool.clone())
+        );
+        let pago_file_repository: Arc<dyn PagoFileRepositoryPort> = Arc::new(
+            PostgresPagoFileRepository::new(db_pool.clone())
+        );
+        let pago_proveedor_repository: Arc<dyn PagoProveedorRepositoryPort> = Arc::new(
+            PostgresPagoProveedorRepository::new(db_pool.clone())
+        );
+        let tarifa_repository: Arc<dyn TarifaServicioRepositoryPort> = Arc::new(
+            PostgresTarifaServicioRepository::new(db_pool.clone())
+        );
+        
+        let contabilidad_service = Arc::new(ContabilidadService::new(
+            cuenta_repository,
+            movimiento_repository,
+            pago_file_repository,
+            pago_proveedor_repository,
+            tarifa_repository,
+            agencia_repository.clone(),
+            file_repository.clone(),
+        ));
+        
         Ok(Self {
             // Auth use cases
             login_use_case,
@@ -407,6 +448,7 @@ impl DependencyContainer {
             entrada_precio_service,
             guia_service,
             my_files_service,
+            contabilidad_service,
             // Repositories
             user_repository,
             persona_repository,

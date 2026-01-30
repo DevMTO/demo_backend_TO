@@ -75,11 +75,32 @@ impl VehiculoService {
         Ok(vehiculos)
     }
 
+    /// Listar vehículos por transporte con paginación
+    #[instrument(skip(self))]
+    pub async fn list_vehiculos_by_transporte_paginated(
+        &self,
+        transporte_id: i32,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<VehiculoListItemDto>, i64), ApplicationError> {
+        let (items, total) = self.vehiculo_repository.list_by_transporte_paginated(transporte_id, limit, offset).await?;
+        info!("🚐 Listados {} vehículos para transporte {} (offset: {}, total: {})", items.len(), transporte_id, offset, total);
+        Ok((items, total))
+    }
+
     /// Listar vehículos disponibles
     #[instrument(skip(self))]
     pub async fn list_available(&self) -> Result<Vec<VehiculoResponse>, ApplicationError> {
         let vehiculos = self.vehiculo_repository.list_available().await?;
         info!("Encontrados {} vehículos disponibles", vehiculos.len());
+        Ok(vehiculos.into_iter().map(VehiculoResponse::from).collect())
+    }
+
+    /// Listar vehículos disponibles por transporte
+    #[instrument(skip(self))]
+    pub async fn list_available_by_transporte(&self, transporte_id: i32) -> Result<Vec<VehiculoResponse>, ApplicationError> {
+        let vehiculos = self.vehiculo_repository.list_available_by_transporte(transporte_id).await?;
+        info!("🚐 Encontrados {} vehículos disponibles para transporte {}", vehiculos.len(), transporte_id);
         Ok(vehiculos.into_iter().map(VehiculoResponse::from).collect())
     }
 

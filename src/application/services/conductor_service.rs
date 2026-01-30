@@ -83,6 +83,27 @@ impl ConductorService {
         Ok(conductores.into_iter().map(ConductorResponse::from).collect())
     }
 
+    /// Listar conductores por transporte con paginación (para rol transportes)
+    #[instrument(skip(self))]
+    pub async fn list_conductores_by_transporte_paginated(
+        &self,
+        transporte_id: i32,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<ConductorListItemDto>, i64), ApplicationError> {
+        let (items, total) = self.conductor_repository.list_by_transporte_paginated(transporte_id, limit, offset).await?;
+        info!("Listados {} conductores del transporte {} (offset: {}, total: {})", items.len(), transporte_id, offset, total);
+        Ok((items, total))
+    }
+
+    /// Listar conductores disponibles de un transporte específico
+    #[instrument(skip(self))]
+    pub async fn list_available_by_transporte(&self, transporte_id: i32) -> Result<Vec<ConductorResponse>, ApplicationError> {
+        let conductores = self.conductor_repository.list_available_by_transporte(transporte_id).await?;
+        info!("Encontrados {} conductores disponibles para transporte {}", conductores.len(), transporte_id);
+        Ok(conductores.into_iter().map(ConductorResponse::from).collect())
+    }
+
     // ===== Métodos de mutación =====
 
     /// Crear un nuevo conductor

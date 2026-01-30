@@ -232,4 +232,64 @@ impl VehiculoRepositoryPort for PostgresVehiculoRepository {
             .execute(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))?;
         Ok(affected > 0)
     }
+    
+    #[instrument(skip(self))]
+    async fn list_by_transporte_paginated(&self, transporte_id: i32, limit: i64, offset: i64) -> Result<(Vec<VehiculoListItemDto>, i64), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let total: i64 = vehiculos::table
+            .filter(vehiculos::id_transporte.eq(transporte_id))
+            .count()
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let results: Vec<(VehiculoModel, Option<String>)> = vehiculos::table
+            .left_join(transportes::table.on(vehiculos::id_transporte.eq(transportes::id)))
+            .filter(vehiculos::id_transporte.eq(transporte_id))
+            .select((
+                VehiculoModel::as_select(),
+                transportes::nombre.nullable(),
+            ))
+            .order(vehiculos::placa.asc())
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        let items: Vec<VehiculoListItemDto> = results
+            .into_iter()
+            .map(|(vehiculo, transporte_nombre)| {
+                VehiculoListItemDto {
+                    id: vehiculo.id,
+                    id_transporte: vehiculo.id_transporte,
+                    transporte_nombre,
+                    nombre: vehiculo.nombre,
+                    modelo: vehiculo.modelo,
+                    placa: vehiculo.placa,
+                    capacidad: vehiculo.capacidad,
+                    status: vehiculo.status,
+                    is_active: vehiculo.is_active,
+                    created_at: vehiculo.created_at,
+                    updated_at: vehiculo.updated_at,
+                }
+            })
+            .collect();
+        
+        info!("Listados {} vehículos del transporte {} de {} total", items.len(), transporte_id, total);
+        Ok((items, total))
+    }
+    
+    async fn list_available_by_transporte(&self, transporte_id: i32) -> Result<Vec<Vehiculo>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let results = vehiculos::table
+            .filter(vehiculos::id_transporte.eq(transporte_id))
+            .filter(vehiculos::status.eq("disponible"))
+            .filter(vehiculos::is_active.eq(true))
+            .load::<VehiculoModel>(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        Ok(results.into_iter().map(Into::into).collect())
+    }
 }

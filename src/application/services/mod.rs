@@ -17,6 +17,7 @@ pub mod entrada_service;
 pub mod entrada_precio_service;
 pub mod guia_service;
 pub mod my_files_service;
+pub mod contabilidad_service;
 
 pub use logging_service::LoggingService;
 pub use notification_service::NotificationService;
@@ -34,4 +35,5 @@ pub use entrada_service::EntradaService;
 pub use entrada_precio_service::EntradaPrecioService;
 pub use guia_service::GuiaService;
 pub use my_files_service::{MyFilesService, PostgresMyFilesRepository};
+pub use contabilidad_service::ContabilidadService;
 
