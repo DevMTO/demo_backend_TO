@@ -96,13 +96,13 @@ pub async fn get_my_files_as_restaurante(
 
 // ==================== CONFIRMACIÓN DE ASIGNACIONES ====================
 
-/// POST /api/v1/my-files/guia/{file_id}/confirm
-/// Un guía confirma (acepta o rechaza) su asignación a un file específico
+/// POST /api/v1/my-files/guia/{file_tour_id}/confirm
+/// Un guía confirma (acepta o rechaza) su asignación a un file_tour específico
 #[instrument(skip(state, auth, payload))]
 pub async fn confirm_guia_assignment(
     State(state): State<AppState>,
     auth: AuthUser,
-    Path(file_id): Path<i32>,
+    Path(file_tour_id): Path<i32>,
     Json(payload): Json<ConfirmFileGuiaAssignmentRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     // Validar request
@@ -122,23 +122,23 @@ pub async fn confirm_guia_assignment(
         return Err(ApplicationError::Validation("Debe proporcionar un motivo para rechazar la asignación".to_string()));
     }
     
-    info!("Guía (persona: {}) confirmando asignación al file {}: aceptar={}", 
-          id_persona, file_id, payload.aceptar);
+    info!("Guía (persona: {}) confirmando asignación al file_tour {}: aceptar={}", 
+          id_persona, file_tour_id, payload.aceptar);
     
     let response = state.container.my_files_service
-        .confirm_guia_assignment(id_persona, file_id, payload.aceptar, payload.motivo_rechazo)
+        .confirm_guia_assignment(id_persona, file_tour_id, payload.aceptar, payload.motivo_rechazo)
         .await?;
     
     Ok(json_ok(response))
 }
 
-/// POST /api/v1/my-files/conductor/{file_id}/confirm
-/// Un conductor confirma (acepta o rechaza) su asignación a un file específico
+/// POST /api/v1/my-files/conductor/{file_tour_id}/confirm
+/// Un conductor confirma (acepta o rechaza) su asignación a un file_tour específico
 #[instrument(skip(state, auth, payload))]
 pub async fn confirm_conductor_assignment(
     State(state): State<AppState>,
     auth: AuthUser,
-    Path(file_id): Path<i32>,
+    Path(file_tour_id): Path<i32>,
     Json(payload): Json<ConfirmFileVehiculoAssignmentRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     // Validar request
@@ -158,11 +158,11 @@ pub async fn confirm_conductor_assignment(
         return Err(ApplicationError::Validation("Debe proporcionar un motivo para rechazar la asignación".to_string()));
     }
     
-    info!("Conductor (persona: {}) confirmando asignación al file {}: aceptar={}", 
-          id_persona, file_id, payload.aceptar);
+    info!("Conductor (persona: {}) confirmando asignación al file_tour {}: aceptar={}", 
+          id_persona, file_tour_id, payload.aceptar);
     
     let response = state.container.my_files_service
-        .confirm_conductor_assignment(id_persona, file_id, payload.aceptar, payload.motivo_rechazo)
+        .confirm_conductor_assignment(id_persona, file_tour_id, payload.aceptar, payload.motivo_rechazo)
         .await?;
     
     Ok(json_ok(response))

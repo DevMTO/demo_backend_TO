@@ -315,9 +315,9 @@ pub fn create_router(
     // Cada usuario ve solo los files donde está asignado
     let my_files_routes = Router::new()
         .route("/guia", get(my_files_handlers::get_my_files_as_guia))
-        .route("/guia/{file_id}/confirm", post(my_files_handlers::confirm_guia_assignment))
+        .route("/guia/{file_tour_id}/confirm", post(my_files_handlers::confirm_guia_assignment))
         .route("/conductor", get(my_files_handlers::get_my_files_as_conductor))
-        .route("/conductor/{file_id}/confirm", post(my_files_handlers::confirm_conductor_assignment))
+        .route("/conductor/{file_tour_id}/confirm", post(my_files_handlers::confirm_conductor_assignment))
         .route("/restaurante", get(my_files_handlers::get_my_files_as_restaurante));
 
     // === File Vehiculos Routes (listar todas las asignaciones vehículo-file) ===
