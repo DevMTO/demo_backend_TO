@@ -131,30 +131,17 @@ impl TourService {
         updated_by: i32,
         updated_by_username: Option<String>,
     ) -> Result<TourResponse, ApplicationError> {
-        // DEBUG: Log de geolocalización recibida
-        info!("[DEBUG] geo_inicio recibido: {:?}", request.geo_inicio);
-        info!("[DEBUG] geo_fin recibido: {:?}", request.geo_fin);
-        info!("[DEBUG] geo_ruta recibido: {:?}", request.geo_ruta);
-        
         // Verificar que existe
         let old_tour = self.tour_repository
             .find_by_id(id)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Tour {} no encontrado", id)))?;
         
-        // DEBUG: Log del tour antiguo
-        info!("[DEBUG] old_tour.geo_inicio: {:?}", old_tour.geo_inicio);
-        info!("[DEBUG] old_tour.geo_fin: {:?}", old_tour.geo_fin);
-        
         // Detectar campos cambiados
         let changed_fields = self.detect_changed_fields(&old_tour, &request);
         
         // Aplicar cambios
         let updated_entity = request.apply_to(old_tour.clone(), Some(updated_by));
-        
-        // DEBUG: Log del entity después de aplicar
-        info!("[DEBUG] updated_entity.geo_inicio: {:?}", updated_entity.geo_inicio);
-        info!("[DEBUG] updated_entity.geo_fin: {:?}", updated_entity.geo_fin);
         
         // Persistir
         let result = self.tour_repository.update(&updated_entity).await?;
@@ -384,14 +371,14 @@ impl TourService {
         if request.is_active.as_ref().map(|a| *a != old.is_active).unwrap_or(false) {
             changed.push("is_active".to_string());
         }
-        // Detectar cambios en geolocalización
-        if request.geo_inicio.is_some() && request.geo_inicio != old.geo_inicio {
+        // Detectar cambios en geolocalización (comparar con GeoLocation)
+        if request.geo_inicio.is_some() {
             changed.push("geo_inicio".to_string());
         }
-        if request.geo_fin.is_some() && request.geo_fin != old.geo_fin {
+        if request.geo_fin.is_some() {
             changed.push("geo_fin".to_string());
         }
-        if request.geo_ruta.is_some() && request.geo_ruta != old.geo_ruta {
+        if request.geo_ruta.is_some() {
             changed.push("geo_ruta".to_string());
         }
         

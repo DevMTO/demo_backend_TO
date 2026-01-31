@@ -6,6 +6,9 @@ pub mod user_dto;
 pub mod activity_log_dto;
 pub mod notification_dto;
 
+// Geo DTOs
+pub mod geo_dto;
+
 // Business Entity DTOs
 pub mod persona_dto;
 pub mod agencia_dto;
@@ -30,6 +33,9 @@ pub mod contabilidad_dto;
 // Re-exports - System
 pub use activity_log_dto::*;
 pub use notification_dto::*;
+
+// Re-exports - Geo
+pub use geo_dto::*;
 
 // Re-exports - Business entities
 pub use persona_dto::*;

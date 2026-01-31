@@ -62,7 +62,8 @@ impl FileService {
             turno_tour: t.turno_tour,
             lugar_recojo: t.lugar_recojo,
             hora_recojo: t.hora_recojo,
-            geo_recojo: t.geo_recojo,
+            // Convertir JsonValue a GeoLocation
+            geo_recojo: t.geo_recojo.and_then(|v| serde_json::from_value(v).ok()),
             // Estado del file_tour
             status: t.status,
             // Información completa del tour (INNER JOIN)
@@ -171,6 +172,14 @@ impl FileService {
             .map(|(idx, t)| {
                 let orden = t.orden.unwrap_or((idx + 1) as i32);
                 let precio = t.precio_aplicado.map(|p| BigDecimal::try_from(p).unwrap_or_default());
+                // Convertir GeoLocation a JsonValue para la BD
+                let geo_recojo_json = t.geo_recojo.and_then(|g| {
+                    if g.has_data() {
+                        serde_json::to_value(g).ok()
+                    } else {
+                        None
+                    }
+                });
                 FileTourInputData {
                     id_tour: t.id_tour,
                     orden,
@@ -181,7 +190,7 @@ impl FileService {
                     lugar_recojo: t.lugar_recojo,
                     hora_recojo: t.hora_recojo,
                     status: t.status,
-                    geo_recojo: t.geo_recojo,
+                    geo_recojo: geo_recojo_json,
                 }
             })
             .collect();
@@ -264,6 +273,14 @@ impl FileService {
                 .map(|(idx, t)| {
                     let orden = t.orden.unwrap_or((idx + 1) as i32);
                     let precio = t.precio_aplicado.map(|p| BigDecimal::try_from(p).unwrap_or_default());
+                    // Convertir GeoLocation a JsonValue para la BD
+                    let geo_recojo_json = t.geo_recojo.and_then(|g| {
+                        if g.has_data() {
+                            serde_json::to_value(g).ok()
+                        } else {
+                            None
+                        }
+                    });
                     FileTourInputData {
                         id_tour: t.id_tour,
                         orden,
@@ -274,7 +291,7 @@ impl FileService {
                         lugar_recojo: t.lugar_recojo,
                         hora_recojo: t.hora_recojo,
                         status: t.status,
-                        geo_recojo: t.geo_recojo,
+                        geo_recojo: geo_recojo_json,
                     }
                 })
                 .collect();

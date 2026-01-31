@@ -6,6 +6,7 @@ use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::File;
+use super::geo_dto::GeoLocation;
 
 /// DTO para un tour dentro de un file (relación N:M) con información del tour
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -33,9 +34,8 @@ pub struct FileTourDto {
     pub lugar_recojo: Option<String>,
     /// Hora de recojo para este tour específico
     pub hora_recojo: Option<NaiveTime>,
-    /// Geolocalización del punto de recojo (JSONB: { lat, lng, zoom?, label? })
-    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
-    pub geo_recojo: Option<JsonValue>,
+    /// Geolocalización del punto de recojo
+    pub geo_recojo: Option<GeoLocation>,
     
     /// Estado del file_tour: reservado, confirmado, en_progreso, completado, cancelado
     pub status: String,
@@ -82,10 +82,8 @@ pub struct FileTourInput {
     /// Estado del file_tour: reservado, confirmado, en_progreso, completado, cancelado (default: reservado)
     #[validate(length(max = 30))]
     pub status: Option<String>,
-    /// Geolocalización del punto de recojo (JSONB: { lat, lng, zoom?, label? })
-    /// @type {{ lat: number; lng: number; zoom?: number; label?: string } | null}
-    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
-    pub geo_recojo: Option<JsonValue>,
+    /// Geolocalización del punto de recojo
+    pub geo_recojo: Option<GeoLocation>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

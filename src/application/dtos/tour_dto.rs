@@ -6,6 +6,7 @@ use ts_rs::TS;
 use validator::Validate;
 
 use crate::domain::entities::Tour;
+use super::geo_dto::{GeoLocation, GeoRoutePoint};
 
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
@@ -30,15 +31,12 @@ pub struct TourResponse {
     pub horarios: Option<JsonValue>,
     /// Indica si el tour incluye restaurante en su itinerario
     pub tiene_restaurante: bool,
-    /// Coordenadas de geolocalización del punto de inicio
-    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
-    pub geo_inicio: Option<JsonValue>,
-    /// Coordenadas de geolocalización del punto de fin
-    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
-    pub geo_fin: Option<JsonValue>,
+    /// Geolocalización del punto de inicio del tour
+    pub geo_inicio: Option<GeoLocation>,
+    /// Geolocalización del punto de fin del tour
+    pub geo_fin: Option<GeoLocation>,
     /// Ruta del tour como array de puntos
-    #[ts(type = "Array<{ lat: number; lng: number }> | null")]
-    pub geo_ruta: Option<JsonValue>,
+    pub geo_ruta: Option<Vec<GeoRoutePoint>>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -59,9 +57,9 @@ impl From<Tour> for TourResponse {
             tipo_tour: t.tipo_tour,
             horarios: t.horarios,
             tiene_restaurante: t.tiene_restaurante,
-            geo_inicio: t.geo_inicio,
-            geo_fin: t.geo_fin,
-            geo_ruta: t.geo_ruta,
+            geo_inicio: t.geo_inicio.and_then(|v| serde_json::from_value(v).ok()),
+            geo_fin: t.geo_fin.and_then(|v| serde_json::from_value(v).ok()),
+            geo_ruta: t.geo_ruta.and_then(|v| serde_json::from_value(v).ok()),
             is_active: t.is_active,
             created_at: t.created_at,
             updated_at: t.updated_at,
@@ -107,17 +105,14 @@ pub struct CreateTourRequest {
     /// Indica si el tour incluye restaurante en su itinerario
     pub tiene_restaurante: Option<bool>,
     
-    /// Coordenadas de geolocalización del punto de inicio
-    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
-    pub geo_inicio: Option<JsonValue>,
+    /// Geolocalización del punto de inicio del tour
+    pub geo_inicio: Option<GeoLocation>,
     
-    /// Coordenadas de geolocalización del punto de fin
-    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
-    pub geo_fin: Option<JsonValue>,
+    /// Geolocalización del punto de fin del tour
+    pub geo_fin: Option<GeoLocation>,
     
     /// Ruta del tour como array de puntos
-    #[ts(type = "Array<{ lat: number; lng: number }> | null")]
-    pub geo_ruta: Option<JsonValue>,
+    pub geo_ruta: Option<Vec<GeoRoutePoint>>,
 }
 
 impl CreateTourRequest {
@@ -136,9 +131,9 @@ impl CreateTourRequest {
             tipo_tour: self.tipo_tour,
             horarios: self.horarios,
             tiene_restaurante: self.tiene_restaurante.unwrap_or(false),
-            geo_inicio: self.geo_inicio,
-            geo_fin: self.geo_fin,
-            geo_ruta: self.geo_ruta,
+            geo_inicio: self.geo_inicio.map(|g| serde_json::to_value(g).unwrap_or_default()),
+            geo_fin: self.geo_fin.map(|g| serde_json::to_value(g).unwrap_or_default()),
+            geo_ruta: self.geo_ruta.map(|r| serde_json::to_value(r).unwrap_or_default()),
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -186,17 +181,14 @@ pub struct UpdateTourRequest {
     /// Indica si el tour incluye restaurante en su itinerario
     pub tiene_restaurante: Option<bool>,
     
-    /// Coordenadas de geolocalización del punto de inicio
-    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
-    pub geo_inicio: Option<JsonValue>,
+    /// Geolocalización del punto de inicio del tour
+    pub geo_inicio: Option<GeoLocation>,
     
-    /// Coordenadas de geolocalización del punto de fin
-    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
-    pub geo_fin: Option<JsonValue>,
+    /// Geolocalización del punto de fin del tour
+    pub geo_fin: Option<GeoLocation>,
     
     /// Ruta del tour como array de puntos
-    #[ts(type = "Array<{ lat: number; lng: number }> | null")]
-    pub geo_ruta: Option<JsonValue>,
+    pub geo_ruta: Option<Vec<GeoRoutePoint>>,
     
     pub is_active: Option<bool>,
 }
@@ -236,15 +228,27 @@ impl UpdateTourRequest {
         if let Some(tiene_restaurante) = self.tiene_restaurante {
             tour.tiene_restaurante = tiene_restaurante;
         }
-        // Geolocalización - manejar tanto valores como null explícito
+        // Geolocalización - convertir GeoLocation a JsonValue
         if let Some(geo_inicio) = self.geo_inicio {
-            tour.geo_inicio = if geo_inicio.is_null() { None } else { Some(geo_inicio) };
+            tour.geo_inicio = if geo_inicio.has_data() {
+                Some(serde_json::to_value(geo_inicio).unwrap_or_default())
+            } else {
+                None
+            };
         }
         if let Some(geo_fin) = self.geo_fin {
-            tour.geo_fin = if geo_fin.is_null() { None } else { Some(geo_fin) };
+            tour.geo_fin = if geo_fin.has_data() {
+                Some(serde_json::to_value(geo_fin).unwrap_or_default())
+            } else {
+                None
+            };
         }
         if let Some(geo_ruta) = self.geo_ruta {
-            tour.geo_ruta = if geo_ruta.is_null() { None } else { Some(geo_ruta) };
+            tour.geo_ruta = if !geo_ruta.is_empty() {
+                Some(serde_json::to_value(geo_ruta).unwrap_or_default())
+            } else {
+                None
+            };
         }
         if let Some(is_active) = self.is_active {
             tour.is_active = is_active;
