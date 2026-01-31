@@ -62,12 +62,13 @@ impl FileService {
             turno_tour: t.turno_tour,
             lugar_recojo: t.lugar_recojo,
             hora_recojo: t.hora_recojo,
+            geo_recojo: t.geo_recojo,
             // Estado del file_tour
             status: t.status,
             // Información completa del tour (INNER JOIN)
             tour_nombre: Some(t.tour_nombre),
-            tour_lugar_inicio: Some(t.tour_lugar_inicio),
-            tour_lugar_fin: Some(t.tour_lugar_fin),
+            tour_lugar_inicio: t.tour_lugar_inicio,
+            tour_lugar_fin: t.tour_lugar_fin,
             tour_precio_base: Some(t.tour_precio_base),
             tour_duracion_dias: t.tour_duracion_dias,
             tour_tipo: t.tour_tipo,
@@ -180,6 +181,7 @@ impl FileService {
                     lugar_recojo: t.lugar_recojo,
                     hora_recojo: t.hora_recojo,
                     status: t.status,
+                    geo_recojo: t.geo_recojo,
                 }
             })
             .collect();
@@ -272,6 +274,7 @@ impl FileService {
                         lugar_recojo: t.lugar_recojo,
                         hora_recojo: t.hora_recojo,
                         status: t.status,
+                        geo_recojo: t.geo_recojo,
                     }
                 })
                 .collect();

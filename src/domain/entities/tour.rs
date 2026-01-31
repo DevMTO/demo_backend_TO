@@ -41,8 +41,8 @@ pub struct HorariosTour {
 pub struct Tour {
     pub id: i32,
     pub nombre: String,
-    pub lugar_inicio: String,
-    pub lugar_fin: String,
+    pub lugar_inicio: Option<String>,
+    pub lugar_fin: Option<String>,
     pub detalles: Option<JsonValue>,
     pub itinerario: Option<JsonValue>,
     pub precio_base: BigDecimal,
@@ -55,11 +55,14 @@ pub struct Tour {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
-    pub tiene_restaurante: bool,  // Nuevo campo
+    pub tiene_restaurante: bool,
+    pub geo_inicio: Option<JsonValue>,
+    pub geo_fin: Option<JsonValue>,
+    pub geo_ruta: Option<JsonValue>,
 }
 
 impl Tour {
-    pub fn new(nombre: String, lugar_inicio: String, lugar_fin: String, precio_base: BigDecimal) -> Self {
+    pub fn new(nombre: String, lugar_inicio: Option<String>, lugar_fin: Option<String>, precio_base: BigDecimal) -> Self {
         let now = Utc::now();
         Self {
             id: 0, // Será asignado por la DB (SERIAL)
@@ -78,7 +81,10 @@ impl Tour {
             updated_at: now,
             created_by: None,
             updated_by: None,
-            tiene_restaurante: false,  // Nuevo campo
+            tiene_restaurante: false,
+            geo_inicio: None,
+            geo_fin: None,
+            geo_ruta: None,
         }
     }
     
@@ -105,6 +111,6 @@ impl Tour {
     
     /// Ruta formateada
     pub fn ruta(&self) -> String {
-        format!("{} → {}", self.lugar_inicio, self.lugar_fin)
+        format!("{} → {}", self.lugar_inicio.as_deref().unwrap_or("N/A"), self.lugar_fin.as_deref().unwrap_or("N/A"))
     }
 }

@@ -202,6 +202,7 @@ diesel::table! {
         hora_recojo -> Nullable<Time>,
         #[max_length = 30]
         status -> Varchar,
+        geo_recojo -> Nullable<Jsonb>,
     }
 }
 
@@ -460,9 +461,9 @@ diesel::table! {
         #[max_length = 200]
         nombre -> Varchar,
         #[max_length = 200]
-        lugar_inicio -> Varchar,
+        lugar_inicio -> Nullable<Varchar>,
         #[max_length = 200]
-        lugar_fin -> Varchar,
+        lugar_fin -> Nullable<Varchar>,
         detalles -> Nullable<Jsonb>,
         itinerario -> Nullable<Jsonb>,
         precio_base -> Numeric,
@@ -477,6 +478,9 @@ diesel::table! {
         tipo_tour -> Nullable<Varchar>,
         horarios -> Nullable<Jsonb>,
         tiene_restaurante -> Bool,
+        geo_inicio -> Nullable<Jsonb>,
+        geo_fin -> Nullable<Jsonb>,
+        geo_ruta -> Nullable<Jsonb>,
     }
 }
 

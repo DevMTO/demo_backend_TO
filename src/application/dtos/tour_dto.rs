@@ -13,8 +13,8 @@ use crate::domain::entities::Tour;
 pub struct TourResponse {
     pub id: i32,
     pub nombre: String,
-    pub lugar_inicio: String,
-    pub lugar_fin: String,
+    pub lugar_inicio: Option<String>,
+    pub lugar_fin: Option<String>,
     #[ts(type = "object | null")]
     pub detalles: Option<JsonValue>,
     #[ts(type = "object | null")]
@@ -30,6 +30,15 @@ pub struct TourResponse {
     pub horarios: Option<JsonValue>,
     /// Indica si el tour incluye restaurante en su itinerario
     pub tiene_restaurante: bool,
+    /// Coordenadas de geolocalización del punto de inicio
+    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
+    pub geo_inicio: Option<JsonValue>,
+    /// Coordenadas de geolocalización del punto de fin
+    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
+    pub geo_fin: Option<JsonValue>,
+    /// Ruta del tour como array de puntos
+    #[ts(type = "Array<{ lat: number; lng: number }> | null")]
+    pub geo_ruta: Option<JsonValue>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -50,6 +59,9 @@ impl From<Tour> for TourResponse {
             tipo_tour: t.tipo_tour,
             horarios: t.horarios,
             tiene_restaurante: t.tiene_restaurante,
+            geo_inicio: t.geo_inicio,
+            geo_fin: t.geo_fin,
+            geo_ruta: t.geo_ruta,
             is_active: t.is_active,
             created_at: t.created_at,
             updated_at: t.updated_at,
@@ -64,11 +76,11 @@ pub struct CreateTourRequest {
     #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
     pub nombre: String,
     
-    #[validate(length(min = 2, max = 200))]
-    pub lugar_inicio: String,
+    #[validate(length(max = 200))]
+    pub lugar_inicio: Option<String>,
     
-    #[validate(length(min = 2, max = 200))]
-    pub lugar_fin: String,
+    #[validate(length(max = 200))]
+    pub lugar_fin: Option<String>,
     
     #[ts(type = "object | null")]
     pub detalles: Option<JsonValue>,
@@ -94,6 +106,18 @@ pub struct CreateTourRequest {
     
     /// Indica si el tour incluye restaurante en su itinerario
     pub tiene_restaurante: Option<bool>,
+    
+    /// Coordenadas de geolocalización del punto de inicio
+    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
+    pub geo_inicio: Option<JsonValue>,
+    
+    /// Coordenadas de geolocalización del punto de fin
+    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
+    pub geo_fin: Option<JsonValue>,
+    
+    /// Ruta del tour como array de puntos
+    #[ts(type = "Array<{ lat: number; lng: number }> | null")]
+    pub geo_ruta: Option<JsonValue>,
 }
 
 impl CreateTourRequest {
@@ -112,6 +136,9 @@ impl CreateTourRequest {
             tipo_tour: self.tipo_tour,
             horarios: self.horarios,
             tiene_restaurante: self.tiene_restaurante.unwrap_or(false),
+            geo_inicio: self.geo_inicio,
+            geo_fin: self.geo_fin,
+            geo_ruta: self.geo_ruta,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -128,10 +155,10 @@ pub struct UpdateTourRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
     
-    #[validate(length(min = 2, max = 200))]
+    #[validate(length(max = 200))]
     pub lugar_inicio: Option<String>,
     
-    #[validate(length(min = 2, max = 200))]
+    #[validate(length(max = 200))]
     pub lugar_fin: Option<String>,
     
     #[ts(type = "object | null")]
@@ -159,6 +186,18 @@ pub struct UpdateTourRequest {
     /// Indica si el tour incluye restaurante en su itinerario
     pub tiene_restaurante: Option<bool>,
     
+    /// Coordenadas de geolocalización del punto de inicio
+    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
+    pub geo_inicio: Option<JsonValue>,
+    
+    /// Coordenadas de geolocalización del punto de fin
+    #[ts(type = "{ lat: number; lng: number; zoom?: number; label?: string } | null")]
+    pub geo_fin: Option<JsonValue>,
+    
+    /// Ruta del tour como array de puntos
+    #[ts(type = "Array<{ lat: number; lng: number }> | null")]
+    pub geo_ruta: Option<JsonValue>,
+    
     pub is_active: Option<bool>,
 }
 
@@ -168,10 +207,10 @@ impl UpdateTourRequest {
             tour.nombre = nombre;
         }
         if let Some(lugar_inicio) = self.lugar_inicio {
-            tour.lugar_inicio = lugar_inicio;
+            tour.lugar_inicio = Some(lugar_inicio);
         }
         if let Some(lugar_fin) = self.lugar_fin {
-            tour.lugar_fin = lugar_fin;
+            tour.lugar_fin = Some(lugar_fin);
         }
         if let Some(detalles) = self.detalles {
             tour.detalles = Some(detalles);
@@ -196,6 +235,16 @@ impl UpdateTourRequest {
         }
         if let Some(tiene_restaurante) = self.tiene_restaurante {
             tour.tiene_restaurante = tiene_restaurante;
+        }
+        // Geolocalización - manejar tanto valores como null explícito
+        if let Some(geo_inicio) = self.geo_inicio {
+            tour.geo_inicio = if geo_inicio.is_null() { None } else { Some(geo_inicio) };
+        }
+        if let Some(geo_fin) = self.geo_fin {
+            tour.geo_fin = if geo_fin.is_null() { None } else { Some(geo_fin) };
+        }
+        if let Some(geo_ruta) = self.geo_ruta {
+            tour.geo_ruta = if geo_ruta.is_null() { None } else { Some(geo_ruta) };
         }
         if let Some(is_active) = self.is_active {
             tour.is_active = is_active;

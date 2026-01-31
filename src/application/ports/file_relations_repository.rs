@@ -11,6 +11,7 @@
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use chrono::{NaiveDate, NaiveTime};
+use serde_json::Value as JsonValue;
 use crate::domain::errors::ApplicationError;
 
 // Importamos los modelos que necesitamos
@@ -36,6 +37,8 @@ pub struct FileTourInputData {
     pub hora_recojo: Option<NaiveTime>,
     /// Estado del file_tour (default: pendiente)
     pub status: Option<String>,
+    /// Coordenadas de geolocalización del punto de recojo
+    pub geo_recojo: Option<JsonValue>,
 }
 
 /// Repositorio para file_entradas (vinculado a file_tours)

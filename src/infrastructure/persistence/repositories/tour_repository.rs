@@ -53,8 +53,8 @@ impl TourRepositoryPort for PostgresTourRepository {
         let mut conn = self.pool.get_connection().await?;
         let changes = UpdateTourModel {
             nombre: Some(&tour.nombre),
-            lugar_inicio: Some(&tour.lugar_inicio),
-            lugar_fin: Some(&tour.lugar_fin),
+            lugar_inicio: Some(tour.lugar_inicio.as_deref()),
+            lugar_fin: Some(tour.lugar_fin.as_deref()),
             horarios: Some(tour.horarios.clone()),
             detalles: Some(tour.detalles.clone()),
             itinerario: Some(tour.itinerario.clone()),
@@ -65,6 +65,9 @@ impl TourRepositoryPort for PostgresTourRepository {
             is_active: Some(tour.is_active),
             tiene_restaurante: Some(tour.tiene_restaurante),
             updated_by: tour.updated_by,
+            geo_inicio: Some(tour.geo_inicio.clone()),
+            geo_fin: Some(tour.geo_fin.clone()),
+            geo_ruta: Some(tour.geo_ruta.clone()),
         };
         let result = diesel::update(tours::table.filter(tours::id.eq(tour.id)))
             .set(&changes)

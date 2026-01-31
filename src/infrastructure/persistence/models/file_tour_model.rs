@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use bigdecimal::BigDecimal;
 
 use crate::infrastructure::persistence::schema::file_tours;
@@ -25,6 +26,8 @@ pub struct FileTourModel {
     pub hora_recojo: Option<NaiveTime>,
     /// Estado del file_tour: reservado, confirmado, en_progreso, completado, cancelado
     pub status: String,
+    /// Coordenadas de geolocalización del punto de recojo
+    pub geo_recojo: Option<JsonValue>,
 }
 
 /// Modelo para insertar nuevos registros en file_tours
@@ -44,6 +47,8 @@ pub struct NewFileTourModel<'a> {
     pub hora_recojo: Option<NaiveTime>,
     /// Estado del file_tour (default: reservado)
     pub status: &'a str,
+    /// Coordenadas de geolocalización del punto de recojo
+    pub geo_recojo: Option<JsonValue>,
 }
 
 /// Modelo para actualizar registros en file_tours
@@ -61,6 +66,8 @@ pub struct UpdateFileTourModel<'a> {
     pub hora_recojo: Option<Option<NaiveTime>>,
     /// Estado del file_tour
     pub status: Option<&'a str>,
+    /// Coordenadas de geolocalización del punto de recojo
+    pub geo_recojo: Option<Option<JsonValue>>,
 }
 
 /// Modelo para el resultado del JOIN entre file_tours y tours
@@ -82,13 +89,19 @@ pub struct FileTourWithTourModel {
     pub hora_recojo: Option<NaiveTime>,
     /// Estado del file_tour
     pub status: String,
+    /// Coordenadas de geolocalización del punto de recojo
+    pub geo_recojo: Option<JsonValue>,
     // Campos del tour (JOIN)
     pub tour_nombre: String,
-    pub tour_lugar_inicio: String,
-    pub tour_lugar_fin: String,
+    pub tour_lugar_inicio: Option<String>,
+    pub tour_lugar_fin: Option<String>,
     pub tour_precio_base: BigDecimal,
     pub tour_duracion_dias: Option<i32>,
     pub tour_tipo: Option<String>,
     pub tour_is_active: bool,
+    /// Campos de geolocalización del tour
+    pub tour_geo_inicio: Option<JsonValue>,
+    pub tour_geo_fin: Option<JsonValue>,
+    pub tour_geo_ruta: Option<JsonValue>,
 }
 

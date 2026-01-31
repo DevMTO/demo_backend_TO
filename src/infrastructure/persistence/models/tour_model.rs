@@ -13,8 +13,8 @@ use crate::infrastructure::persistence::schema::tours;
 pub struct TourModel {
     pub id: i32,
     pub nombre: String,
-    pub lugar_inicio: String,
-    pub lugar_fin: String,
+    pub lugar_inicio: Option<String>,
+    pub lugar_fin: Option<String>,
     pub detalles: Option<JsonValue>,
     pub itinerario: Option<JsonValue>,
     pub precio_base: BigDecimal,
@@ -28,14 +28,17 @@ pub struct TourModel {
     pub tipo_tour: Option<String>,
     pub horarios: Option<JsonValue>,
     pub tiene_restaurante: bool,
+    pub geo_inicio: Option<JsonValue>,
+    pub geo_fin: Option<JsonValue>,
+    pub geo_ruta: Option<JsonValue>,
 }
 
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = tours)]
 pub struct NewTourModel<'a> {
     pub nombre: &'a str,
-    pub lugar_inicio: &'a str,
-    pub lugar_fin: &'a str,
+    pub lugar_inicio: Option<&'a str>,
+    pub lugar_fin: Option<&'a str>,
     pub detalles: Option<JsonValue>,
     pub itinerario: Option<JsonValue>,
     pub precio_base: BigDecimal,
@@ -47,14 +50,17 @@ pub struct NewTourModel<'a> {
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
     pub tiene_restaurante: Option<bool>,
+    pub geo_inicio: Option<JsonValue>,
+    pub geo_fin: Option<JsonValue>,
+    pub geo_ruta: Option<JsonValue>,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = tours)]
 pub struct UpdateTourModel<'a> {
     pub nombre: Option<&'a str>,
-    pub lugar_inicio: Option<&'a str>,
-    pub lugar_fin: Option<&'a str>,
+    pub lugar_inicio: Option<Option<&'a str>>,
+    pub lugar_fin: Option<Option<&'a str>>,
     pub detalles: Option<Option<JsonValue>>,
     pub itinerario: Option<Option<JsonValue>>,
     pub precio_base: Option<BigDecimal>,
@@ -65,6 +71,9 @@ pub struct UpdateTourModel<'a> {
     pub is_active: Option<bool>,
     pub updated_by: Option<i32>,
     pub tiene_restaurante: Option<bool>,
+    pub geo_inicio: Option<Option<JsonValue>>,
+    pub geo_fin: Option<Option<JsonValue>>,
+    pub geo_ruta: Option<Option<JsonValue>>,
 }
 
 impl From<TourModel> for Tour {
@@ -87,6 +96,9 @@ impl From<TourModel> for Tour {
             created_by: model.created_by,
             updated_by: model.updated_by,
             tiene_restaurante: model.tiene_restaurante,
+            geo_inicio: model.geo_inicio,
+            geo_fin: model.geo_fin,
+            geo_ruta: model.geo_ruta,
         }
     }
 }
@@ -95,8 +107,8 @@ impl<'a> From<&'a Tour> for NewTourModel<'a> {
     fn from(tour: &'a Tour) -> Self {
         NewTourModel {
             nombre: &tour.nombre,
-            lugar_inicio: &tour.lugar_inicio,
-            lugar_fin: &tour.lugar_fin,
+            lugar_inicio: tour.lugar_inicio.as_deref(),
+            lugar_fin: tour.lugar_fin.as_deref(),
             detalles: tour.detalles.clone(),
             itinerario: tour.itinerario.clone(),
             precio_base: tour.precio_base.clone(),
@@ -108,6 +120,9 @@ impl<'a> From<&'a Tour> for NewTourModel<'a> {
             created_by: tour.created_by,
             updated_by: tour.updated_by,
             tiene_restaurante: Some(tour.tiene_restaurante),
+            geo_inicio: tour.geo_inicio.clone(),
+            geo_fin: tour.geo_fin.clone(),
+            geo_ruta: tour.geo_ruta.clone(),
         }
     }
 }

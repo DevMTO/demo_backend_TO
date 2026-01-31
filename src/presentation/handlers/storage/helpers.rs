@@ -169,6 +169,9 @@ pub async fn update_tour_media(
         horarios: None,
         is_active: None,
         tiene_restaurante: None,
+        geo_inicio: None,
+        geo_fin: None,
+        geo_ruta: None,
     };
     
     // Aplicar la actualización usando el servicio
