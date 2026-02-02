@@ -382,8 +382,8 @@ impl AgenciaService {
         
         let mut agencia: Option<Agencia> = None;
         
-        // Verificar si el usuario tiene rol de agencia
-        let is_agencia_user = *user_role == UserRole::Agencias;
+        // Verificar si el usuario tiene rol de agencia (incluye agencias y agencias_contador)
+        let is_agencia_user = *user_role == UserRole::Agencias || *user_role == UserRole::AgenciasContador;
         
         // Primero intentar por id_entidad si el usuario está relacionado con una agencia
         if is_agencia_user {
