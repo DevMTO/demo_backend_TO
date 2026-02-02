@@ -422,3 +422,25 @@ pub struct ConfirmReservaResponse {
     pub mensaje: String,
 }
 
+/// Request para actualizar la hora de recojo de un file_tour
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateFileTourHoraRecojoRequest {
+    /// Nueva hora de recojo (formato HH:MM:SS o HH:MM)
+    pub hora_recojo: Option<NaiveTime>,
+}
+
+/// Response para actualización de hora de recojo
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateFileTourHoraRecojoResponse {
+    pub success: bool,
+    pub mensaje: String,
+    /// La hora de recojo anterior (si existía)
+    pub old_hora_recojo: Option<NaiveTime>,
+    /// La nueva hora de recojo
+    pub new_hora_recojo: Option<NaiveTime>,
+}
+

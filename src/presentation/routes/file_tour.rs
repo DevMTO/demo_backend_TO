@@ -32,6 +32,7 @@ pub fn file_tour_routes() -> Router<AppState> {
         .route("/vehiculos/{vehiculo_asig_id}", axum::routing::delete(file_relations::remove_file_vehiculo))
         .route("/vehiculos/{id}/status", patch(relation_status::update_file_vehiculo_status_relation))
         .route("/{file_tour_id}/vehiculos/{vehiculo_id}/status", patch(file_relations::update_vehiculo_status))
-        // File Tour status
+        // File Tour status y hora_recojo
         .route("/{id}/status", patch(relation_status::update_file_tour_status))
+        .route("/{id}/hora-recojo", patch(relation_status::update_file_tour_hora_recojo))
 }

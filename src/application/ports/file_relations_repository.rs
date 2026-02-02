@@ -124,4 +124,6 @@ pub trait FileTourRepositoryPort: Send + Sync {
     async fn get_next_orden(&self, id_file: i32) -> Result<i32, ApplicationError>;
     /// Actualiza el status de un file_tour
     async fn update_status(&self, id: i32, status: &str) -> Result<FileTourModel, ApplicationError>;
+    /// Actualiza la hora de recojo de un file_tour
+    async fn update_hora_recojo(&self, id: i32, hora_recojo: Option<chrono::NaiveTime>) -> Result<FileTourModel, ApplicationError>;
 }
