@@ -444,3 +444,32 @@ pub struct UpdateFileTourHoraRecojoResponse {
     pub new_hora_recojo: Option<NaiveTime>,
 }
 
+/// Request para actualizar información de recojo de un file_tour (hora y/o lugar)
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateFileTourRecojoRequest {
+    /// Nueva hora de recojo (formato HH:MM:SS o HH:MM)
+    pub hora_recojo: Option<NaiveTime>,
+    /// Nuevo lugar de recojo
+    #[validate(length(max = 200))]
+    pub lugar_recojo: Option<String>,
+}
+
+/// Response para actualización de información de recojo
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateFileTourRecojoResponse {
+    pub success: bool,
+    pub mensaje: String,
+    /// La hora de recojo anterior (si existía)
+    pub old_hora_recojo: Option<NaiveTime>,
+    /// La nueva hora de recojo
+    pub new_hora_recojo: Option<NaiveTime>,
+    /// El lugar de recojo anterior (si existía)
+    pub old_lugar_recojo: Option<String>,
+    /// El nuevo lugar de recojo
+    pub new_lugar_recojo: Option<String>,
+}
+

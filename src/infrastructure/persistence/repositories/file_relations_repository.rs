@@ -980,4 +980,22 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
         info!("Hora recojo de file_tour {} actualizada a '{:?}'", id, hora_recojo);
         Ok(result)
     }
+    
+    #[instrument(skip(self))]
+    async fn update_recojo(&self, id: i32, hora_recojo: Option<chrono::NaiveTime>, lugar_recojo: Option<String>) -> Result<FileTourModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(file_tours::table.filter(file_tours::id.eq(id)))
+            .set((
+                file_tours::hora_recojo.eq(hora_recojo),
+                file_tours::lugar_recojo.eq(lugar_recojo.as_deref()),
+            ))
+            .returning(FileTourModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando recojo de file_tour: {}", e)))?;
+        
+        info!("Recojo de file_tour {} actualizado: hora={:?}, lugar={:?}", id, hora_recojo, lugar_recojo);
+        Ok(result)
+    }
 }

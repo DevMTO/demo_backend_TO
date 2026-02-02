@@ -4,7 +4,7 @@ use axum::{extract::{Path, State}, response::IntoResponse, Json};
 use tracing::instrument;
 use validator::Validate;
 
-use crate::application::dtos::{UpdateRelationStatusRequest, UpdateStatusResponse, FileRelationStatus, UpdateFileTourHoraRecojoRequest, UpdateFileTourHoraRecojoResponse};
+use crate::application::dtos::{UpdateRelationStatusRequest, UpdateStatusResponse, FileRelationStatus, UpdateFileTourHoraRecojoRequest, UpdateFileTourHoraRecojoResponse, UpdateFileTourRecojoRequest, UpdateFileTourRecojoResponse};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
@@ -80,5 +80,62 @@ pub async fn update_file_tour_hora_recojo(
         mensaje,
         old_hora_recojo,
         new_hora_recojo: request.hora_recojo,
+    }))
+}
+
+/// Actualiza la información de recojo (hora y/o lugar) de un file_tour
+#[instrument(skip(state, _auth))]
+pub async fn update_file_tour_recojo(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(id): Path<i32>,
+    Json(request): Json<UpdateFileTourRecojoRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    
+    // Obtener registro actual
+    let current = state.container.file_tour_repository
+        .find_by_id(id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", id)))?;
+    
+    let old_hora_recojo = current.hora_recojo;
+    let old_lugar_recojo = current.lugar_recojo.clone();
+    
+    // Actualizar recojo
+    state.container.file_tour_repository
+        .update_recojo(id, request.hora_recojo, request.lugar_recojo.clone())
+        .await?;
+    
+    // Construir mensaje descriptivo
+    let mut cambios = Vec::new();
+    
+    match (&old_hora_recojo, &request.hora_recojo) {
+        (Some(old), Some(new)) if old != new => cambios.push(format!("hora: '{}' → '{}'", old, new)),
+        (Some(old), None) => cambios.push(format!("hora '{}' eliminada", old)),
+        (None, Some(new)) => cambios.push(format!("hora establecida a '{}'", new)),
+        _ => {}
+    }
+    
+    match (&old_lugar_recojo, &request.lugar_recojo) {
+        (Some(old), Some(new)) if old != new => cambios.push(format!("lugar: '{}' → '{}'", old, new)),
+        (Some(old), None) => cambios.push(format!("lugar '{}' eliminado", old)),
+        (None, Some(new)) => cambios.push(format!("lugar establecido a '{}'", new)),
+        _ => {}
+    }
+    
+    let mensaje = if cambios.is_empty() {
+        "Sin cambios en información de recojo".to_string()
+    } else {
+        format!("Recojo actualizado: {}", cambios.join(", "))
+    };
+    
+    Ok(json_ok(UpdateFileTourRecojoResponse {
+        success: true,
+        mensaje,
+        old_hora_recojo,
+        new_hora_recojo: request.hora_recojo,
+        old_lugar_recojo,
+        new_lugar_recojo: request.lugar_recojo,
     }))
 }
