@@ -298,4 +298,45 @@ impl UserRepositoryPort for PostgresUserRepository {
         info!("Listados {} usuarios de {} total", items.len(), total);
         Ok((items, total))
     }
+    
+    /// Encuentra usuarios por rol e id_entidad (para notificaciones a proveedores)
+    #[instrument(skip(self))]
+    async fn find_by_role_and_entity(&self, role: &str, entity_id: i32) -> Result<Vec<User>, ApplicationError> {
+        debug!("Buscando usuarios con rol '{}' y entidad {}", role, entity_id);
+        let mut conn = self.pool.get_connection().await?;
+        
+        let results = users::table
+            .filter(users::role.eq(role))
+            .filter(users::id_entidad.eq(entity_id))
+            .filter(users::is_active.eq(true))
+            .load::<UserModel>(&mut conn)
+            .await
+            .map_err(|e| {
+                warn!("Error al buscar usuarios por rol y entidad: {}", e);
+                ApplicationError::Repository(e.to_string())
+            })?;
+        
+        info!("Encontrados {} usuarios con rol '{}' y entidad {}", results.len(), role, entity_id);
+        Ok(results.into_iter().map(Into::into).collect())
+    }
+    
+    /// Encuentra usuarios por id_persona
+    #[instrument(skip(self))]
+    async fn find_by_persona_id(&self, persona_id: i32) -> Result<Vec<User>, ApplicationError> {
+        debug!("Buscando usuarios con persona_id {}", persona_id);
+        let mut conn = self.pool.get_connection().await?;
+        
+        let results = users::table
+            .filter(users::id_persona.eq(persona_id))
+            .filter(users::is_active.eq(true))
+            .load::<UserModel>(&mut conn)
+            .await
+            .map_err(|e| {
+                warn!("Error al buscar usuarios por persona_id: {}", e);
+                ApplicationError::Repository(e.to_string())
+            })?;
+        
+        info!("Encontrados {} usuarios con persona_id {}", results.len(), persona_id);
+        Ok(results.into_iter().map(Into::into).collect())
+    }
 }

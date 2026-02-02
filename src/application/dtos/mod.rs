@@ -34,9 +34,6 @@ pub mod contabilidad_dto;
 pub use activity_log_dto::*;
 pub use notification_dto::*;
 
-// Re-exports - Geo
-pub use geo_dto::*;
-
 // Re-exports - Business entities
 pub use persona_dto::*;
 pub use agencia_dto::*;

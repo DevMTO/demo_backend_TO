@@ -1,6 +1,5 @@
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 use bigdecimal::BigDecimal;
 use ts_rs::TS;
 use validator::Validate;
@@ -370,3 +369,56 @@ pub struct FileListResponse {
     #[ts(type = "number")]
     pub total_pages: i64,
 }
+
+// =============================================================================
+// CONFIRMACIÓN DE RESERVA
+// =============================================================================
+
+/// Request para confirmar una reserva (file)
+/// 
+/// Al confirmar una reserva:
+/// - El status del file pasa a "confirmado"
+/// - Se crea un pago_file pendiente para el contador de la agencia
+/// - Se notifica a los admins
+/// - Se registra en el log de actividad
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct ConfirmReservaRequest {
+    /// ID del file a confirmar
+    pub file_id: i32,
+    
+    /// Monto total confirmado (puede ser diferente al estimado inicial)
+    pub monto_total: Option<f64>,
+    
+    /// Días de plazo para el vencimiento del pago (default: 7 días)
+    #[validate(range(min = 1, max = 90))]
+    pub dias_vencimiento: Option<i32>,
+    
+    /// Notas adicionales para la confirmación
+    #[validate(length(max = 500))]
+    pub notas: Option<String>,
+}
+
+/// Response de confirmación de reserva
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct ConfirmReservaResponse {
+    /// File actualizado
+    pub file: FileResponse,
+    
+    /// ID del pago pendiente generado
+    pub pago_file_id: i32,
+    
+    /// Monto total a pagar
+    #[ts(type = "string")]
+    pub monto_total: BigDecimal,
+    
+    /// Fecha de vencimiento del pago
+    pub fecha_vencimiento: String,
+    
+    /// Mensaje de confirmación
+    pub mensaje: String,
+}
+

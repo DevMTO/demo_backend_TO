@@ -45,7 +45,7 @@ pub async fn assign_guia_to_file_tour(
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
     // Verificar que el file_tour existe
-    state.container.file_tour_repository
+    let file_tour = state.container.file_tour_repository
         .find_by_id(request.id_file_tour)
         .await?
         .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
@@ -64,6 +64,8 @@ pub async fn assign_guia_to_file_tour(
         return Err(ApplicationError::Validation("El guía ya está asignado a este file_tour".to_string()));
     }
     
+    let rol = request.rol.clone().unwrap_or_else(|| "Guía".to_string());
+    
     // Asignar el guía
     let result = state.container.file_guia_repository
         .add(request.id_file_tour, request.id_guia, request.rol.as_deref(), Some(auth.user.id))
@@ -75,6 +77,39 @@ pub async fn assign_guia_to_file_tour(
             .update_status(request.id_guia, "en_servicio")
             .await?;
     }
+    
+    // ===== NOTIFICAR AL GUÍA ASIGNADO =====
+    // Obtener información del file para la notificación
+    let file = state.container.file_repository
+        .find_by_id(file_tour.id_file)
+        .await?;
+    
+    if let Some(file) = file {
+        // Obtener información del tour
+        let tour = state.container.tour_repository
+            .find_by_id(file_tour.id_tour)
+            .await?;
+        
+        let tour_name = tour.map(|t| t.nombre.clone()).unwrap_or_else(|| "Tour".to_string());
+        let file_code = file.file_code.clone().unwrap_or_else(|| format!("F-{}", file.id));
+        let fecha = file.fecha_inicio.format("%d/%m/%Y").to_string();
+        
+        // Notificar al guía
+        let _ = state.container.file_assignment_service
+            .notify_guia_assignment(
+                request.id_guia,
+                &file_code,
+                &tour_name,
+                &fecha,
+                &rol,
+                Some(auth.user.id),
+            ).await;
+    }
+    
+    // ===== VERIFICAR SI EL FILE ESTÁ COMPLETAMENTE ASIGNADO =====
+    let _ = state.container.file_assignment_service
+        .check_and_update_file_status(file_tour.id_file, auth.user.id)
+        .await;
     
     Ok(json_created(FileGuiaResponse::from(result)))
 }

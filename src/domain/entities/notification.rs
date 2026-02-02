@@ -63,6 +63,7 @@ pub enum NotificationCategory {
     Crud,
     System,
     Alert,
+    Financial,
 }
 
 impl NotificationCategory {
@@ -72,6 +73,7 @@ impl NotificationCategory {
             NotificationCategory::Crud => "crud",
             NotificationCategory::System => "system",
             NotificationCategory::Alert => "alert",
+            NotificationCategory::Financial => "financial",
         }
     }
 }
@@ -83,6 +85,7 @@ impl From<&str> for NotificationCategory {
             "crud" => NotificationCategory::Crud,
             "system" => NotificationCategory::System,
             "alert" => NotificationCategory::Alert,
+            "financial" => NotificationCategory::Financial,
             _ => NotificationCategory::System,
         }
     }

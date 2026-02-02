@@ -32,4 +32,10 @@ pub trait UserRepositoryPort: Send + Sync {
     async fn count_active(&self) -> Result<i64, ApplicationError>;
     
     async fn list_users_with_details(&self, limit: i64, offset: i64) -> Result<(Vec<UserListItemDto>, i64), ApplicationError>;
+    
+    /// Encuentra usuarios por rol e id_entidad (para notificaciones a proveedores)
+    async fn find_by_role_and_entity(&self, role: &str, entity_id: i32) -> Result<Vec<User>, ApplicationError>;
+    
+    /// Encuentra usuarios por id_persona
+    async fn find_by_persona_id(&self, persona_id: i32) -> Result<Vec<User>, ApplicationError>;
 }

@@ -50,15 +50,17 @@ pub async fn assign_restaurante_to_file_tour(
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     
     // Verificar que el file_tour existe
-    state.container.file_tour_repository
+    let file_tour = state.container.file_tour_repository
         .find_by_id(request.id_file_tour)
         .await?
         .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
     
-    state.container.restaurante_repository
+    let restaurante = state.container.restaurante_repository
         .find_by_id(request.id_restaurante)
         .await?
         .ok_or_else(|| ApplicationError::NotFound(format!("Restaurante {} no encontrado", request.id_restaurante)))?;
+    
+    let servicio = request.tipo_servicio.clone().unwrap_or_else(|| "Almuerzo".to_string());
     
     // Convertir precio de f64 a BigDecimal si se proporciona
     let precio = request.precio.map(|p| bigdecimal::BigDecimal::try_from(p).unwrap_or_default());
@@ -72,6 +74,34 @@ pub async fn assign_restaurante_to_file_tour(
             Some(auth.user.id),
         )
         .await?;
+    
+    // ===== NOTIFICAR AL RESTAURANTE ASIGNADO =====
+    // Obtener información del file para la notificación
+    let file = state.container.file_repository
+        .find_by_id(file_tour.id_file)
+        .await?;
+    
+    if let Some(file) = file {
+        // Obtener información del tour
+        let tour = state.container.tour_repository
+            .find_by_id(file_tour.id_tour)
+            .await?;
+        
+        let tour_name = tour.map(|t| t.nombre.clone()).unwrap_or_else(|| "Tour".to_string());
+        let file_code = file.file_code.clone().unwrap_or_else(|| format!("F-{}", file.id));
+        let fecha = file.fecha_inicio.format("%d/%m/%Y").to_string();
+        
+        // Notificar al restaurante
+        let _ = state.container.file_assignment_service
+            .notify_restaurante_assignment(
+                restaurante.id,
+                &file_code,
+                &tour_name,
+                &fecha,
+                &servicio,
+                Some(auth.user.id),
+            ).await;
+    }
     
     Ok(json_created(FileRestauranteResponse::from(result)))
 }

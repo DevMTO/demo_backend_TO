@@ -52,6 +52,7 @@ use crate::application::services::{
     MyFilesService,
     PostgresMyFilesRepository,
     ContabilidadService,
+    FileAssignmentService,
 };
 use crate::application::use_cases::auth::{
     LoginUseCase,
@@ -130,6 +131,7 @@ pub struct DependencyContainer {
     pub guia_service: Arc<GuiaService>,
     pub my_files_service: Arc<MyFilesService>,
     pub contabilidad_service: Arc<ContabilidadService>,
+    pub file_assignment_service: Arc<FileAssignmentService>,
     
     // Object Storage (Tigris) - Opcional, puede ser None si no está configurado
     pub tigris_storage: Option<Arc<crate::infrastructure::storage::TigrisStorage>>,
@@ -330,12 +332,19 @@ impl DependencyContainer {
             notification_broadcast_adapter.clone(),
         ));
         
+        // ========== Crear repositorio de pago_file (necesario para FileService) ==========
+        let pago_file_repository: Arc<dyn PagoFileRepositoryPort> = Arc::new(
+            PostgresPagoFileRepository::new(db_pool.clone())
+        );
+        
         // ========== Crear servicio - File ==========
         let file_service = Arc::new(FileService::new(
             file_repository.clone(),
             file_tour_repository.clone(),
             logging_service.clone(),
             notification_broadcast_adapter.clone(),
+            pago_file_repository.clone(),
+            agencia_repository.clone(),
         ));
         
         // ========== Crear servicio - Pago ==========
@@ -390,7 +399,7 @@ impl DependencyContainer {
         let guia_service = Arc::new(GuiaService::new(
             guia_repository.clone(),
             logging_service.clone(),
-            notification_broadcast_adapter,
+            notification_broadcast_adapter.clone(),
         ));
         
         // ========== Crear servicio - MyFiles ==========
@@ -404,9 +413,7 @@ impl DependencyContainer {
         let movimiento_repository: Arc<dyn MovimientoRepositoryPort> = Arc::new(
             PostgresMovimientoRepository::new(db_pool.clone())
         );
-        let pago_file_repository: Arc<dyn PagoFileRepositoryPort> = Arc::new(
-            PostgresPagoFileRepository::new(db_pool.clone())
-        );
+        // pago_file_repository ya creado arriba para FileService
         let pago_proveedor_repository: Arc<dyn PagoProveedorRepositoryPort> = Arc::new(
             PostgresPagoProveedorRepository::new(db_pool.clone())
         );
@@ -417,11 +424,27 @@ impl DependencyContainer {
         let contabilidad_service = Arc::new(ContabilidadService::new(
             cuenta_repository,
             movimiento_repository,
-            pago_file_repository,
+            pago_file_repository.clone(),
             pago_proveedor_repository,
             tarifa_repository,
             agencia_repository.clone(),
             file_repository.clone(),
+            notification_broadcast_adapter.clone(),
+        ));
+        
+        // ========== Crear servicio - FileAssignment ==========
+        let file_assignment_service = Arc::new(FileAssignmentService::new(
+            file_repository.clone(),
+            file_tour_repository.clone(),
+            file_vehiculo_repository.clone(),
+            file_guia_repository.clone(),
+            file_restaurante_repository.clone(),
+            file_entrada_repository.clone(),
+            conductor_repository.clone(),
+            guia_repository.clone(),
+            user_repository.clone(),
+            logging_service.clone(),
+            notification_broadcast_adapter,
         ));
         
         Ok(Self {
@@ -449,6 +472,7 @@ impl DependencyContainer {
             guia_service,
             my_files_service,
             contabilidad_service,
+            file_assignment_service,
             // Repositories
             user_repository,
             persona_repository,

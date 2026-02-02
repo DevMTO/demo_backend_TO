@@ -141,6 +141,40 @@ pub async fn assign_vehiculo_to_file_tour(
             .await?;
     }
     
+    // ===== NOTIFICAR AL TRANSPORTE/CONDUCTOR ASIGNADO =====
+    if let Some(id_conductor) = request.id_conductor {
+        // Obtener información del file para la notificación
+        let file = state.container.file_repository
+            .find_by_id(file_tour.id_file)
+            .await?;
+        
+        if let Some(file) = file {
+            // Obtener información del tour
+            let tour = state.container.tour_repository
+                .find_by_id(file_tour.id_tour)
+                .await?;
+            
+            let tour_name = tour.map(|t| t.nombre.clone()).unwrap_or_else(|| "Tour".to_string());
+            let file_code = file.file_code.clone().unwrap_or_else(|| format!("F-{}", file.id));
+            let fecha = file.fecha_inicio.format("%d/%m/%Y").to_string();
+            
+            // Notificar al transporte/conductor
+            let _ = state.container.file_assignment_service
+                .notify_conductor_assignment(
+                    id_conductor,
+                    &file_code,
+                    &tour_name,
+                    &fecha,
+                    Some(auth.user.id),
+                ).await;
+        }
+    }
+    
+    // ===== VERIFICAR SI EL FILE ESTÁ COMPLETAMENTE ASIGNADO =====
+    let _ = state.container.file_assignment_service
+        .check_and_update_file_status(file_tour.id_file, auth.user.id)
+        .await;
+    
     Ok(json_created(FileVehiculoResponse::from(result)))
 }
 

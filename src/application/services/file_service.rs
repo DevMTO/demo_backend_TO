@@ -7,23 +7,26 @@
 //! - Logging de actividades
 //! - Notificaciones
 //! - Gestión de tours asociados (file_tours)
+//! - **Confirmación de reservas con creación de pagos pendientes**
 
 use std::sync::Arc;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Duration, Utc};
 use bigdecimal::BigDecimal;
 use tracing::{info, warn, instrument};
 
 use crate::application::dtos::{
     CreateFileRequest, UpdateFileRequest, FileResponse, FileTourDto,
+    ConfirmReservaRequest, ConfirmReservaResponse,
 };
 use crate::application::ports::{FileRepositoryPort, PaginationOptions, NotificationServicePort};
-use crate::application::ports::{FileTourRepositoryPort, FileTourInputData};
+use crate::application::ports::{FileTourRepositoryPort, FileTourInputData, PagoFileRepositoryPort, AgenciaRepositoryPort};
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
     File, EntityType, UserRole,
     NotificationType, NotificationCategory, NotificationPriority,
 };
 use crate::domain::errors::ApplicationError;
+use crate::infrastructure::persistence::models::NewPagoFileModel;
 
 /// Servicio de files - contiene la lógica de negocio
 pub struct FileService {
@@ -31,6 +34,8 @@ pub struct FileService {
     file_tour_repository: Arc<dyn FileTourRepositoryPort>,
     logging_service: Arc<LoggingService>,
     notification_service: Arc<dyn NotificationServicePort>,
+    pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
+    agencia_repository: Arc<dyn AgenciaRepositoryPort>,
 }
 
 impl FileService {
@@ -39,12 +44,16 @@ impl FileService {
         file_tour_repository: Arc<dyn FileTourRepositoryPort>,
         logging_service: Arc<LoggingService>,
         notification_service: Arc<dyn NotificationServicePort>,
+        pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
+        agencia_repository: Arc<dyn AgenciaRepositoryPort>,
     ) -> Self {
         Self {
             file_repository,
             file_tour_repository,
             logging_service,
             notification_service,
+            pago_file_repository,
+            agencia_repository,
         }
     }
 
@@ -595,5 +604,159 @@ impl FileService {
         }
         
         changed
+    }
+
+    // =========================================================================
+    // CONFIRMACIÓN DE RESERVA
+    // =========================================================================
+
+    /// Confirmar una reserva (file)
+    /// 
+    /// Este método:
+    /// 1. Verifica que el file exista y esté en estado "reservado"
+    /// 2. Actualiza el status a "confirmado"
+    /// 3. Crea un registro en pagos_files con estado "pendiente"
+    /// 4. Notifica a los admins
+    /// 5. Registra en el log de actividad
+    #[instrument(skip(self))]
+    pub async fn confirmar_reserva(
+        &self,
+        request: ConfirmReservaRequest,
+        confirmed_by: i32,
+        confirmed_by_username: Option<String>,
+    ) -> Result<ConfirmReservaResponse, ApplicationError> {
+        // 1. Obtener el file
+        let file = self.file_repository
+            .find_by_id(request.file_id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(
+                format!("File {} no encontrado", request.file_id)
+            ))?;
+        
+        // 2. Verificar que el status sea válido para confirmar
+        let valid_statuses = ["pendiente", "reservado"];
+        if !valid_statuses.contains(&file.status.as_str()) {
+            return Err(ApplicationError::Validation(format!(
+                "El file no puede ser confirmado. Estado actual: '{}'. Estados válidos para confirmación: pendiente, reservado",
+                file.status
+            )));
+        }
+        
+        // Verificar que no exista ya un pago_file para este file
+        if let Some(_existing) = self.pago_file_repository.find_by_file(request.file_id).await? {
+            return Err(ApplicationError::Validation(
+                "Este file ya tiene un registro de pago asociado".to_string()
+            ));
+        }
+        
+        // 3. Obtener info de la agencia
+        let agencia = self.agencia_repository
+            .find_by_id(file.id_agencia)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(
+                format!("Agencia {} no encontrada", file.id_agencia)
+            ))?;
+        
+        // 4. Calcular montos y fechas
+        let monto_total = request.monto_total
+            .map(|m| BigDecimal::try_from(m).unwrap_or_default())
+            .unwrap_or_else(|| file.monto_total.clone());
+        
+        let dias_vencimiento = request.dias_vencimiento.unwrap_or(7);
+        let fecha_vencimiento = (Utc::now() + Duration::days(dias_vencimiento as i64))
+            .date_naive();
+        
+        // 5. Actualizar el file a status "confirmado"
+        let mut updated_file = file.clone();
+        updated_file.status = "confirmado".to_string();
+        updated_file.monto_total = monto_total.clone();
+        updated_file.updated_by = Some(confirmed_by);
+        updated_file.updated_at = Utc::now();
+        
+        let updated_file = self.file_repository.update(&updated_file).await?;
+        info!("✅ File {} confirmado", request.file_id);
+        
+        // 6. Crear el pago_file pendiente
+        let new_pago = NewPagoFileModel {
+            id_file: request.file_id,
+            id_agencia: file.id_agencia,
+            monto_total: monto_total.clone(),
+            monto_pagado: BigDecimal::from(0),
+            estado: "pendiente",
+            fecha_vencimiento: Some(fecha_vencimiento),
+            notas: request.notas.as_deref(),
+            created_by: Some(confirmed_by),
+        };
+        
+        let pago_file = self.pago_file_repository.create(new_pago).await?;
+        info!("💰 Pago pendiente creado: ID {} para file {}", pago_file.id, request.file_id);
+        
+        // 7. Registrar en el log de actividad
+        let username = confirmed_by_username.clone().unwrap_or_else(|| "Sistema".to_string());
+        if let Err(e) = self.logging_service.log_update::<File>(
+            Some(confirmed_by),
+            confirmed_by_username.clone(),
+            EntityType::File,
+            request.file_id,
+            Some(&file),
+            Some(&updated_file),
+            Some(vec!["status".to_string(), "confirmacion".to_string()]),
+            None, // IP no aplica en operación de servicio
+        ).await {
+            warn!("Error al registrar log de confirmación: {}", e);
+        }
+        
+        // 8. Notificar a los admins
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin, UserRole::Admin],
+            "📋 Reserva Confirmada",
+            &format!(
+                "{} ha confirmado la reserva #{} (File #{}).\nAgencia: {}\nMonto total: S/ {}\nVencimiento de pago: {}",
+                username,
+                updated_file.file_code.clone().unwrap_or_else(|| format!("F-{}", request.file_id)),
+                request.file_id,
+                agencia.nombre,
+                monto_total,
+                fecha_vencimiento
+            ),
+            NotificationType::Success,
+            NotificationCategory::Crud,
+            NotificationPriority::High,
+            Some(confirmed_by),
+        ).await {
+            warn!("Error al enviar notificación de confirmación: {}", e);
+        }
+        
+        // 9. Notificar también al contador de la agencia (si existe)
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::AgenciasContador],
+            "💰 Nuevo pago pendiente",
+            &format!(
+                "Se ha confirmado la reserva #{} con un monto de S/ {}.\nFecha de vencimiento: {}\nPor favor, gestione el pago.",
+                updated_file.file_code.clone().unwrap_or_else(|| format!("F-{}", request.file_id)),
+                monto_total,
+                fecha_vencimiento
+            ),
+            NotificationType::Warning,
+            NotificationCategory::Financial,
+            NotificationPriority::High,
+            Some(confirmed_by),
+        ).await {
+            warn!("Error al enviar notificación al contador: {}", e);
+        }
+        
+        // 10. Cargar tours para el response
+        let tours_dto = self.load_file_tours(request.file_id).await?;
+        
+        Ok(ConfirmReservaResponse {
+            file: FileResponse::from_file_with_tours(updated_file, tours_dto),
+            pago_file_id: pago_file.id,
+            monto_total,
+            fecha_vencimiento: fecha_vencimiento.to_string(),
+            mensaje: format!(
+                "Reserva confirmada exitosamente. Se ha generado un pago pendiente de S/ {} con vencimiento el {}",
+                pago_file.monto_total, fecha_vencimiento
+            ),
+        })
     }
 }

@@ -21,9 +21,12 @@ use crate::application::dtos::contabilidad_dto::{
 use crate::application::ports::{
     CuentaRepositoryPort, MovimientoRepositoryPort, PagoFileRepositoryPort,
     PagoProveedorRepositoryPort, TarifaServicioRepositoryPort,
-    AgenciaRepositoryPort, FileRepositoryPort,
+    AgenciaRepositoryPort, FileRepositoryPort, NotificationServicePort,
 };
 use crate::domain::errors::ApplicationError;
+use crate::domain::entities::{
+    UserRole, NotificationType, NotificationCategory, NotificationPriority,
+};
 use crate::infrastructure::persistence::models::{
     NewMovimientoModel, NewPagoProveedorModel, NewTarifaServicioModel,
     UpdatePagoFileModel, UpdatePagoProveedorModel, UpdateTarifaServicioModel,
@@ -42,6 +45,7 @@ pub struct ContabilidadService {
     tarifa_repository: Arc<dyn TarifaServicioRepositoryPort>,
     agencia_repository: Arc<dyn AgenciaRepositoryPort>,
     file_repository: Arc<dyn FileRepositoryPort>,
+    notification_service: Arc<dyn NotificationServicePort>,
 }
 
 impl ContabilidadService {
@@ -53,6 +57,7 @@ impl ContabilidadService {
         tarifa_repository: Arc<dyn TarifaServicioRepositoryPort>,
         agencia_repository: Arc<dyn AgenciaRepositoryPort>,
         file_repository: Arc<dyn FileRepositoryPort>,
+        notification_service: Arc<dyn NotificationServicePort>,
     ) -> Self {
         Self {
             cuenta_repository,
@@ -62,6 +67,7 @@ impl ContabilidadService {
             tarifa_repository,
             agencia_repository,
             file_repository,
+            notification_service,
         }
     }
 
@@ -315,7 +321,7 @@ impl ContabilidadService {
     pub async fn registrar_pago_file(
         &self,
         request: RegistrarPagoFileRequest,
-        _created_by: Option<i32>,
+        created_by: Option<i32>,
     ) -> Result<PagoFileResponse, ApplicationError> {
         // Obtener pago actual
         let pago = self.pago_file_repository
@@ -345,7 +351,7 @@ impl ContabilidadService {
         
         // Actualizar pago
         let update = UpdatePagoFileModel {
-            monto_pagado: Some(nuevo_monto_pagado),
+            monto_pagado: Some(nuevo_monto_pagado.clone()),
             estado: Some(nuevo_estado),
             comprobante_url,
             comprobante_key,
@@ -359,12 +365,40 @@ impl ContabilidadService {
         
         info!("Pago de file {} registrado: {} -> {}", request.id_pago_file, pago.estado, nuevo_estado);
         
-        // Obtener nombre de agencia
+        // Obtener nombre de agencia para notificación
         let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(pago_actualizado.id_agencia).await {
-            Some(agencia.nombre)
+            Some(agencia.nombre.clone())
         } else {
             None
         };
+        
+        // Notificar a los admins del pago registrado
+        let estado_texto = if nuevo_estado == "pagado" { "completo" } else { "parcial" };
+        let titulo_notif = if nuevo_estado == "pagado" {
+            "💵 Pago Completo Registrado"
+        } else {
+            "💰 Pago Parcial Registrado"
+        };
+        
+        if let Err(e) = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin, UserRole::Admin],
+            titulo_notif,
+            &format!(
+                "Se ha registrado un pago {} para el file #{}.\nAgencia: {}\nMonto pagado: S/ {}\nMonto total: S/ {}\nPendiente: S/ {}",
+                estado_texto,
+                pago.id_file,
+                agencia_nombre.clone().unwrap_or_else(|| "Desconocida".to_string()),
+                request.monto,
+                pago.monto_total,
+                &pago.monto_total - &nuevo_monto_pagado
+            ),
+            if nuevo_estado == "pagado" { NotificationType::Success } else { NotificationType::Info },
+            NotificationCategory::Financial,
+            NotificationPriority::High,
+            created_by,
+        ).await {
+            warn!("Error al enviar notificación de pago registrado: {}", e);
+        }
         
         Ok(self.pago_file_to_response(pago_actualizado, agencia_nombre).await)
     }
