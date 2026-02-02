@@ -57,7 +57,10 @@ impl NotificationServicePort for NotificationBroadcastAdapter {
 
         // 2. Obtener IDs de usuarios con esos roles
         let roles_str: Vec<String> = roles.iter().map(|r| r.to_string().to_lowercase()).collect();
-        let user_ids = self.notification_repository.get_users_by_roles(roles_str).await?;
+        let user_ids = self.notification_repository.get_users_by_roles(roles_str.clone()).await?;
+        
+        tracing::info!("📡 SSE Broadcast: Notificación {} para roles {:?}, encontrados {} usuarios: {:?}", 
+            notification.id, roles_str, user_ids.len(), user_ids);
 
         // 3. Enviar por SSE a cada usuario conectado
         let dto = UserNotificationDto {
@@ -77,12 +80,17 @@ impl NotificationServicePort for NotificationBroadcastAdapter {
         };
 
         let event = SseEvent::NewNotification(dto);
+        let mut sent_count = 0;
         for user_id in user_ids {
             // Excluir al usuario que creó la notificación del broadcast SSE
             if Some(user_id) != created_by {
-                self.broadcaster.send_to_user(user_id, event.clone()).await;
+                let sent = self.broadcaster.send_to_user(user_id, event.clone()).await;
+                if sent {
+                    sent_count += 1;
+                }
             }
         }
+        tracing::info!("📡 SSE Broadcast: Enviado a {} usuarios conectados", sent_count);
 
         Ok(())
     }

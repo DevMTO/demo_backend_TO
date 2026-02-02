@@ -98,8 +98,16 @@ impl NotificationBroadcaster {
     pub async fn send_to_user(&self, user_id: i32, event: SseEvent) -> bool {
         let channels = self.user_channels.read().await;
         if let Some(sender) = channels.get(&user_id) {
-            sender.send(event).is_ok()
+            let result = sender.send(event.clone());
+            if result.is_ok() {
+                tracing::info!("📤 SSE: Evento enviado a usuario {}", user_id);
+                true
+            } else {
+                tracing::warn!("📤 SSE: Error enviando evento a usuario {} (canal cerrado)", user_id);
+                false
+            }
         } else {
+            tracing::debug!("📤 SSE: Usuario {} no tiene canal SSE activo", user_id);
             false
         }
     }
