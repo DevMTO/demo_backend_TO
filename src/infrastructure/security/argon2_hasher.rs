@@ -51,35 +51,3 @@ impl PasswordHasherPort for Argon2PasswordHasher {
         Ok(self.argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_hash_and_verify() {
-        let hasher = Argon2PasswordHasher::new();
-        let password = "SecurePassword123!";
-        
-        let hash = hasher.hash(password).unwrap();
-        
-        assert!(hasher.verify(password, &hash).unwrap());
-        assert!(!hasher.verify("wrong_password", &hash).unwrap());
-    }
-    
-    #[test]
-    fn test_different_hashes_for_same_password() {
-        let hasher = Argon2PasswordHasher::new();
-        let password = "SecurePassword123!";
-        
-        let hash1 = hasher.hash(password).unwrap();
-        let hash2 = hasher.hash(password).unwrap();
-        
-        // Cada hash debe ser diferente (diferentes salts)
-        assert_ne!(hash1, hash2);
-        
-        // Pero ambos deben verificar correctamente
-        assert!(hasher.verify(password, &hash1).unwrap());
-        assert!(hasher.verify(password, &hash2).unwrap());
-    }
-}

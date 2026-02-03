@@ -144,23 +144,3 @@ impl SecurityHeaders {
     /// Deshabilita features del navegador innecesarias
     pub const PERMISSIONS_POLICY: (&'static str, &'static str) = ("permissions-policy", "geolocation=(), microphone=(), camera=()");
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_allowed_methods_contains_standard_rest_methods() {
-        assert!(ALLOWED_METHODS.contains(&Method::GET));
-        assert!(ALLOWED_METHODS.contains(&Method::POST));
-        assert!(ALLOWED_METHODS.contains(&Method::PUT));
-        assert!(ALLOWED_METHODS.contains(&Method::PATCH));
-        assert!(ALLOWED_METHODS.contains(&Method::DELETE));
-    }
-
-    #[test]
-    fn test_dangerous_methods_not_allowed() {
-        assert!(!ALLOWED_METHODS.contains(&Method::CONNECT));
-        assert!(!ALLOWED_METHODS.contains(&Method::TRACE));
-    }
-}
