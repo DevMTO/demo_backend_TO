@@ -341,6 +341,28 @@ impl MovimientoRepositoryPort for PostgresMovimientoRepository {
         
         Ok(result.unwrap_or_else(|| BigDecimal::from_str("0").unwrap()))
     }
+
+    #[instrument(skip(self))]
+    async fn update_comprobante(
+        &self,
+        id: i32,
+        comprobante_url: &str,
+        comprobante_key: &str,
+    ) -> Result<(), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        diesel::update(movimientos::table.find(id))
+            .set((
+                movimientos::comprobante_url.eq(Some(comprobante_url)),
+                movimientos::comprobante_key.eq(Some(comprobante_key)),
+            ))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        info!("Comprobante actualizado para movimiento {}", id);
+        Ok(())
+    }
 }
 
 // ============================================================================

@@ -100,6 +100,14 @@ pub trait MovimientoRepositoryPort: Send + Sync {
         fecha_desde: DateTime<Utc>, 
         fecha_hasta: DateTime<Utc>
     ) -> Result<BigDecimal, ApplicationError>;
+
+    /// Actualizar comprobante de movimiento
+    async fn update_comprobante(
+        &self,
+        id: i32,
+        comprobante_url: &str,
+        comprobante_key: &str,
+    ) -> Result<(), ApplicationError>;
 }
 
 // ============================================================================

@@ -1,3 +1,3 @@
-mod tigris;
+pub mod tigris;
 
 pub use tigris::*;

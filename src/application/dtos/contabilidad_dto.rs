@@ -113,6 +113,9 @@ pub struct CreateMovimientoRequest {
     pub monto: BigDecimal,
     pub concepto: String,
     pub notas: Option<String>,
+    /// Comprobante en base64 (se subirá a Tigris)
+    pub comprobante_base64: Option<String>,
+    pub comprobante_filename: Option<String>,
 }
 
 // ============================================================================

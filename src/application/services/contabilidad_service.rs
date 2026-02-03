@@ -228,11 +228,19 @@ impl ContabilidadService {
     }
 
     /// Crear movimiento manual (ajuste)
+    /// 
+    /// # Arguments
+    /// * `request` - Datos del movimiento
+    /// * `created_by` - ID del usuario que crea el movimiento
+    /// * `comprobante_url` - URL del comprobante ya subido a Tigris (opcional)
+    /// * `comprobante_key` - Key del comprobante en Tigris (opcional)
     #[instrument(skip(self))]
     pub async fn create_movimiento(
         &self,
         request: CreateMovimientoRequest,
         created_by: Option<i32>,
+        comprobante_url: Option<String>,
+        comprobante_key: Option<String>,
     ) -> Result<MovimientoResponse, ApplicationError> {
         // Obtener cuenta y saldo actual
         let cuenta = self.cuenta_repository
@@ -249,7 +257,7 @@ impl ContabilidadService {
             &saldo_anterior - &request.monto
         };
         
-        // Crear movimiento
+        // Crear movimiento con comprobante (si viene URL)
         let new_movimiento = NewMovimientoModel {
             id_cuenta: request.id_cuenta,
             tipo: &request.tipo,
@@ -261,8 +269,8 @@ impl ContabilidadService {
             saldo_anterior: saldo_anterior.clone(),
             saldo_posterior: saldo_posterior.clone(),
             notas: request.notas.as_deref(),
-            comprobante_url: None,
-            comprobante_key: None,
+            comprobante_url: comprobante_url.as_deref(),
+            comprobante_key: comprobante_key.as_deref(),
             created_by,
         };
         
@@ -275,7 +283,11 @@ impl ContabilidadService {
             .update_saldo(request.id_cuenta, saldo_posterior)
             .await?;
         
-        info!("Movimiento manual creado: {} - {}", movimiento.id, movimiento.concepto);
+        if comprobante_url.is_some() {
+            info!("Movimiento manual creado con comprobante: {} - {}", movimiento.id, movimiento.concepto);
+        } else {
+            info!("Movimiento manual creado: {} - {}", movimiento.id, movimiento.concepto);
+        }
         
         Ok(self.movimiento_to_response(movimiento, Some(cuenta.nombre)))
     }

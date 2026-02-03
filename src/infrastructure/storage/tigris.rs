@@ -227,6 +227,16 @@ impl TigrisStorage {
         let timestamp = chrono::Utc::now().timestamp();
         format!("tours/{}/{}-{}.{}", tour_id, file_type, timestamp, extension)
     }
+
+    /// Genera un path único para un comprobante de movimiento contable
+    /// 
+    /// # Arguments
+    /// * `movimiento_id` - ID del movimiento
+    /// * `extension` - Extensión del archivo (png, jpg, pdf, etc)
+    pub fn generate_movimiento_comprobante_path(movimiento_id: i32, extension: &str) -> String {
+        let timestamp = chrono::Utc::now().timestamp();
+        format!("contabilidad/movimientos/{}/comprobante-{}.{}", movimiento_id, timestamp, extension)
+    }
 }
 
 /// Tipos de archivos permitidos para agencias
