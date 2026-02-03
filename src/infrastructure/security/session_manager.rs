@@ -13,6 +13,10 @@ use crate::domain::errors::ApplicationError;
 
 type HmacSha256 = Hmac<Sha256>;
 
+/// Periodo de gracia después de una rotación durante el cual NO se rota de nuevo.
+/// Esto evita problemas con múltiples tabs abiertas que envían peticiones simultáneas.
+const ROTATION_GRACE_PERIOD_SECS: i64 = 30;
+
 #[derive(Clone)]
 pub struct SecureSessionManager {
     secret_key: Vec<u8>,
@@ -123,16 +127,34 @@ impl SessionManagerPort for SecureSessionManager {
     }
 
     fn should_rotate_token(&self, session: &UserSession) -> bool {
+        // Verificar si pasó suficiente tiempo desde la última actividad
         if let Some(last_activity) = session.last_activity {
+            let now = Utc::now();
+            let time_since_activity = now - last_activity;
             let rotation_threshold = Duration::minutes(self.rotation_interval_minutes);
-            let should_rotate = Utc::now() - last_activity > rotation_threshold;
-            if should_rotate {
-                debug!(
-                    "Sesión {} necesita rotación de token (last_activity: {}, threshold: {} min)",
-                    session.id, last_activity, self.rotation_interval_minutes
-                );
+            
+            // Si no ha pasado el tiempo de rotación, no rotar
+            if time_since_activity <= rotation_threshold {
+                return false;
             }
-            should_rotate
+            
+            // Periodo de gracia: Si la última actualización fue muy reciente
+            // (otro request ya rotó), no rotar de nuevo.
+            // Esto evita problemas con múltiples tabs enviando requests simultáneos.
+            let time_since_update = now - session.updated_at;
+            if time_since_update < Duration::seconds(ROTATION_GRACE_PERIOD_SECS) {
+                debug!(
+                    "Sesión {} dentro del periodo de gracia de rotación ({:?} desde última actualización)",
+                    session.id, time_since_update
+                );
+                return false;
+            }
+            
+            debug!(
+                "Sesión {} necesita rotación de token (last_activity: {}, threshold: {} min)",
+                session.id, last_activity, self.rotation_interval_minutes
+            );
+            true
         } else {
             false
         }

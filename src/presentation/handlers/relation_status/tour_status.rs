@@ -4,7 +4,7 @@ use axum::{extract::{Path, State}, response::IntoResponse, Json};
 use tracing::instrument;
 use validator::Validate;
 
-use crate::application::dtos::{UpdateRelationStatusRequest, UpdateStatusResponse, FileRelationStatus, UpdateFileTourHoraRecojoRequest, UpdateFileTourHoraRecojoResponse, UpdateFileTourRecojoRequest, UpdateFileTourRecojoResponse};
+use crate::application::dtos::{UpdateRelationStatusRequest, UpdateStatusResponse, FileRelationStatus, UpdateFileTourHoraRecojoRequest, UpdateFileTourHoraRecojoResponse, UpdateFileTourRecojoRequest, UpdateFileTourRecojoResponse, GeoLocation};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
@@ -83,7 +83,7 @@ pub async fn update_file_tour_hora_recojo(
     }))
 }
 
-/// Actualiza la información de recojo (hora y/o lugar) de un file_tour
+/// Actualiza la información de recojo (hora, lugar y/o geo) de un file_tour
 #[instrument(skip(state, _auth))]
 pub async fn update_file_tour_recojo(
     State(state): State<AppState>,
@@ -101,10 +101,15 @@ pub async fn update_file_tour_recojo(
     
     let old_hora_recojo = current.hora_recojo;
     let old_lugar_recojo = current.lugar_recojo.clone();
+    let old_geo_recojo = current.geo_recojo.clone();
+    
+    // Convertir GeoLocation a serde_json::Value si existe
+    let geo_recojo_value = request.geo_recojo.as_ref()
+        .map(|geo| serde_json::to_value(geo).unwrap_or(serde_json::Value::Null));
     
     // Actualizar recojo
     state.container.file_tour_repository
-        .update_recojo(id, request.hora_recojo, request.lugar_recojo.clone())
+        .update_recojo(id, request.hora_recojo, request.lugar_recojo.clone(), geo_recojo_value)
         .await?;
     
     // Construir mensaje descriptivo
@@ -124,11 +129,22 @@ pub async fn update_file_tour_recojo(
         _ => {}
     }
     
+    match (&old_geo_recojo, &request.geo_recojo) {
+        (Some(_), Some(_)) => cambios.push("geolocalización actualizada".to_string()),
+        (Some(_), None) => cambios.push("geolocalización eliminada".to_string()),
+        (None, Some(_)) => cambios.push("geolocalización establecida".to_string()),
+        _ => {}
+    }
+    
     let mensaje = if cambios.is_empty() {
         "Sin cambios en información de recojo".to_string()
     } else {
         format!("Recojo actualizado: {}", cambios.join(", "))
     };
+    
+    // Convertir old_geo_recojo de JsonValue a GeoLocation para la respuesta
+    let old_geo_recojo_dto = old_geo_recojo
+        .and_then(|v| serde_json::from_value::<GeoLocation>(v).ok());
     
     Ok(json_ok(UpdateFileTourRecojoResponse {
         success: true,
@@ -137,5 +153,7 @@ pub async fn update_file_tour_recojo(
         new_hora_recojo: request.hora_recojo,
         old_lugar_recojo,
         new_lugar_recojo: request.lugar_recojo,
+        old_geo_recojo: old_geo_recojo_dto,
+        new_geo_recojo: request.geo_recojo,
     }))
 }

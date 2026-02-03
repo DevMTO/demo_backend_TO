@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tracing::info;
 
-use crate::application::ports::{EntradaRepositoryPort, NotificationServicePort, PaginatedResult, PaginationOptions};
+use crate::application::ports::{EntradaRepositoryPort, EntradaPrecioRepositoryPort, NotificationServicePort, PaginatedResult, PaginationOptions};
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
     Entrada, EntityType, NotificationCategory, NotificationPriority, NotificationType, UserRole,
@@ -16,6 +16,7 @@ use crate::domain::errors::ApplicationError;
 /// - Real-time notifications via SSE broadcast
 pub struct EntradaService {
     entrada_repository: Arc<dyn EntradaRepositoryPort>,
+    entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
     logging_service: Arc<LoggingService>,
     notification_service: Arc<dyn NotificationServicePort>,
 }
@@ -23,11 +24,13 @@ pub struct EntradaService {
 impl EntradaService {
     pub fn new(
         entrada_repository: Arc<dyn EntradaRepositoryPort>,
+        entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
         logging_service: Arc<LoggingService>,
         notification_service: Arc<dyn NotificationServicePort>,
     ) -> Self {
         Self {
             entrada_repository,
+            entrada_precio_repository,
             logging_service,
             notification_service,
         }
@@ -220,6 +223,7 @@ impl EntradaService {
     }
 
     /// Eliminación permanente de una entrada (hard delete) - Solo SuperAdmin
+    /// Elimina también todos los precios asociados a esta entrada
     pub async fn hard_delete_entrada(
         &self,
         id: i32,
@@ -233,7 +237,20 @@ impl EntradaService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Entrada {} no encontrada", id)))?;
 
-        // Hard delete
+        // Primero eliminar todos los precios asociados
+        let precios_eliminados = self
+            .entrada_precio_repository
+            .delete_by_entrada(id)
+            .await?;
+        
+        if precios_eliminados > 0 {
+            info!(
+                "[DELETE] {} precios de entrada ELIMINADOS PERMANENTEMENTE para entrada ID: {}",
+                precios_eliminados, id
+            );
+        }
+
+        // Luego hard delete de la entrada
         if !self.entrada_repository.hard_delete(id).await? {
             return Err(ApplicationError::NotFound(format!(
                 "Entrada {} no encontrada",
@@ -251,7 +268,10 @@ impl EntradaService {
                 EntityType::Entrada,
                 id,
                 Some(&entrada),
-                Some("HARD_DELETE - Eliminación permanente".to_string()),
+                Some(format!(
+                    "HARD_DELETE - Eliminación permanente. Precios eliminados: {}",
+                    precios_eliminados
+                )),
             )
             .await;
 
@@ -262,8 +282,8 @@ impl EntradaService {
                 vec![UserRole::SuperAdmin],
                 "Entrada eliminada permanentemente",
                 &format!(
-                    "{} ha eliminado permanentemente la entrada '{}' (ID: {})",
-                    actor_username, entrada.nombre, id
+                    "{} ha eliminado permanentemente la entrada '{}' (ID: {}) con {} precios asociados",
+                    actor_username, entrada.nombre, id, precios_eliminados
                 ),
                 NotificationType::Warning,
                 NotificationCategory::Crud,

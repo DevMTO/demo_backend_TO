@@ -386,6 +386,7 @@ impl DependencyContainer {
         // ========== Crear servicio - Entrada ==========
         let entrada_service = Arc::new(EntradaService::new(
             entrada_repository.clone(),
+            entrada_precio_repository.clone(),
             logging_service.clone(),
             notification_broadcast_adapter.clone(),
         ));
