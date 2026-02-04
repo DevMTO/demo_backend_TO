@@ -53,6 +53,8 @@ use crate::application::services::{
     PostgresMyFilesRepository,
     ContabilidadService,
     FileAssignmentService,
+    MisPagosService,
+    PostgresMisPagosRepository,
 };
 use crate::application::use_cases::auth::{
     LoginUseCase,
@@ -132,6 +134,7 @@ pub struct DependencyContainer {
     pub my_files_service: Arc<MyFilesService>,
     pub contabilidad_service: Arc<ContabilidadService>,
     pub file_assignment_service: Arc<FileAssignmentService>,
+    pub mis_pagos_service: Arc<MisPagosService>,
     
     // Object Storage (Tigris) - Opcional, puede ser None si no está configurado
     pub tigris_storage: Option<Arc<crate::infrastructure::storage::TigrisStorage>>,
@@ -448,6 +451,10 @@ impl DependencyContainer {
             notification_broadcast_adapter,
         ));
         
+        // ========== Crear servicio - MisPagos ==========
+        let mis_pagos_repository = Arc::new(PostgresMisPagosRepository::new(db_pool.clone()));
+        let mis_pagos_service = Arc::new(MisPagosService::new(mis_pagos_repository));
+        
         Ok(Self {
             // Auth use cases
             login_use_case,
@@ -474,6 +481,7 @@ impl DependencyContainer {
             my_files_service,
             contabilidad_service,
             file_assignment_service,
+            mis_pagos_service,
             // Repositories
             user_repository,
             persona_repository,

@@ -57,7 +57,6 @@ pub trait FileEntradaRepositoryPort: Send + Sync {
 pub trait FileGuiaRepositoryPort: Send + Sync {
     async fn add(&self, id_file_tour: i32, id_guia: i32, rol: Option<&str>, created_by: Option<i32>) -> Result<FileGuiaModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileGuiaModel>, ApplicationError>;
     /// Busca guías de un file_tour con información completa del guía y persona (JOIN)
     async fn find_by_file_tour_with_persona(&self, id_file_tour: i32) -> Result<Vec<FileGuiaWithPersonaModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileGuiaModel>, ApplicationError>;

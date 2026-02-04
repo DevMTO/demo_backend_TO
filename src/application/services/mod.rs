@@ -19,6 +19,7 @@ pub mod guia_service;
 pub mod my_files_service;
 pub mod contabilidad_service;
 pub mod file_assignment_service;
+pub mod mis_pagos_service;
 
 pub use logging_service::LoggingService;
 pub use notification_service::NotificationService;
@@ -38,4 +39,4 @@ pub use guia_service::GuiaService;
 pub use my_files_service::{MyFilesService, PostgresMyFilesRepository};
 pub use contabilidad_service::ContabilidadService;
 pub use file_assignment_service::FileAssignmentService;
-
+pub use mis_pagos_service::{MisPagosService, PostgresMisPagosRepository};

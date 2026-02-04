@@ -25,6 +25,7 @@ mod notification;
 mod storage;
 mod contabilidad;
 mod my_files;
+mod mis_pagos;
 
 // Re-exportar AppState para uso externo
 pub use state::AppState;
@@ -81,6 +82,7 @@ pub fn create_router(
         .nest("/storage", storage::storage_routes())
         .nest("/my-files", my_files::my_files_routes())
         .nest("/contabilidad", contabilidad::contabilidad_routes())
+        .nest("/mis-pagos", mis_pagos::mis_pagos_routes())
         .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
     // Router principal con capas de seguridad
