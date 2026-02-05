@@ -60,7 +60,7 @@ fn default_page_size() -> i64 { 20 }
 
 impl PaginationParams {
     pub fn to_options(&self) -> crate::application::ports::PaginationOptions {
-        let limit = self.page_size.min(100);
+        let limit = self.page_size.min(10000); // Aumentado de 100 a 10000 para permitir cargar todos los registros
         let offset = (self.page - 1).max(0) * limit;
         crate::application::ports::PaginationOptions {
             limit: Some(limit),

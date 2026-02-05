@@ -23,7 +23,7 @@ pub async fn list_restaurantes(
     _auth: AuthUser,
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let limit = params.page_size.min(100);
+    let limit = params.page_size.min(10000);
     let offset = (params.page - 1).max(0) * limit;
     
     let (items, total) = state.container.restaurante_service.list_restaurantes(limit, offset).await?;

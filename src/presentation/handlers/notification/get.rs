@@ -23,7 +23,7 @@ pub async fn get_my_notifications(
 ) -> Result<impl IntoResponse, ApplicationError> {
     info!("Obteniendo notificaciones para usuario: {}", auth.user.id);
     
-    let page_size = params.page_size.min(100).max(1);
+    let page_size = params.page_size.min(10000).max(1); // Aumentado de 100 a 10000
     let offset = (params.page - 1).max(0) * page_size;
     
     let notifications = state.container.notification_service
@@ -88,7 +88,7 @@ pub async fn list_all_notifications(
     
     info!("Listando todas las notificaciones del sistema");
     
-    let page_size = params.page_size.min(100).max(1);
+    let page_size = params.page_size.min(10000).max(1); // Aumentado de 100 a 10000
     let offset = (params.page - 1).max(0) * page_size;
     
     let filters = crate::application::ports::NotificationFilters {

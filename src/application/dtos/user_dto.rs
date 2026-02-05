@@ -204,7 +204,7 @@ impl PaginationParams {
     }
     
     pub fn limit(&self) -> i64 {
-        self.per_page.min(100) // Máximo 100 por página
+        self.per_page.min(10000) // Máximo 10000 por página
     }
 }
 

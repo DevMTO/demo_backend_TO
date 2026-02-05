@@ -70,7 +70,7 @@ impl UserService {
         page: i64,
         page_size: i64,
     ) -> Result<(Vec<UserListItemDto>, i64), ApplicationError> {
-        let page_size = page_size.min(100).max(1);
+        let page_size = page_size.min(10000).max(1);
         let offset = (page - 1).max(0) * page_size;
         
         self.user_repository

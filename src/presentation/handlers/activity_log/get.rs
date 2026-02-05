@@ -31,7 +31,7 @@ pub async fn list_logs(
     
     info!("Listando logs de actividad (page: {}, size: {})", params.page, params.page_size);
     
-    let page_size = params.page_size.min(100).max(1);
+    let page_size = params.page_size.min(10000).max(1);
     let offset = (params.page - 1).max(0) * page_size;
     
     let filters = ActivityLogFilters {
@@ -98,7 +98,7 @@ pub async fn get_recent_errors(
         ));
     }
     
-    let limit = limit.limit.unwrap_or(20).min(100);
+    let limit = limit.limit.unwrap_or(20).min(10000);
     info!("🔴 Obteniendo {} errores recientes", limit);
     
     let errors = state.container.activity_log_repository
