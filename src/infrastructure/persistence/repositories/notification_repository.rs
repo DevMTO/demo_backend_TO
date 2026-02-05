@@ -555,6 +555,24 @@ impl NotificationRepositoryPort for PostgresNotificationRepository {
         Ok(user_ids)
     }
 
+    #[instrument(skip(self, roles))]
+    async fn get_users_by_roles_and_entity(&self, roles: Vec<String>, entity_id: i32) -> Result<Vec<i32>, ApplicationError> {
+        debug!("Buscando usuarios por roles: {:?} y entidad: {}", roles, entity_id);
+        let mut conn = self.pool.get_connection().await?;
+        
+        let user_ids: Vec<i32> = users::table
+            .filter(users::role.eq_any(&roles))
+            .filter(users::is_active.eq(true))
+            .filter(users::id_entidad.eq(Some(entity_id)))
+            .select(users::id)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        debug!("Encontrados {} usuarios con entidad {}", user_ids.len(), entity_id);
+        Ok(user_ids)
+    }
+
     #[instrument(skip(self))]
     async fn get_all_active_user_ids(&self) -> Result<Vec<i32>, ApplicationError> {
         debug!("Obteniendo todos los usuarios activos");

@@ -134,6 +134,53 @@ impl NotificationService {
         Ok(notification)
     }
 
+    /// Notificación para roles específicos de una entidad (ej: contadores de una agencia específica)
+    /// Esto asegura que solo usuarios del rol especificado Y que pertenezcan a la entidad reciban la notificación
+    #[instrument(skip(self, roles))]
+    pub async fn notify_roles_for_entity(
+        &self,
+        roles: Vec<crate::domain::entities::UserRole>,
+        entity_id: i32,
+        title: &str,
+        message: &str,
+        notification_type: NotificationType,
+        category: NotificationCategory,
+        priority: NotificationPriority,
+        created_by: Option<i32>,
+    ) -> Result<crate::domain::entities::Notification, ApplicationError> {
+        let roles_str: Vec<String> = roles.iter().map(|r| r.to_string().to_lowercase()).collect();
+        
+        let mut builder = NotificationBuilder::new(title, message)
+            .notification_type(notification_type)
+            .category(category)
+            .priority(priority)
+            .for_roles(roles_str.clone());
+
+        if let Some(uid) = created_by {
+            builder = builder.created_by(uid);
+        }
+
+        let notification = self.repository.create(builder.build()).await?;
+        
+        // Distribuir a usuarios con esos roles Y que pertenezcan a la entidad específica
+        let user_ids = self.repository.get_users_by_roles_and_entity(roles_str, entity_id).await?;
+        let filtered_user_ids: Vec<i32> = user_ids
+            .into_iter()
+            .filter(|&uid| Some(uid) != created_by)
+            .collect();
+        
+        let count = filtered_user_ids.len();
+        if !filtered_user_ids.is_empty() {
+            self.repository.create_user_notifications_batch(notification.id, filtered_user_ids).await?;
+            info!("📢 Notificación enviada a {} usuarios del rol para entidad {}: {}", 
+                count, entity_id, title);
+        } else {
+            debug!("No hay usuarios del rol especificado para la entidad {}", entity_id);
+        }
+
+        Ok(notification)
+    }
+
     /// Notificación para un usuario específico
     #[instrument(skip(self))]
     pub async fn notify_user(

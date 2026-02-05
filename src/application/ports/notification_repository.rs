@@ -126,6 +126,9 @@ pub trait NotificationRepositoryPort: Send + Sync {
     /// Obtener usuarios por rol (para envío de notificaciones por rol)
     async fn get_users_by_roles(&self, roles: Vec<String>) -> Result<Vec<i32>, ApplicationError>;
     
+    /// Obtener usuarios por rol y entidad (para notificaciones filtradas por agencia/entidad)
+    async fn get_users_by_roles_and_entity(&self, roles: Vec<String>, entity_id: i32) -> Result<Vec<i32>, ApplicationError>;
+    
     /// Obtener todos los user_ids activos
     async fn get_all_active_user_ids(&self) -> Result<Vec<i32>, ApplicationError>;
 }

@@ -727,9 +727,11 @@ impl FileService {
             warn!("Error al enviar notificación de confirmación: {}", e);
         }
         
-        // 9. Notificar también al contador de la agencia (si existe)
-        if let Err(e) = self.notification_service.notify_roles(
+        // 9. Notificar también al contador de la agencia específica (filtrado por id_entidad)
+        // Solo notificará a los usuarios AgenciasContador que pertenezcan a ESTA agencia
+        if let Err(e) = self.notification_service.notify_roles_for_entity(
             vec![UserRole::AgenciasContador],
+            file.id_agencia, // Filtrar por la agencia del file
             "💰 Nuevo pago pendiente",
             &format!(
                 "Se ha confirmado la reserva #{} con un monto de S/ {}.\nFecha de vencimiento: {}\nPor favor, gestione el pago.",
@@ -742,7 +744,7 @@ impl FileService {
             NotificationPriority::High,
             Some(confirmed_by),
         ).await {
-            warn!("Error al enviar notificación al contador: {}", e);
+            warn!("Error al enviar notificación al contador de la agencia: {}", e);
         }
         
         // 10. Cargar tours para el response

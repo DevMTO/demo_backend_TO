@@ -52,4 +52,21 @@ pub trait NotificationServicePort: Send + Sync {
         priority: NotificationPriority,
         created_by: Option<i32>,
     ) -> Result<(), ApplicationError>;
+    
+    /// Notificar a roles específicos de una entidad
+    /// 
+    /// Crea una notificación solo para usuarios que tengan el rol especificado
+    /// Y que pertenezcan a la entidad indicada (filtrado por id_entidad).
+    /// Útil para notificar solo a los contadores de una agencia específica.
+    async fn notify_roles_for_entity(
+        &self,
+        roles: Vec<UserRole>,
+        entity_id: i32,
+        title: &str,
+        message: &str,
+        notification_type: NotificationType,
+        category: NotificationCategory,
+        priority: NotificationPriority,
+        created_by: Option<i32>,
+    ) -> Result<(), ApplicationError>;
 }

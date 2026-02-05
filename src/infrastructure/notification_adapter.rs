@@ -193,4 +193,67 @@ impl NotificationServicePort for NotificationBroadcastAdapter {
 
         Ok(())
     }
+    
+    async fn notify_roles_for_entity(
+        &self,
+        roles: Vec<UserRole>,
+        entity_id: i32,
+        title: &str,
+        message: &str,
+        notification_type: NotificationType,
+        category: NotificationCategory,
+        priority: NotificationPriority,
+        created_by: Option<i32>,
+    ) -> Result<(), ApplicationError> {
+        // 1. Crear notificación en DB
+        let notification = self.notification_service.notify_roles_for_entity(
+            roles.clone(),
+            entity_id,
+            title,
+            message,
+            notification_type.clone(),
+            category.clone(),
+            priority.clone(),
+            created_by,
+        ).await?;
+
+        // 2. Obtener IDs de usuarios con esos roles Y esa entidad
+        let roles_str: Vec<String> = roles.iter().map(|r| r.to_string().to_lowercase()).collect();
+        let user_ids = self.notification_repository.get_users_by_roles_and_entity(roles_str.clone(), entity_id).await?;
+        
+        tracing::info!("📡 SSE Broadcast: Notificación {} para roles {:?} en entidad {}, encontrados {} usuarios: {:?}", 
+            notification.id, roles_str, entity_id, user_ids.len(), user_ids);
+
+        // 3. Enviar por SSE a cada usuario conectado
+        let dto = UserNotificationDto {
+            id: notification.id,
+            title: notification.title,
+            message: notification.message,
+            notification_type: notification.notification_type.to_string(),
+            category: notification.category.to_string(),
+            priority: notification.priority.to_string(),
+            entity_type: notification.entity_type.clone(),
+            entity_id: notification.entity_id,
+            metadata: notification.metadata.clone(),
+            is_read: false,
+            read_at: None,
+            is_dismissed: false,
+            created_at: notification.created_at,
+        };
+
+        let event = SseEvent::NewNotification(dto);
+        let mut sent_count = 0;
+        for user_id in user_ids {
+            // Excluir al usuario que creó la notificación del broadcast SSE
+            if Some(user_id) != created_by {
+                let sent = self.broadcaster.send_to_user(user_id, event.clone()).await;
+                if sent {
+                    sent_count += 1;
+                }
+            }
+        }
+        tracing::info!("📡 SSE Broadcast: Enviado a {} usuarios conectados de la entidad {}", sent_count, entity_id);
+
+        Ok(())
+    }
 }
