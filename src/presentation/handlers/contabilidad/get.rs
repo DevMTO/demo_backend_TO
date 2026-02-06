@@ -120,6 +120,8 @@ pub async fn list_movimientos(
             params.tipo.as_deref(),
             fecha_desde,
             fecha_hasta,
+            params.referencia_tipo.as_deref(),
+            params.referencia_id,
             params.page_size,
             offset,
         )

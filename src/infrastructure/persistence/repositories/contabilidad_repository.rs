@@ -207,6 +207,8 @@ impl MovimientoRepositoryPort for PostgresMovimientoRepository {
         tipo: Option<&str>,
         fecha_desde: Option<DateTime<Utc>>,
         fecha_hasta: Option<DateTime<Utc>>,
+        referencia_tipo: Option<&str>,
+        referencia_id: Option<i32>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<MovimientoModel>, ApplicationError> {
@@ -231,6 +233,14 @@ impl MovimientoRepositoryPort for PostgresMovimientoRepository {
             query = query.filter(movimientos::fecha_movimiento.le(hasta));
         }
         
+        if let Some(ref_tipo) = referencia_tipo {
+            query = query.filter(movimientos::referencia_tipo.eq(ref_tipo));
+        }
+        
+        if let Some(ref_id) = referencia_id {
+            query = query.filter(movimientos::referencia_id.eq(ref_id));
+        }
+        
         let result = query
             .order(movimientos::fecha_movimiento.desc())
             .limit(limit)
@@ -249,6 +259,8 @@ impl MovimientoRepositoryPort for PostgresMovimientoRepository {
         tipo: Option<&str>,
         fecha_desde: Option<DateTime<Utc>>,
         fecha_hasta: Option<DateTime<Utc>>,
+        referencia_tipo: Option<&str>,
+        referencia_id: Option<i32>,
     ) -> Result<i64, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
@@ -269,6 +281,14 @@ impl MovimientoRepositoryPort for PostgresMovimientoRepository {
         
         if let Some(hasta) = fecha_hasta {
             query = query.filter(movimientos::fecha_movimiento.le(hasta));
+        }
+        
+        if let Some(ref_tipo) = referencia_tipo {
+            query = query.filter(movimientos::referencia_tipo.eq(ref_tipo));
+        }
+        
+        if let Some(ref_id) = referencia_id {
+            query = query.filter(movimientos::referencia_id.eq(ref_id));
         }
         
         let result = query

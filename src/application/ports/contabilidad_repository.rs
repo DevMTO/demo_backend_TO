@@ -69,6 +69,8 @@ pub trait MovimientoRepositoryPort: Send + Sync {
         tipo: Option<&str>,
         fecha_desde: Option<DateTime<Utc>>,
         fecha_hasta: Option<DateTime<Utc>>,
+        referencia_tipo: Option<&str>,
+        referencia_id: Option<i32>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<MovimientoModel>, ApplicationError>;
@@ -80,6 +82,8 @@ pub trait MovimientoRepositoryPort: Send + Sync {
         tipo: Option<&str>,
         fecha_desde: Option<DateTime<Utc>>,
         fecha_hasta: Option<DateTime<Utc>>,
+        referencia_tipo: Option<&str>,
+        referencia_id: Option<i32>,
     ) -> Result<i64, ApplicationError>;
     
     /// Crear movimiento

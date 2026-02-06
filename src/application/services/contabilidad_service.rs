@@ -202,15 +202,17 @@ impl ContabilidadService {
         tipo: Option<&str>,
         fecha_desde: Option<DateTime<Utc>>,
         fecha_hasta: Option<DateTime<Utc>>,
+        referencia_tipo: Option<&str>,
+        referencia_id: Option<i32>,
         limit: i64,
         offset: i64,
     ) -> Result<(Vec<MovimientoResponse>, i64), ApplicationError> {
         let movimientos = self.movimiento_repository
-            .find_filtered(id_cuenta, tipo, fecha_desde, fecha_hasta, limit, offset)
+            .find_filtered(id_cuenta, tipo, fecha_desde, fecha_hasta, referencia_tipo, referencia_id, limit, offset)
             .await?;
         
         let total = self.movimiento_repository
-            .count_filtered(id_cuenta, tipo, fecha_desde, fecha_hasta)
+            .count_filtered(id_cuenta, tipo, fecha_desde, fecha_hasta, referencia_tipo, referencia_id)
             .await?;
         
         // Convertir a responses con nombre de cuenta
@@ -334,6 +336,8 @@ impl ContabilidadService {
         &self,
         request: RegistrarPagoFileRequest,
         created_by: Option<i32>,
+        comprobante_url: Option<String>,
+        comprobante_key: Option<String>,
     ) -> Result<PagoFileResponse, ApplicationError> {
         // Obtener pago actual
         let pago = self.pago_file_repository
@@ -357,16 +361,12 @@ impl ContabilidadService {
             "parcial"
         };
         
-        // TODO: Subir comprobante a Tigris si viene en base64
-        let comprobante_url: Option<&str> = None;
-        let comprobante_key: Option<&str> = None;
-        
-        // Actualizar pago
+        // Actualizar pago con comprobante si existe
         let update = UpdatePagoFileModel {
             monto_pagado: Some(nuevo_monto_pagado.clone()),
             estado: Some(nuevo_estado),
-            comprobante_url,
-            comprobante_key,
+            comprobante_url: comprobante_url.as_deref(),
+            comprobante_key: comprobante_key.as_deref(),
             notas: request.notas.as_deref(),
             ..Default::default()
         };
@@ -474,14 +474,14 @@ impl ContabilidadService {
                     tipo: "ingreso",
                     monto: pago_actualizado.monto_total.clone(),
                     concepto: &format!("Pago file #{} - Agencia #{}", pago.id_file, pago.id_agencia),
-                    referencia_tipo: Some("pago_file"),
-                    referencia_id: Some(pago_actualizado.id),
+                    referencia_tipo: Some("file"),
+                    referencia_id: Some(pago.id_file),
                     fecha_movimiento: Utc::now(),
                     saldo_anterior,
                     saldo_posterior: saldo_posterior.clone(),
-                    notas: None,
-                    comprobante_url: None,
-                    comprobante_key: None,
+                    notas: request.notas.as_deref(),
+                    comprobante_url: pago_actualizado.comprobante_url.as_deref(),
+                    comprobante_key: pago_actualizado.comprobante_key.as_deref(),
                     created_by: Some(verificado_por),
                 };
                 

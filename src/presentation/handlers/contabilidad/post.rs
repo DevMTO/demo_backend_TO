@@ -112,14 +112,68 @@ pub async fn create_movimiento(
 pub async fn registrar_pago_file(
     State(state): State<AppState>,
     auth: AuthUser,
-    Json(request): Json<RegistrarPagoFileRequest>,
+    Json(mut request): Json<RegistrarPagoFileRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     // TODO: Verificar que la agencia solo puede registrar pagos de sus propios files
+    
+    // Procesar comprobante en base64 si viene
+    let mut comprobante_url_final: Option<String> = None;
+    let mut comprobante_key_final: Option<String> = None;
+    
+    if let (Some(base64_data), Some(filename)) = (&request.comprobante_base64, &request.comprobante_filename) {
+        if !base64_data.is_empty() && !filename.is_empty() {
+            if let Some(storage) = state.container.tigris_storage.as_ref() {
+                // Decodificar base64
+                let image_data = general_purpose::STANDARD.decode(base64_data)
+                    .map_err(|e| {
+                        error!("Error decodificando base64 del comprobante de pago: {}", e);
+                        ApplicationError::Validation("Formato de imagen inválido".to_string())
+                    })?;
+                
+                // Obtener extensión del filename
+                let extension = filename.rsplit('.').next().unwrap_or("jpg");
+                
+                // Determinar content-type
+                let content_type = match extension.to_lowercase().as_str() {
+                    "png" => "image/png",
+                    "jpg" | "jpeg" => "image/jpeg",
+                    "webp" => "image/webp",
+                    "avif" => "image/avif",
+                    "gif" => "image/gif",
+                    "pdf" => "application/pdf",
+                    _ => "application/octet-stream",
+                };
+                
+                // Generar path para el comprobante
+                let timestamp = chrono::Utc::now().timestamp();
+                let path = format!("contabilidad/pagos-files/{}/comprobante-{}.{}", 
+                    request.id_pago_file, timestamp, extension);
+                
+                // Subir a Tigris
+                match storage.upload(&path, &image_data, content_type).await {
+                    Ok(url) => {
+                        info!("Comprobante de pago file subido: {}", url);
+                        comprobante_url_final = Some(url);
+                        comprobante_key_final = Some(path);
+                    }
+                    Err(e) => {
+                        warn!("Error subiendo comprobante a Tigris: {} - se continuará sin comprobante", e);
+                    }
+                }
+            } else {
+                warn!("Tigris storage no configurado, no se puede subir comprobante");
+            }
+        }
+    }
+    
+    // Limpiar los campos de base64 del request
+    request.comprobante_base64 = None;
+    request.comprobante_filename = None;
 
     let response = state
         .container
         .contabilidad_service
-        .registrar_pago_file(request, Some(auth.user.id))
+        .registrar_pago_file(request, Some(auth.user.id), comprobante_url_final, comprobante_key_final)
         .await?;
 
     Ok(json_ok(response))

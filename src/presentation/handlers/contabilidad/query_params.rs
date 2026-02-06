@@ -9,6 +9,8 @@ pub struct MovimientosQueryParams {
     pub tipo: Option<String>,
     pub fecha_desde: Option<String>,
     pub fecha_hasta: Option<String>,
+    pub referencia_tipo: Option<String>,
+    pub referencia_id: Option<i32>,
     #[serde(default = "default_page")]
     pub page: i64,
     #[serde(default = "default_page_size")]
