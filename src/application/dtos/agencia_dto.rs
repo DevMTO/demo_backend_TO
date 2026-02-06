@@ -6,7 +6,7 @@ use validator::Validate;
 
 use crate::domain::entities::Agencia;
 
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct AgenciaResponse {
@@ -45,7 +45,7 @@ impl From<Agencia> for AgenciaResponse {
     }
 }
 
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct AgenciaListItemDto {

@@ -32,6 +32,8 @@ use crate::application::ports::{
     PagoFileRepositoryPort,
     PagoProveedorRepositoryPort,
     TarifaServicioRepositoryPort,
+    // Cache port
+    CachePort,
 };
 use crate::application::services::{
     LoggingService,
@@ -163,6 +165,9 @@ pub struct DependencyContainer {
     pub file_vehiculo_repository: Arc<dyn FileVehiculoRepositoryPort>,
     pub file_tour_repository: Arc<dyn FileTourRepositoryPort>,
     
+    // Cache
+    pub cache: Arc<dyn CachePort>,
+    
     // Config
     pub cookie_name: String,
     pub cookie_secure: bool,
@@ -175,6 +180,7 @@ pub struct DependencyContainer {
 use crate::application::ports::NotificationServicePort;
 use crate::infrastructure::NotificationBroadcastAdapter;
 use crate::infrastructure::sse::NotificationBroadcaster;
+use crate::infrastructure::cache::AppCache;
 
 impl DependencyContainer {
     pub fn new(
@@ -185,6 +191,9 @@ impl DependencyContainer {
         // Validar configuración de seguridad
         config.validate_security()
             .map_err(|e| ApplicationError::Configuration(e.to_string()))?;
+        
+        // Crear caché centralizado
+        let cache: Arc<dyn CachePort> = Arc::new(AppCache::new());
         
         // Crear repositorios base
         let user_repository: Arc<dyn UserRepositoryPort> = Arc::new(
@@ -303,6 +312,7 @@ impl DependencyContainer {
             agencia_repository.clone(),
             logging_service.clone(),
             notification_broadcast_adapter.clone(),
+            cache.clone(),
         ));
         
         let persona_service = Arc::new(PersonaService::new(
@@ -333,6 +343,7 @@ impl DependencyContainer {
             tour_repository.clone(),
             logging_service.clone(),
             notification_broadcast_adapter.clone(),
+            cache.clone(),
         ));
         
         // ========== Crear repositorio de pago_file (necesario para FileService) ==========
@@ -348,6 +359,7 @@ impl DependencyContainer {
             notification_broadcast_adapter.clone(),
             pago_file_repository.clone(),
             agencia_repository.clone(),
+            cache.clone(),
         ));
         
         // ========== Crear servicio - Pago ==========
@@ -356,6 +368,7 @@ impl DependencyContainer {
             file_repository.clone(),
             logging_service.clone(),
             notification_broadcast_adapter.clone(),
+            cache.clone(),
         ));
         
         // ========== Crear servicio - Restaurante ==========
@@ -363,6 +376,7 @@ impl DependencyContainer {
             restaurante_repository.clone(),
             logging_service.clone(),
             notification_broadcast_adapter.clone(),
+            cache.clone(),
         ));
         
         // ========== Crear servicio - Transporte ==========
@@ -392,11 +406,13 @@ impl DependencyContainer {
             entrada_precio_repository.clone(),
             logging_service.clone(),
             notification_broadcast_adapter.clone(),
+            cache.clone(),
         ));
         
         // ========== Crear servicio - EntradaPrecio ==========
         let entrada_precio_service = Arc::new(EntradaPrecioService::new(
             entrada_precio_repository,
+            cache.clone(),
         ));
         
         // ========== Crear servicio - Guia ==========
@@ -504,6 +520,8 @@ impl DependencyContainer {
             file_restaurante_repository,
             file_vehiculo_repository,
             file_tour_repository,
+            // Cache
+            cache,
             // Cookie config
             cookie_name: config.cookie_name,
             cookie_secure: config.cookie_secure,

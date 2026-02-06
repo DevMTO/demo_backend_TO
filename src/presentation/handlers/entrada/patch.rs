@@ -15,5 +15,6 @@ pub async fn restore_entrada(
     Path(id): Path<i32>
 ) -> Result<impl IntoResponse, ApplicationError> {
     state.container.entrada_service.restore_entrada(id, auth.user.id, &auth.user.username).await?;
+    
     Ok(json_message("Entrada restaurada"))
 }

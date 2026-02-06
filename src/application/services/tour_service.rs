@@ -8,14 +8,15 @@
 //! - Búsqueda
 //! - Logging de actividades
 //! - Notificaciones
+//! - Caché
 
 use std::sync::Arc;
-use tracing::{info, warn, instrument};
+use tracing::{info, warn, debug, instrument};
 
 use crate::application::dtos::{
     CreateTourRequest, UpdateTourRequest, TourResponse,
 };
-use crate::application::ports::{TourRepositoryPort, PaginationOptions, NotificationServicePort};
+use crate::application::ports::{TourRepositoryPort, PaginationOptions, NotificationServicePort, CachePort, entity_names};
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
     Tour, EntityType, UserRole,
@@ -28,6 +29,7 @@ pub struct TourService {
     tour_repository: Arc<dyn TourRepositoryPort>,
     logging_service: Arc<LoggingService>,
     notification_service: Arc<dyn NotificationServicePort>,
+    cache: Arc<dyn CachePort>,
 }
 
 impl TourService {
@@ -35,21 +37,40 @@ impl TourService {
         tour_repository: Arc<dyn TourRepositoryPort>,
         logging_service: Arc<LoggingService>,
         notification_service: Arc<dyn NotificationServicePort>,
+        cache: Arc<dyn CachePort>,
     ) -> Self {
         Self {
             tour_repository,
             logging_service,
             notification_service,
+            cache,
         }
     }
 
-    /// Listar tours con paginación
+    /// Generar clave de caché para listado
+    fn list_cache_key(&self, options: &PaginationOptions, include_inactive: bool) -> String {
+        format!("list:{}:{}:{}", options.offset.unwrap_or(0), options.limit.unwrap_or(10), include_inactive)
+    }
+
+    /// Listar tours con paginación (con caché)
     #[instrument(skip(self))]
     pub async fn list_tours(
         &self,
         options: PaginationOptions,
         include_inactive: bool,
     ) -> Result<(Vec<TourResponse>, i64, i64), ApplicationError> {
+        let cache_key = self.list_cache_key(&options, include_inactive);
+        
+        // Intentar obtener del caché
+        if let Some(cached) = self.cache.get_list(entity_names::TOURS, &cache_key).await {
+            debug!("Cache HIT para tours list: {}", cache_key);
+            if let Ok(response) = serde_json::from_str::<(Vec<TourResponse>, i64, i64)>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para tours list: {}", cache_key);
+        
         let result = if include_inactive {
             self.tour_repository.list_all_paginated(options).await?
         } else {
@@ -62,19 +83,43 @@ impl TourService {
         let items: Vec<TourResponse> = result.data.into_iter().map(Into::into).collect();
         info!("Listados {} tours (página {}, total: {})", items.len(), current_page, total);
         
-        Ok((items, total, pages))
+        let response = (items, total, pages);
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&response) {
+            self.cache.set_list(entity_names::TOURS, &cache_key, serialized).await;
+        }
+        
+        Ok(response)
     }
 
-    /// Obtener tour por ID
+    /// Obtener tour por ID (con caché)
     #[instrument(skip(self))]
     pub async fn get_tour(&self, id: i32) -> Result<TourResponse, ApplicationError> {
+        // Intentar obtener del caché
+        if let Some(cached) = self.cache.get_detail(entity_names::TOURS, id).await {
+            debug!("Cache HIT para tour: {}", id);
+            if let Ok(response) = serde_json::from_str::<TourResponse>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para tour: {}", id);
+        
         let tour = self.tour_repository
             .find_by_id(id)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Tour {} no encontrado", id)))?;
         
+        let response = TourResponse::from(tour.clone());
         info!("Tour encontrado: {} (ID: {})", tour.nombre, id);
-        Ok(TourResponse::from(tour))
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&response) {
+            self.cache.set_detail(entity_names::TOURS, id, serialized).await;
+        }
+        
+        Ok(response)
     }
 
     /// Crear un nuevo tour
@@ -91,6 +136,9 @@ impl TourService {
         // Persistir
         let created = self.tour_repository.create(&tour).await?;
         info!("Tour creado: {} (ID: {})", created.nombre, created.id);
+        
+        // Invalidar caché de tours  
+        self.cache.invalidate_entity(entity_names::TOURS).await;
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_create::<Tour>(
@@ -146,6 +194,9 @@ impl TourService {
         // Persistir
         let result = self.tour_repository.update(&updated_entity).await?;
         info!("✏️ Tour actualizado: {} (ID: {})", result.nombre, result.id);
+        
+        // Invalidar caché del tour específico
+        self.cache.invalidate_detail(entity_names::TOURS, id).await;
         
         // Logging del evento
         if let Err(e) = self.logging_service.log_update::<Tour>(
@@ -203,6 +254,9 @@ impl TourService {
         
         info!("[DELETE] Tour desactivado: {} (ID: {})", tour.nombre, id);
         
+        // Invalidar caché del tour
+        self.cache.invalidate_detail(entity_names::TOURS, id).await;
+        
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Tour>(
             Some(deleted_by),
@@ -255,6 +309,9 @@ impl TourService {
         
         info!("[DELETE] Tour ELIMINADO PERMANENTEMENTE: {} (ID: {})", tour.nombre, id);
         
+        // Invalidar caché de tours
+        self.cache.invalidate_entity(entity_names::TOURS).await;
+        
         // Logging del evento
         if let Err(e) = self.logging_service.log_delete::<Tour>(
             Some(deleted_by),
@@ -300,6 +357,9 @@ impl TourService {
         }
         
         info!("♻️ Tour restaurado: ID {}", id);
+        
+        // Invalidar caché del tour
+        self.cache.invalidate_detail(entity_names::TOURS, id).await;
         
         // Obtener tour restaurado para el log
         let tour = self.tour_repository.find_by_id(id).await?.unwrap();

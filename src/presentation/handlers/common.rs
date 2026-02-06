@@ -46,7 +46,7 @@ impl MessageResponse {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PaginationParams {
     #[serde(default = "default_page")]
     pub page: i64,
@@ -69,13 +69,13 @@ impl PaginationParams {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PaginatedResponse<T: Serialize> {
     pub items: Vec<T>,
     pub pagination: PaginationInfo,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PaginationInfo {
     pub page: i64,
     pub page_size: i64,

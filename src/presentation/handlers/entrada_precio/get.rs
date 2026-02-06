@@ -59,7 +59,8 @@ pub async fn get_precio(
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let precio = state.container.entrada_precio_service.get_precio(id).await?;
-    Ok(json_ok(EntradaPrecioResponse::from(precio)))
+    let response = EntradaPrecioResponse::from(precio);
+    Ok(json_ok(response))
 }
 
 /// GET /api/entradas/:id_entrada/calcular-precio?edad=25&tipo_turista=nacional

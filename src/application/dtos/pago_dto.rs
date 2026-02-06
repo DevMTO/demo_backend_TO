@@ -7,7 +7,7 @@ use validator::Validate;
 
 use crate::domain::entities::{Pago, TipoMovimiento};
 
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct PagoResponse {

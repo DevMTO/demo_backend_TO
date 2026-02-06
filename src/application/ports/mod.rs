@@ -68,3 +68,7 @@ pub use contabilidad_repository::{
     CuentaRepositoryPort, MovimientoRepositoryPort, PagoFileRepositoryPort,
     PagoProveedorRepositoryPort, TarifaServicioRepositoryPort,
 };
+
+// Cache port
+pub mod cache_port;
+pub use cache_port::{CachePort, entity_names};

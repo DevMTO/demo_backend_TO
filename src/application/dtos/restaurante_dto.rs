@@ -7,7 +7,7 @@ use validator::Validate;
 
 use crate::domain::entities::Restaurante;
 
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct RestauranteResponse {
@@ -50,7 +50,7 @@ impl From<Restaurante> for RestauranteResponse {
 }
 
 /// DTO para listado con nombre del encargado
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct RestauranteListItemDto {

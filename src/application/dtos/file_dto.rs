@@ -85,7 +85,7 @@ pub struct FileTourInput {
     pub geo_recojo: Option<GeoLocation>,
 }
 
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct FileResponse {

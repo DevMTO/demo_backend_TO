@@ -1,8 +1,8 @@
 //! Query parameters para Entrada
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct EntradaListParams {
     pub page: Option<i64>,
     pub page_size: Option<i64>,

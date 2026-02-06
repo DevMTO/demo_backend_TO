@@ -1,8 +1,8 @@
 use std::sync::Arc;
-use tracing::info;
+use tracing::{info, debug};
 use bigdecimal::BigDecimal;
 
-use crate::application::ports::EntradaPrecioRepositoryPort;
+use crate::application::ports::{EntradaPrecioRepositoryPort, CachePort, entity_names};
 use crate::domain::entities::EntradaPrecio;
 use crate::domain::errors::ApplicationError;
 
@@ -11,22 +11,52 @@ use crate::domain::errors::ApplicationError;
 /// Maneja la lógica de negocio para:
 /// - CRUD de precios por rango de edad
 /// - Cálculo de precio aplicable según edad y tipo de turista
+/// - Caché para optimización de lecturas
 pub struct EntradaPrecioService {
     entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
+    cache: Arc<dyn CachePort>,
 }
 
 impl EntradaPrecioService {
-    pub fn new(entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>) -> Self {
+    pub fn new(
+        entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
+        cache: Arc<dyn CachePort>,
+    ) -> Self {
         Self {
             entrada_precio_repository,
+            cache,
         }
+    }
+
+    /// Clave de caché para precios por entrada
+    fn precios_cache_key(&self, id_entrada: i32) -> String {
+        format!("entrada:{}", id_entrada)
     }
 
     // ==================== READ OPERATIONS ====================
 
-    /// Obtener todos los precios de una entrada
+    /// Obtener todos los precios de una entrada (con caché)
     pub async fn get_precios_by_entrada(&self, id_entrada: i32) -> Result<Vec<EntradaPrecio>, ApplicationError> {
-        self.entrada_precio_repository.find_by_entrada(id_entrada).await
+        let cache_key = self.precios_cache_key(id_entrada);
+        
+        // Intentar obtener del caché
+        if let Some(cached) = self.cache.get_list(entity_names::ENTRADA_PRECIOS, &cache_key).await {
+            debug!("Cache HIT para entrada_precios by entrada: {}", id_entrada);
+            if let Ok(response) = serde_json::from_str::<Vec<EntradaPrecio>>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para entrada_precios by entrada: {}", id_entrada);
+        
+        let result = self.entrada_precio_repository.find_by_entrada(id_entrada).await?;
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&result) {
+            self.cache.set_list(entity_names::ENTRADA_PRECIOS, &cache_key, serialized).await;
+        }
+        
+        Ok(result)
     }
 
     /// Obtener precios por entrada y tipo (general, nacional, extranjero)
@@ -34,12 +64,29 @@ impl EntradaPrecioService {
         self.entrada_precio_repository.find_by_entrada_and_tipo(id_entrada, tipo_precio).await
     }
 
-    /// Obtener un precio específico por ID
+    /// Obtener un precio específico por ID (con caché)
     pub async fn get_precio(&self, id: i32) -> Result<EntradaPrecio, ApplicationError> {
-        self.entrada_precio_repository
+        // Intentar obtener del caché de detalle
+        if let Some(cached) = self.cache.get_detail(entity_names::ENTRADA_PRECIOS, id).await {
+            debug!("Cache HIT para entrada_precio: {}", id);
+            if let Ok(response) = serde_json::from_str::<EntradaPrecio>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para entrada_precio: {}", id);
+        
+        let result = self.entrada_precio_repository
             .find_by_id(id)
             .await?
-            .ok_or_else(|| ApplicationError::NotFound(format!("Precio {} no encontrado", id)))
+            .ok_or_else(|| ApplicationError::NotFound(format!("Precio {} no encontrado", id)))?;
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&result) {
+            self.cache.set_detail(entity_names::ENTRADA_PRECIOS, id, serialized).await;
+        }
+        
+        Ok(result)
     }
 
     /// Calcular el precio aplicable para una entrada según edad y tipo de turista
@@ -80,6 +127,12 @@ impl EntradaPrecioService {
 
     // ==================== WRITE OPERATIONS ====================
 
+    /// Invalidar caché de precios de una entrada específica
+    async fn invalidate_precios_cache(&self, id_entrada: i32) {
+        self.cache.invalidate_lists(entity_names::ENTRADA_PRECIOS).await;
+        debug!("Cache de entrada_precios invalidado para entrada: {}", id_entrada);
+    }
+
     /// Crear un nuevo precio de entrada
     pub async fn create_precio(
         &self,
@@ -97,6 +150,9 @@ impl EntradaPrecioService {
         let created = self.entrada_precio_repository.create(precio).await?;
         info!("Precio creado para entrada {}: {} ({}-{:?})", 
             created.id_entrada, created.tipo_precio, created.edad_minima, created.edad_maxima);
+        
+        // Invalidar caché
+        self.invalidate_precios_cache(created.id_entrada).await;
         
         Ok(created)
     }
@@ -121,6 +177,11 @@ impl EntradaPrecioService {
         let created = self.entrada_precio_repository.create_batch(precios).await?;
         info!("{} precios creados en batch", created.len());
         
+        // Invalidar caché de todas las entradas afectadas
+        if let Some(first) = created.first() {
+            self.invalidate_precios_cache(first.id_entrada).await;
+        }
+        
         Ok(created)
     }
 
@@ -141,15 +202,28 @@ impl EntradaPrecioService {
         let updated = self.entrada_precio_repository.update(precio).await?;
         info!("Precio actualizado: ID {}", updated.id);
         
+        // Invalidar caché
+        self.invalidate_precios_cache(updated.id_entrada).await;
+        self.cache.invalidate_detail(entity_names::ENTRADA_PRECIOS, updated.id).await;
+        
         Ok(updated)
     }
 
     /// Eliminar un precio
     pub async fn delete_precio(&self, id: i32) -> Result<(), ApplicationError> {
+        // Obtener el precio primero para saber su id_entrada
+        let precio = self.get_precio(id).await?;
+        let id_entrada = precio.id_entrada;
+        
         if !self.entrada_precio_repository.delete(id).await? {
             return Err(ApplicationError::NotFound(format!("Precio {} no encontrado", id)));
         }
         info!("[DELETE] Precio eliminado: ID {}", id);
+        
+        // Invalidar caché
+        self.invalidate_precios_cache(id_entrada).await;
+        self.cache.invalidate_detail(entity_names::ENTRADA_PRECIOS, id).await;
+        
         Ok(())
     }
 
@@ -179,6 +253,9 @@ impl EntradaPrecioService {
         
         let created = self.entrada_precio_repository.replace_all(id_entrada, precios).await?;
         info!("{} precios reemplazados para entrada {}", created.len(), id_entrada);
+        
+        // Invalidar caché
+        self.invalidate_precios_cache(id_entrada).await;
         
         Ok(created)
     }
@@ -234,6 +311,11 @@ impl EntradaPrecioService {
             },
         ];
         
-        self.entrada_precio_repository.create_batch(&default_precios).await
+        let created = self.entrada_precio_repository.create_batch(&default_precios).await?;
+        
+        // Invalidar caché
+        self.invalidate_precios_cache(id_entrada).await;
+        
+        Ok(created)
     }
 }

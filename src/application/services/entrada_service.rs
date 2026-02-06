@@ -1,7 +1,7 @@
 use std::sync::Arc;
-use tracing::info;
+use tracing::{info, debug};
 
-use crate::application::ports::{EntradaRepositoryPort, EntradaPrecioRepositoryPort, NotificationServicePort, PaginatedResult, PaginationOptions};
+use crate::application::ports::{EntradaRepositoryPort, EntradaPrecioRepositoryPort, NotificationServicePort, PaginatedResult, PaginationOptions, CachePort, entity_names};
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
     Entrada, EntityType, NotificationCategory, NotificationPriority, NotificationType, UserRole,
@@ -14,11 +14,13 @@ use crate::domain::errors::ApplicationError;
 /// - Business logic for entrada CRUD operations
 /// - Activity logging for all operations
 /// - Real-time notifications via SSE broadcast
+/// - Caché para optimización de lecturas
 pub struct EntradaService {
     entrada_repository: Arc<dyn EntradaRepositoryPort>,
     entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
     logging_service: Arc<LoggingService>,
     notification_service: Arc<dyn NotificationServicePort>,
+    cache: Arc<dyn CachePort>,
 }
 
 impl EntradaService {
@@ -27,39 +29,101 @@ impl EntradaService {
         entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
         logging_service: Arc<LoggingService>,
         notification_service: Arc<dyn NotificationServicePort>,
+        cache: Arc<dyn CachePort>,
     ) -> Self {
         Self {
             entrada_repository,
             entrada_precio_repository,
             logging_service,
             notification_service,
+            cache,
         }
+    }
+
+    /// Generar clave de caché para listado
+    fn list_cache_key(&self, options: &PaginationOptions, include_inactive: bool) -> String {
+        format!("list:{}:{}:{}", options.offset.unwrap_or(0), options.limit.unwrap_or(10), include_inactive)
     }
 
     // ==================== READ OPERATIONS ====================
 
-    /// List all active entradas with pagination
+    /// List all active entradas with pagination (con caché)
     pub async fn list_entradas(
         &self,
         options: PaginationOptions,
     ) -> Result<PaginatedResult<Entrada>, ApplicationError> {
-        self.entrada_repository.list_paginated(options).await
+        let cache_key = self.list_cache_key(&options, false);
+        
+        // Intentar obtener del caché
+        if let Some(cached) = self.cache.get_list(entity_names::ENTRADAS, &cache_key).await {
+            debug!("Cache HIT para entradas list: {}", cache_key);
+            if let Ok(response) = serde_json::from_str::<PaginatedResult<Entrada>>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para entradas list: {}", cache_key);
+        
+        let result = self.entrada_repository.list_paginated(options).await?;
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&result) {
+            self.cache.set_list(entity_names::ENTRADAS, &cache_key, serialized).await;
+        }
+        
+        Ok(result)
     }
     
-    /// List ALL entradas (active + inactive) with pagination
+    /// List ALL entradas (active + inactive) with pagination (con caché)
     pub async fn list_all_entradas(
         &self,
         options: PaginationOptions,
     ) -> Result<PaginatedResult<Entrada>, ApplicationError> {
-        self.entrada_repository.list_all_paginated(options).await
+        let cache_key = self.list_cache_key(&options, true);
+        
+        // Intentar obtener del caché
+        if let Some(cached) = self.cache.get_list(entity_names::ENTRADAS, &cache_key).await {
+            debug!("Cache HIT para all entradas list: {}", cache_key);
+            if let Ok(response) = serde_json::from_str::<PaginatedResult<Entrada>>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para all entradas list: {}", cache_key);
+        
+        let result = self.entrada_repository.list_all_paginated(options).await?;
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&result) {
+            self.cache.set_list(entity_names::ENTRADAS, &cache_key, serialized).await;
+        }
+        
+        Ok(result)
     }
 
-    /// Get a specific entrada by ID
+    /// Get a specific entrada by ID (con caché)
     pub async fn get_entrada(&self, id: i32) -> Result<Entrada, ApplicationError> {
-        self.entrada_repository
+        // Intentar obtener del caché
+        if let Some(cached) = self.cache.get_detail(entity_names::ENTRADAS, id).await {
+            debug!("Cache HIT para entrada: {}", id);
+            if let Ok(response) = serde_json::from_str::<Entrada>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para entrada: {}", id);
+        
+        let entrada = self.entrada_repository
             .find_by_id(id)
             .await?
-            .ok_or_else(|| ApplicationError::NotFound(format!("Entrada {} no encontrada", id)))
+            .ok_or_else(|| ApplicationError::NotFound(format!("Entrada {} no encontrada", id)))?;
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&entrada) {
+            self.cache.set_detail(entity_names::ENTRADAS, id, serialized).await;
+        }
+        
+        Ok(entrada)
     }
 
     // ==================== WRITE OPERATIONS ====================
@@ -74,6 +138,9 @@ impl EntradaService {
         // Create the entrada
         let created = self.entrada_repository.create(entrada).await?;
         info!("Entrada creada: {} (ID: {})", created.nombre, created.id);
+        
+        // Invalidar caché de entradas
+        self.cache.invalidate_entity(entity_names::ENTRADAS).await;
 
         // Log activity
         let _ = self
@@ -127,6 +194,9 @@ impl EntradaService {
         // Update the entrada
         let result = self.entrada_repository.update(updated_entrada).await?;
         info!("Entrada actualizada: {} (ID: {})", result.nombre, result.id);
+        
+        // Invalidar caché de la entrada específica
+        self.cache.invalidate_detail(entity_names::ENTRADAS, id).await;
 
         // Detect changed fields for logging
         let changed_fields = self.detect_changed_fields(&old_entrada, &result);
@@ -188,6 +258,9 @@ impl EntradaService {
             )));
         }
         info!("[DELETE] Entrada desactivada: {} (ID: {})", entrada.nombre, id);
+        
+        // Invalidar caché de la entrada
+        self.cache.invalidate_detail(entity_names::ENTRADAS, id).await;
 
         // Log activity
         let _ = self
@@ -258,6 +331,9 @@ impl EntradaService {
             )));
         }
         info!("[DELETE] Entrada ELIMINADA PERMANENTEMENTE: {} (ID: {})", entrada.nombre, id);
+        
+        // Invalidar caché de entradas
+        self.cache.invalidate_entity(entity_names::ENTRADAS).await;
 
         // Log activity
         let _ = self
@@ -318,6 +394,9 @@ impl EntradaService {
             .ok_or_else(|| ApplicationError::NotFound(format!("Entrada {} no encontrada", id)))?;
 
         info!("♻️ Entrada restaurada: {} (ID: {})", entrada.nombre, id);
+        
+        // Invalidar caché de la entrada
+        self.cache.invalidate_detail(entity_names::ENTRADAS, id).await;
 
         // Log activity
         let _ = self

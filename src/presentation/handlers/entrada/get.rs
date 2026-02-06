@@ -25,10 +25,13 @@ pub async fn list_entradas(
     let page = result.current_page();
     let page_size = result.limit;
     let total_pages = result.pages();
-    Ok(json_ok(PaginatedResponse {
+    
+    let response = PaginatedResponse {
         items: result.data.into_iter().map(EntradaResponse::from).collect(),
         pagination: PaginationInfo { page, page_size, total: result.total, total_pages },
-    }))
+    };
+    
+    Ok(json_ok(response))
 }
 
 #[instrument(skip(state, _auth))]
@@ -38,7 +41,8 @@ pub async fn get_entrada(
     Path(id): Path<i32>
 ) -> Result<impl IntoResponse, ApplicationError> {
     let e = state.container.entrada_service.get_entrada(id).await?;
-    Ok(json_ok(EntradaResponse::from(e)))
+    let response = EntradaResponse::from(e);
+    Ok(json_ok(response))
 }
 
 /// Search/list entradas (simplified - no longer searches by ruta)

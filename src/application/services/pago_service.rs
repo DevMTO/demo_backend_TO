@@ -7,12 +7,12 @@
 //! - Notificaciones
 
 use std::sync::Arc;
-use tracing::{info, warn, instrument};
+use tracing::{info, warn, debug, instrument};
 
 use crate::application::dtos::{
     CreatePagoRequest, UpdatePagoRequest, PagoResponse,
 };
-use crate::application::ports::{PagoRepositoryPort, FileRepositoryPort, PaginationOptions, NotificationServicePort};
+use crate::application::ports::{PagoRepositoryPort, FileRepositoryPort, PaginationOptions, NotificationServicePort, CachePort, entity_names};
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
     Pago, EntityType, UserRole,
@@ -26,6 +26,7 @@ pub struct PagoService {
     file_repository: Arc<dyn FileRepositoryPort>,
     logging_service: Arc<LoggingService>,
     notification_service: Arc<dyn NotificationServicePort>,
+    cache: Arc<dyn CachePort>,
 }
 
 impl PagoService {
@@ -34,21 +35,40 @@ impl PagoService {
         file_repository: Arc<dyn FileRepositoryPort>,
         logging_service: Arc<LoggingService>,
         notification_service: Arc<dyn NotificationServicePort>,
+        cache: Arc<dyn CachePort>,
     ) -> Self {
         Self {
             pago_repository,
             file_repository,
             logging_service,
             notification_service,
+            cache,
         }
     }
 
-    /// Listar pagos con paginación
+    /// Generar clave de caché para listado
+    fn list_cache_key(&self, options: &PaginationOptions) -> String {
+        format!("list:{}:{}", options.offset.unwrap_or(0), options.limit.unwrap_or(10))
+    }
+
+    /// Listar pagos con paginación (con caché)
     #[instrument(skip(self))]
     pub async fn list_pagos(
         &self,
         options: PaginationOptions,
     ) -> Result<(Vec<PagoResponse>, i64, i64), ApplicationError> {
+        let cache_key = self.list_cache_key(&options);
+        
+        // Intentar obtener del caché
+        if let Some(cached) = self.cache.get_list(entity_names::PAGOS, &cache_key).await {
+            debug!("Cache HIT para pagos list: {}", cache_key);
+            if let Ok(response) = serde_json::from_str::<(Vec<PagoResponse>, i64, i64)>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para pagos list: {}", cache_key);
+        
         let result = self.pago_repository
             .list_paginated(options)
             .await?;
@@ -59,19 +79,43 @@ impl PagoService {
         let items: Vec<PagoResponse> = result.data.into_iter().map(Into::into).collect();
         info!("Listados {} pagos (página {}, total: {})", items.len(), current_page, total);
         
-        Ok((items, total, pages))
+        let response = (items, total, pages);
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&response) {
+            self.cache.set_list(entity_names::PAGOS, &cache_key, serialized).await;
+        }
+        
+        Ok(response)
     }
 
-    /// Obtener pago por ID
+    /// Obtener pago por ID (con caché)
     #[instrument(skip(self))]
     pub async fn get_pago(&self, id: i32) -> Result<PagoResponse, ApplicationError> {
+        // Intentar obtener del caché
+        if let Some(cached) = self.cache.get_detail(entity_names::PAGOS, id).await {
+            debug!("Cache HIT para pago: {}", id);
+            if let Ok(response) = serde_json::from_str::<PagoResponse>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para pago: {}", id);
+        
         let pago = self.pago_repository
             .find_by_id(id)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Pago {} no encontrado", id)))?;
         
+        let response = PagoResponse::from(pago.clone());
         info!("Pago encontrado: {} {} (ID: {})", pago.tipo_movimiento, pago.monto, id);
-        Ok(PagoResponse::from(pago))
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&response) {
+            self.cache.set_detail(entity_names::PAGOS, id, serialized).await;
+        }
+        
+        Ok(response)
     }
 
     /// Registrar un nuevo pago
@@ -125,6 +169,9 @@ impl PagoService {
         ).await {
             warn!("Error al enviar notificación de pago registrado: {}", e);
         }
+        
+        // Invalidar caché de pagos
+        self.cache.invalidate_entity(entity_names::PAGOS).await;
         
         Ok(PagoResponse::from(created))
     }
@@ -184,6 +231,9 @@ impl PagoService {
             }
         }
         
+        // Invalidar caché del pago específico
+        self.cache.invalidate_detail(entity_names::PAGOS, id).await;
+        
         Ok(PagoResponse::from(result))
     }
 
@@ -235,6 +285,9 @@ impl PagoService {
         ).await {
             warn!("Error al enviar notificación de pago eliminado: {}", e);
         }
+        
+        // Invalidar caché de pagos
+        self.cache.invalidate_entity(entity_names::PAGOS).await;
         
         Ok(())
     }

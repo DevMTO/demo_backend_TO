@@ -85,5 +85,8 @@ rust-s3 = { version = "0.35", default-features = false, features = ["tokio-rustl
 # HTTP Client (para proxy de imágenes)
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
 
+# Cache
+moka = { version = "0.12", features = ["future"] }
+
 [dev-dependencies]
 tokio-test = "0.4"

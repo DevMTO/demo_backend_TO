@@ -16,6 +16,7 @@ pub async fn delete_entrada(
     Path(id): Path<i32>
 ) -> Result<impl IntoResponse, ApplicationError> {
     state.container.entrada_service.deactivate_entrada(id, auth.user.id, &auth.user.username).await?;
+    
     Ok(json_message("Entrada desactivada"))
 }
 
@@ -30,5 +31,6 @@ pub async fn hard_delete_entrada(
         return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar permanentemente entradas".to_string()));
     }
     state.container.entrada_service.hard_delete_entrada(id, auth.user.id, &auth.user.username).await?;
+    
     Ok(json_deleted())
 }

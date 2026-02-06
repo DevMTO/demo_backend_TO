@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::infrastructure::container::DependencyContainer;
 use crate::infrastructure::sse::NotificationBroadcaster;
+use crate::infrastructure::cache::AppCache;
 use crate::application::dtos::UserNotificationDto;
 use crate::domain::entities::{
     NotificationType, NotificationCategory, NotificationPriority, UserRole,
@@ -15,9 +16,20 @@ use crate::domain::errors::ApplicationError;
 pub struct AppState {
     pub container: Arc<DependencyContainer>,
     pub broadcaster: Arc<NotificationBroadcaster>,
+    /// Caché centralizado para optimizar consultas frecuentes
+    pub cache: Arc<AppCache>,
 }
 
 impl AppState {
+    /// Crea un nuevo AppState con caché
+    pub fn new(container: Arc<DependencyContainer>, broadcaster: Arc<NotificationBroadcaster>) -> Self {
+        Self {
+            container,
+            broadcaster,
+            cache: Arc::new(AppCache::new()),
+        }
+    }
+    
     /// Notificar a roles específicos y enviar por SSE
     pub async fn notify_roles_with_broadcast(
         &self,

@@ -12,13 +12,13 @@
 use std::sync::Arc;
 use chrono::{NaiveDate, Duration, Utc};
 use bigdecimal::BigDecimal;
-use tracing::{info, warn, instrument};
+use tracing::{info, warn, debug, instrument};
 
 use crate::application::dtos::{
     CreateFileRequest, UpdateFileRequest, FileResponse, FileTourDto,
     ConfirmReservaRequest, ConfirmReservaResponse,
 };
-use crate::application::ports::{FileRepositoryPort, PaginationOptions, NotificationServicePort};
+use crate::application::ports::{FileRepositoryPort, PaginationOptions, NotificationServicePort, CachePort, entity_names};
 use crate::application::ports::{FileTourRepositoryPort, FileTourInputData, PagoFileRepositoryPort, AgenciaRepositoryPort};
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
@@ -36,6 +36,7 @@ pub struct FileService {
     notification_service: Arc<dyn NotificationServicePort>,
     pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
     agencia_repository: Arc<dyn AgenciaRepositoryPort>,
+    cache: Arc<dyn CachePort>,
 }
 
 impl FileService {
@@ -46,6 +47,7 @@ impl FileService {
         notification_service: Arc<dyn NotificationServicePort>,
         pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
         agencia_repository: Arc<dyn AgenciaRepositoryPort>,
+        cache: Arc<dyn CachePort>,
     ) -> Self {
         Self {
             file_repository,
@@ -54,7 +56,13 @@ impl FileService {
             notification_service,
             pago_file_repository,
             agencia_repository,
+            cache,
         }
+    }
+
+    /// Generar clave de caché para listado
+    fn list_cache_key(&self, options: &PaginationOptions) -> String {
+        format!("list:{}:{}", options.offset.unwrap_or(0), options.limit.unwrap_or(10))
     }
 
     /// Carga los tours de un file con información completa del tour (INNER JOIN) y los convierte a DTO
@@ -86,12 +94,24 @@ impl FileService {
         }).collect())
     }
 
-    /// Listar files con paginación
+    /// Listar files con paginación (con caché)
     #[instrument(skip(self))]
     pub async fn list_files(
         &self,
         options: PaginationOptions,
     ) -> Result<(Vec<FileResponse>, i64, i64), ApplicationError> {
+        let cache_key = self.list_cache_key(&options);
+        
+        // Intentar obtener del caché
+        if let Some(cached) = self.cache.get_list(entity_names::FILES, &cache_key).await {
+            debug!("Cache HIT para files list: {}", cache_key);
+            if let Ok(response) = serde_json::from_str::<(Vec<FileResponse>, i64, i64)>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para files list: {}", cache_key);
+        
         let result = self.file_repository
             .list_paginated(options)
             .await?;
@@ -109,21 +129,46 @@ impl FileService {
         
         info!("Listados {} files (página {}, total: {})", items.len(), current_page, total);
         
-        Ok((items, total, pages))
+        let response = (items, total, pages);
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&response) {
+            self.cache.set_list(entity_names::FILES, &cache_key, serialized).await;
+        }
+        
+        Ok(response)
     }
 
-    /// Obtener file por ID
+    /// Obtener file por ID (con caché)
     #[instrument(skip(self))]
     pub async fn get_file(&self, id: i32) -> Result<FileResponse, ApplicationError> {
+        // Intentar obtener del caché
+        if let Some(cached) = self.cache.get_detail(entity_names::FILES, id).await {
+            debug!("Cache HIT para file: {}", id);
+            if let Ok(response) = serde_json::from_str::<FileResponse>(&cached) {
+                return Ok(response);
+            }
+        }
+        
+        debug!("Cache MISS para file: {}", id);
+        
         let file = self.file_repository
             .find_by_id(id)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", id)))?;
         
         let tours = self.load_file_tours(id).await?;
+        let tours_len = tours.len();
         
-        info!("File encontrado: ID {} con {} tours", id, tours.len());
-        Ok(FileResponse::from_file_with_tours(file, tours))
+        let response = FileResponse::from_file_with_tours(file, tours);
+        info!("File encontrado: ID {} con {} tours", id, tours_len);
+        
+        // Guardar en caché
+        if let Ok(serialized) = serde_json::to_string(&response) {
+            self.cache.set_detail(entity_names::FILES, id, serialized).await;
+        }
+        
+        Ok(response)
     }
 
     /// Crear un nuevo file
@@ -238,6 +283,9 @@ impl FileService {
         ).await {
             warn!("Error al enviar notificación de file creado: {}", e);
         }
+        
+        // Invalidar caché de files
+        self.cache.invalidate_entity(entity_names::FILES).await;
         
         Ok(FileResponse::from_file_with_tours(created, tours_dto))
     }
@@ -355,6 +403,9 @@ impl FileService {
             }
         }
         
+        // Invalidar caché del file específico
+        self.cache.invalidate_detail(entity_names::FILES, id).await;
+        
         Ok(FileResponse::from_file_with_tours(result, tours_dto))
     }
 
@@ -407,6 +458,9 @@ impl FileService {
             warn!("Error al enviar notificación de file desactivado: {}", e);
         }
         
+        // Invalidar caché del file
+        self.cache.invalidate_detail(entity_names::FILES, id).await;
+        
         Ok(())
     }
 
@@ -458,6 +512,9 @@ impl FileService {
         ).await {
             warn!("Error al enviar notificación de file restaurado: {}", e);
         }
+        
+        // Invalidar caché del file
+        self.cache.invalidate_detail(entity_names::FILES, id).await;
         
         Ok(())
     }
@@ -513,6 +570,9 @@ impl FileService {
         ).await {
             warn!("Error al enviar notificación de eliminación permanente de file: {}", e);
         }
+        
+        // Invalidar caché de files
+        self.cache.invalidate_entity(entity_names::FILES).await;
         
         Ok(())
     }

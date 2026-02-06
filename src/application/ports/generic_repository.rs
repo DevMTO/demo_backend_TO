@@ -1,7 +1,8 @@
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use crate::domain::errors::ApplicationError;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PaginationOptions {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
@@ -19,7 +20,7 @@ impl PaginationOptions {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaginatedResult<T> {
     pub data: Vec<T>,
     pub total: i64,

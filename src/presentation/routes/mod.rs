@@ -54,7 +54,7 @@ pub fn create_router(
     broadcaster: Arc<NotificationBroadcaster>,
     config: &AppConfig
 ) -> Router {
-    let state = AppState { container, broadcaster };
+    let state = AppState::new(container, broadcaster);
     
     // Configurar CORS
     let cors = create_cors_layer(config);
