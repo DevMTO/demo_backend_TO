@@ -20,7 +20,7 @@ use super::query_params::{
 
 /// Helper para verificar si el usuario tiene rol de admin
 fn is_admin_or_operador(role: &UserRole) -> bool {
-    matches!(role, UserRole::SuperAdmin | UserRole::Admin)
+    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
 }
 
 /// Helper para verificar si el usuario es agencia/contador de agencia y pertenece a esa agencia
