@@ -71,8 +71,9 @@ pub struct NewFileGuiaModel<'a> {
     pub id_guia: i32,
     pub rol: Option<&'a str>,
     pub created_by: Option<i32>,
-    // estado_confirmacion usa DEFAULT 'pendiente' en la DB
-    /// Estado: pendiente (default para guías que no han aceptado)
+    /// Auto-aceptado al asignar (igual que conductor)
+    pub estado_confirmacion: Option<&'a str>,
+    /// Estado: reservado (auto-asignado)
     pub status: Option<&'a str>,
 }
 

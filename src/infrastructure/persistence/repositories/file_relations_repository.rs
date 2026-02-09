@@ -193,7 +193,8 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
             id_guia,
             rol,
             created_by,
-            status: None, // Usa el default de la DB: 'pendiente'
+            estado_confirmacion: Some("aceptado"), // Auto-aceptado al asignar (igual que conductor)
+            status: Some("reservado"), // Auto-reservado
         };
         
         let result = diesel::insert_into(file_guias::table)

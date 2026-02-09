@@ -9,7 +9,9 @@ use crate::application::services::{
     TransporteService, VehiculoService, ConductorService, EntradaService,
     EntradaPrecioService, GuiaService, MyFilesService, PostgresMyFilesRepository,
     ContabilidadService, FileAssignmentService, MisPagosService, PostgresMisPagosRepository,
+    SaldoFavorService,
 };
+use crate::infrastructure::persistence::repositories::PostgresSaldoFavorRepository;
 use crate::infrastructure::persistence::DatabasePool;
 use crate::infrastructure::NotificationBroadcastAdapter;
 use crate::infrastructure::sse::NotificationBroadcaster;
@@ -39,6 +41,7 @@ pub(super) struct Services {
     pub contabilidad: Arc<ContabilidadService>,
     pub file_assignment: Arc<FileAssignmentService>,
     pub mis_pagos: Arc<MisPagosService>,
+    pub saldo_favor: Arc<SaldoFavorService>,
 }
 
 impl Services {
@@ -175,11 +178,16 @@ impl Services {
         let mis_pagos_repo = Arc::new(PostgresMisPagosRepository::new(db_pool.clone()));
         let mis_pagos = Arc::new(MisPagosService::new(mis_pagos_repo));
 
+        let saldo_favor = Arc::new(SaldoFavorService::new(
+            Arc::new(PostgresSaldoFavorRepository::new(db_pool.clone())),
+            repos.file.clone(),
+        ));
+
         Self {
             logging, notification, user, agencia, persona, tour, file, pago,
             restaurante, transporte, vehiculo, conductor, entrada,
             entrada_precio, guia, my_files, contabilidad, file_assignment,
-            mis_pagos,
+            mis_pagos, saldo_favor,
         }
     }
 }

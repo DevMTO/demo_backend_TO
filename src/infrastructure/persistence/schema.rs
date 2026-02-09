@@ -51,6 +51,25 @@ diesel::table! {
 }
 
 diesel::table! {
+    cancelaciones (id) {
+        id -> Int4,
+        id_file -> Int4,
+        id_agencia -> Int4,
+        monto_total_file -> Numeric,
+        monto_pagado -> Numeric,
+        monto_penalidad -> Numeric,
+        monto_saldo_favor -> Numeric,
+        #[max_length = 30]
+        tipo_cancelacion -> Varchar,
+        hora_limite_cancelacion -> Nullable<Timestamptz>,
+        motivo -> Nullable<Text>,
+        notas -> Nullable<Text>,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
     conductores (id) {
         id -> Int4,
         id_persona -> Int4,
@@ -285,6 +304,25 @@ diesel::table! {
 }
 
 diesel::table! {
+    movimientos_saldo_favor (id) {
+        id -> Int4,
+        id_saldo_favor -> Int4,
+        id_agencia -> Int4,
+        #[max_length = 20]
+        tipo -> Varchar,
+        monto -> Numeric,
+        id_cancelacion -> Nullable<Int4>,
+        id_file_destino -> Nullable<Int4>,
+        id_pago_file -> Nullable<Int4>,
+        saldo_anterior -> Numeric,
+        saldo_posterior -> Numeric,
+        concepto -> Nullable<Text>,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
     notification_users (id) {
         id -> Int4,
         notification_id -> Int4,
@@ -438,6 +476,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    saldos_favor (id) {
+        id -> Int4,
+        id_agencia -> Int4,
+        saldo_disponible -> Numeric,
+        saldo_utilizado -> Numeric,
+        saldo_total_generado -> Numeric,
+        updated_at -> Timestamptz,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     tarifas_servicios (id) {
         id -> Int4,
         #[max_length = 20]
@@ -577,6 +627,9 @@ diesel::table! {
 
 diesel::joinable!(activity_logs -> users (user_id));
 diesel::joinable!(agencias -> personas (encargado));
+diesel::joinable!(cancelaciones -> agencias (id_agencia));
+diesel::joinable!(cancelaciones -> files (id_file));
+diesel::joinable!(cancelaciones -> users (created_by));
 diesel::joinable!(conductores -> personas (id_persona));
 diesel::joinable!(conductores -> transportes (id_transporte));
 diesel::joinable!(cuentas -> agencias (id_agencia));
@@ -606,6 +659,12 @@ diesel::joinable!(files -> agencias (id_agencia));
 diesel::joinable!(guias -> personas (id_persona));
 diesel::joinable!(movimientos -> cuentas (id_cuenta));
 diesel::joinable!(movimientos -> users (created_by));
+diesel::joinable!(movimientos_saldo_favor -> agencias (id_agencia));
+diesel::joinable!(movimientos_saldo_favor -> cancelaciones (id_cancelacion));
+diesel::joinable!(movimientos_saldo_favor -> files (id_file_destino));
+diesel::joinable!(movimientos_saldo_favor -> pagos_files (id_pago_file));
+diesel::joinable!(movimientos_saldo_favor -> saldos_favor (id_saldo_favor));
+diesel::joinable!(movimientos_saldo_favor -> users (created_by));
 diesel::joinable!(notification_users -> notifications (notification_id));
 diesel::joinable!(notification_users -> users (user_id));
 diesel::joinable!(pagos -> files (id_file));
@@ -619,6 +678,7 @@ diesel::joinable!(pagos_proveedores -> guias (id_guia));
 diesel::joinable!(pagos_proveedores -> restaurantes (id_restaurante));
 diesel::joinable!(pagos_proveedores -> transportes (id_transporte));
 diesel::joinable!(restaurantes -> personas (encargado));
+diesel::joinable!(saldos_favor -> agencias (id_agencia));
 diesel::joinable!(tarifas_servicios -> users (created_by));
 diesel::joinable!(transportes -> personas (encargado));
 diesel::joinable!(user_sessions -> users (user_id));
@@ -627,6 +687,7 @@ diesel::joinable!(vehiculos -> transportes (id_transporte));
 diesel::allow_tables_to_appear_in_same_query!(
     activity_logs,
     agencias,
+    cancelaciones,
     conductores,
     cuentas,
     entrada_precios,
@@ -640,6 +701,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     files,
     guias,
     movimientos,
+    movimientos_saldo_favor,
     notification_users,
     notifications,
     pagos,
@@ -647,6 +709,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     pagos_proveedores,
     personas,
     restaurantes,
+    saldos_favor,
     tarifas_servicios,
     tours,
     transportes,

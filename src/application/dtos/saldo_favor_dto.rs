@@ -1,0 +1,121 @@
+//! DTOs para Saldo a Favor y Cancelaciones
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+// ==================== CANCELACION DTOs ====================
+
+/// Respuesta de cancelación
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct CancelacionResponse {
+    pub id: i32,
+    pub id_file: i32,
+    pub id_agencia: i32,
+    pub monto_total_file: f64,
+    pub monto_pagado: f64,
+    pub monto_penalidad: f64,
+    pub monto_saldo_favor: f64,
+    pub tipo_cancelacion: String,
+    pub hora_limite_cancelacion: Option<DateTime<Utc>>,
+    pub motivo: Option<String>,
+    pub notas: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    /// Info del file (populated via JOIN)
+    pub file_code: Option<String>,
+    pub agencia_nombre: Option<String>,
+}
+
+/// Request para cancelar un file
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct CancelarFileRequest {
+    pub id_file: i32,
+    pub motivo: Option<String>,
+    pub notas: Option<String>,
+    /// Porcentaje de penalidad (0-100). Si es 0, todo el monto pagado va a saldo a favor
+    pub porcentaje_penalidad: Option<f64>,
+}
+
+// ==================== SALDO FAVOR DTOs ====================
+
+/// Respuesta del saldo a favor de una agencia
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct SaldoFavorResponse {
+    pub id: i32,
+    pub id_agencia: i32,
+    pub agencia_nombre: Option<String>,
+    pub saldo_disponible: f64,
+    pub saldo_utilizado: f64,
+    pub saldo_total_generado: f64,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Respuesta de un movimiento de saldo a favor
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct MovimientoSaldoFavorResponse {
+    pub id: i32,
+    pub id_agencia: i32,
+    pub tipo: String,
+    pub monto: f64,
+    pub id_cancelacion: Option<i32>,
+    pub id_file_destino: Option<i32>,
+    pub id_pago_file: Option<i32>,
+    pub saldo_anterior: f64,
+    pub saldo_posterior: f64,
+    pub concepto: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    /// Info adicional (via JOIN)
+    pub file_code_origen: Option<String>,
+    pub file_code_destino: Option<String>,
+}
+
+/// Request para usar saldo a favor en un pago
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UsarSaldoFavorRequest {
+    pub id_agencia: i32,
+    pub id_file_destino: i32,
+    pub id_pago_file: Option<i32>,
+    pub monto: f64,
+    pub concepto: Option<String>,
+}
+
+/// Dashboard de saldo a favor para una agencia
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct SaldoFavorDashboard {
+    pub saldo: SaldoFavorResponse,
+    pub cancelaciones_recientes: Vec<CancelacionResponse>,
+    pub movimientos_recientes: Vec<MovimientoSaldoFavorResponse>,
+    pub total_cancelaciones: i64,
+}
+
+/// Filtro para listar cancelaciones
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CancelacionesFilter {
+    pub id_agencia: Option<i32>,
+    pub tipo_cancelacion: Option<String>,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
+}
+
+/// Filtro para listar movimientos de saldo
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MovimientosSaldoFilter {
+    pub id_agencia: Option<i32>,
+    pub tipo: Option<String>,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
+}
