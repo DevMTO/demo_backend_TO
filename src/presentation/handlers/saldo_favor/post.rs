@@ -7,7 +7,7 @@ use axum::{
 };
 use tracing::instrument;
 
-use crate::application::dtos::{CancelarFileRequest, UsarSaldoFavorRequest, CancelacionResponse, MovimientoSaldoFavorResponse};
+use crate::application::dtos::{CancelarFileRequest, UsarSaldoFavorRequest, RegistrarNoShowRequest, CancelacionResponse, MovimientoSaldoFavorResponse, NoShowResponse};
 use crate::domain::entities::UserRole;
 use crate::domain::errors::ApplicationError;
 use crate::presentation::extractors::AuthUser;
@@ -35,15 +35,6 @@ pub async fn cancelar_file(
         return Err(ApplicationError::Forbidden(
             "No tienes permiso para cancelar files".to_string(),
         ));
-    }
-
-    // Validar porcentaje
-    if let Some(p) = request.porcentaje_penalidad {
-        if p < 0.0 || p > 100.0 {
-            return Err(ApplicationError::Validation(
-                "El porcentaje de penalidad debe estar entre 0 y 100".to_string(),
-            ));
-        }
     }
 
     let cancelacion: CancelacionResponse = state.container.saldo_favor_service
@@ -89,4 +80,29 @@ pub async fn usar_saldo(
         .usar_saldo(request, auth.user.id)
         .await?;
     Ok(json_created(movimiento))
+}
+
+// ============================================================================
+// REGISTRAR NO-SHOW (Solo admin)
+// ============================================================================
+
+/// POST /api/v1/saldos-favor/no-show
+/// Registra un no-show para un file (solo admin, después de 8PM)
+#[instrument(skip(state, auth))]
+pub async fn registrar_no_show(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(request): Json<RegistrarNoShowRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Solo SuperAdmin y Admin pueden registrar no-shows
+    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin) {
+        return Err(ApplicationError::Forbidden(
+            "Solo los administradores pueden registrar no-shows".to_string(),
+        ));
+    }
+
+    let no_show: NoShowResponse = state.container.saldo_favor_service
+        .registrar_no_show(request, auth.user.id)
+        .await?;
+    Ok(json_created(no_show))
 }

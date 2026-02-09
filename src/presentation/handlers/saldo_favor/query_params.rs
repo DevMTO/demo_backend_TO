@@ -23,3 +23,13 @@ pub struct MovimientosSaldoQueryParams {
 
 fn default_page() -> i64 { 1 }
 fn default_page_size() -> i64 { 20 }
+
+/// Query params para listar no-shows
+#[derive(Debug, Deserialize)]
+pub struct NoShowsQueryParams {
+    pub id_agencia: Option<i32>,
+    #[serde(default = "default_page")]
+    pub page: i64,
+    #[serde(default = "default_page_size")]
+    pub page_size: i64,
+}

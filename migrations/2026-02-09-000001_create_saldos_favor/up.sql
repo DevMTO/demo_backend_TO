@@ -1,5 +1,5 @@
 -- Tabla de cancelaciones de files
--- Registra las cancelaciones y gestiona los montos para saldos a favor
+-- Registra tanto cancelaciones normales (antes de 8PM) como no_shows (después de 8PM)
 CREATE TABLE IF NOT EXISTS cancelaciones (
     id SERIAL PRIMARY KEY,
     id_file INTEGER NOT NULL REFERENCES files(id),
@@ -8,12 +8,11 @@ CREATE TABLE IF NOT EXISTS cancelaciones (
     -- Montos
     monto_total_file NUMERIC(12,2) NOT NULL DEFAULT 0,          -- Monto total del file original
     monto_pagado NUMERIC(12,2) NOT NULL DEFAULT 0,              -- Lo que ya había pagado la agencia
-    monto_penalidad NUMERIC(12,2) NOT NULL DEFAULT 0,           -- Penalidad por cancelación (si aplica)
-    monto_saldo_favor NUMERIC(12,2) NOT NULL DEFAULT 0,         -- = monto_pagado - monto_penalidad (lo que se convierte en saldo a favor)
+    monto_saldo_favor NUMERIC(12,2) NOT NULL DEFAULT 0,         -- Lo que se convierte en saldo a favor
+    monto_operador NUMERIC(12,2) NOT NULL DEFAULT 0,            -- Lo que queda para el operador (solo en no_show)
     
-    -- Tipo de cancelación
-    tipo_cancelacion VARCHAR(30) NOT NULL DEFAULT 'en_tiempo',   -- 'en_tiempo' (dentro del horario) o 'fuera_tiempo' (después de hora límite)
-    hora_limite_cancelacion TIMESTAMPTZ,                         -- La hora límite que regía cuando se canceló
+    -- Tipo: 'cancelacion' (antes de 8PM, todo pagado → saldo) o 'no_show' (después de 8PM, solo rest+entradas → saldo)
+    tipo_cancelacion VARCHAR(30) NOT NULL DEFAULT 'cancelacion',
     
     -- Metadata
     motivo TEXT,
@@ -23,6 +22,36 @@ CREATE TABLE IF NOT EXISTS cancelaciones (
     
     -- Un file solo puede cancelarse una vez
     CONSTRAINT uq_cancelacion_file UNIQUE (id_file)
+);
+
+-- Tabla de no_shows: detalle del desglose cuando es no_show
+-- Solo se crea cuando tipo_cancelacion = 'no_show'
+CREATE TABLE IF NOT EXISTS no_shows (
+    id SERIAL PRIMARY KEY,
+    id_cancelacion INTEGER NOT NULL REFERENCES cancelaciones(id),
+    id_file INTEGER NOT NULL REFERENCES files(id),
+    id_agencia INTEGER NOT NULL REFERENCES agencias(id),
+    
+    -- Desglose de costos reembolsables (van a saldo a favor)
+    monto_restaurantes NUMERIC(12,2) NOT NULL DEFAULT 0,    -- Suma de precios de file_restaurantes del file
+    monto_entradas NUMERIC(12,2) NOT NULL DEFAULT 0,        -- Suma de (cantidad × precio) de file_entradas del file
+    monto_saldo_favor NUMERIC(12,2) NOT NULL DEFAULT 0,     -- = monto_restaurantes + monto_entradas
+    
+    -- Lo que retiene el operador
+    monto_operador NUMERIC(12,2) NOT NULL DEFAULT 0,        -- = monto_pagado - monto_saldo_favor
+    
+    -- Fecha/hora de referencia
+    fecha_inicio_file DATE NOT NULL,                         -- fecha_inicio más temprana de los file_tours
+    hora_corte TIMESTAMPTZ NOT NULL DEFAULT NOW(),           -- Momento en que se registró el no_show
+    
+    -- Metadata
+    notas TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by INTEGER REFERENCES users(id),
+    
+    -- Un file solo puede tener un registro de no_show
+    CONSTRAINT uq_no_show_file UNIQUE (id_file),
+    CONSTRAINT uq_no_show_cancelacion UNIQUE (id_cancelacion)
 );
 
 -- Tabla de saldos a favor por agencia
@@ -92,6 +121,10 @@ ON CONFLICT (id_agencia) DO NOTHING;
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_cancelaciones_agencia ON cancelaciones(id_agencia);
 CREATE INDEX IF NOT EXISTS idx_cancelaciones_file ON cancelaciones(id_file);
+CREATE INDEX IF NOT EXISTS idx_cancelaciones_tipo ON cancelaciones(tipo_cancelacion);
+CREATE INDEX IF NOT EXISTS idx_no_shows_agencia ON no_shows(id_agencia);
+CREATE INDEX IF NOT EXISTS idx_no_shows_file ON no_shows(id_file);
+CREATE INDEX IF NOT EXISTS idx_no_shows_cancelacion ON no_shows(id_cancelacion);
 CREATE INDEX IF NOT EXISTS idx_saldos_favor_agencia ON saldos_favor(id_agencia);
 CREATE INDEX IF NOT EXISTS idx_mov_saldo_favor_agencia ON movimientos_saldo_favor(id_agencia);
 CREATE INDEX IF NOT EXISTS idx_mov_saldo_favor_saldo ON movimientos_saldo_favor(id_saldo_favor);

@@ -6,14 +6,14 @@ use axum::{
 };
 use tracing::instrument;
 
-use crate::application::dtos::{SaldoFavorDashboard, SaldoFavorResponse, CancelacionResponse, MovimientoSaldoFavorResponse};
+use crate::application::dtos::{SaldoFavorDashboard, SaldoFavorResponse, CancelacionResponse, MovimientoSaldoFavorResponse, NoShowResponse};
 use crate::domain::entities::UserRole;
 use crate::domain::errors::ApplicationError;
 use crate::presentation::extractors::AuthUser;
 use crate::presentation::routes::AppState;
 use crate::presentation::handlers::common::json_ok;
 
-use super::query_params::{CancelacionesQueryParams, MovimientosSaldoQueryParams};
+use super::query_params::{CancelacionesQueryParams, MovimientosSaldoQueryParams, NoShowsQueryParams};
 
 /// Helper para verificar si el usuario tiene rol autorizado para saldos a favor
 fn has_saldo_favor_access(role: &UserRole) -> bool {
@@ -170,4 +170,35 @@ pub async fn list_movimientos(
         .list_movimientos(id_agencia, params.tipo.as_deref(), params.page, params.page_size)
         .await?;
     Ok(json_ok(movimientos))
+}
+
+// ============================================================================
+// NO SHOWS
+// ============================================================================
+
+/// GET /api/v1/saldos-favor/no-shows
+/// Lista no-shows con filtros
+#[instrument(skip(state, auth))]
+pub async fn list_no_shows(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(params): Query<NoShowsQueryParams>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    if !has_saldo_favor_access(&auth.user.role) {
+        return Err(ApplicationError::Forbidden(
+            "No tienes permiso para ver no-shows".to_string(),
+        ));
+    }
+
+    let id_agencia = if is_admin(&auth.user.role) {
+        params.id_agencia
+    } else {
+        Some(auth.user.id_entidad
+            .ok_or_else(|| ApplicationError::Forbidden("No tienes agencia asignada".to_string()))?)
+    };
+
+    let no_shows: Vec<NoShowResponse> = state.container.saldo_favor_service
+        .list_no_shows(id_agencia, params.page, params.page_size)
+        .await?;
+    Ok(json_ok(no_shows))
 }

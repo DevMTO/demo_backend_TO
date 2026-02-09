@@ -1,6 +1,6 @@
-//! DTOs para Saldo a Favor y Cancelaciones
+//! DTOs para Saldo a Favor, Cancelaciones y No Shows
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -16,10 +16,9 @@ pub struct CancelacionResponse {
     pub id_agencia: i32,
     pub monto_total_file: f64,
     pub monto_pagado: f64,
-    pub monto_penalidad: f64,
     pub monto_saldo_favor: f64,
+    pub monto_operador: f64,
     pub tipo_cancelacion: String,
-    pub hora_limite_cancelacion: Option<DateTime<Utc>>,
     pub motivo: Option<String>,
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -29,7 +28,7 @@ pub struct CancelacionResponse {
     pub agencia_nombre: Option<String>,
 }
 
-/// Request para cancelar un file
+/// Request para cancelar un file (cancelación normal, antes de 8PM)
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -37,8 +36,41 @@ pub struct CancelarFileRequest {
     pub id_file: i32,
     pub motivo: Option<String>,
     pub notas: Option<String>,
-    /// Porcentaje de penalidad (0-100). Si es 0, todo el monto pagado va a saldo a favor
-    pub porcentaje_penalidad: Option<f64>,
+}
+
+/// Request para registrar un no_show (admin, después de 8PM)
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct RegistrarNoShowRequest {
+    pub id_file: i32,
+    pub motivo: Option<String>,
+    pub notas: Option<String>,
+}
+
+// ==================== NO SHOW DTOs ====================
+
+/// Respuesta de un no_show con desglose
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct NoShowResponse {
+    pub id: i32,
+    pub id_cancelacion: i32,
+    pub id_file: i32,
+    pub id_agencia: i32,
+    pub monto_restaurantes: f64,
+    pub monto_entradas: f64,
+    pub monto_saldo_favor: f64,
+    pub monto_operador: f64,
+    pub fecha_inicio_file: NaiveDate,
+    pub hora_corte: DateTime<Utc>,
+    pub notas: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    /// Info adicional
+    pub file_code: Option<String>,
+    pub agencia_nombre: Option<String>,
 }
 
 // ==================== SALDO FAVOR DTOs ====================
@@ -100,6 +132,7 @@ pub struct SaldoFavorDashboard {
     pub cancelaciones_recientes: Vec<CancelacionResponse>,
     pub movimientos_recientes: Vec<MovimientoSaldoFavorResponse>,
     pub total_cancelaciones: i64,
+    pub total_no_shows: i64,
 }
 
 /// Filtro para listar cancelaciones

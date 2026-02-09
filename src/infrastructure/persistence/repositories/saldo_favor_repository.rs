@@ -1,13 +1,15 @@
-//! Repositorio para Saldos a Favor y Cancelaciones
+//! Repositorio para Saldos a Favor, Cancelaciones y No Shows
 
 use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use bigdecimal::BigDecimal;
+use chrono::NaiveDate;
 use tracing::instrument;
 
 use crate::application::dtos::{
     CancelacionResponse, SaldoFavorResponse, MovimientoSaldoFavorResponse,
+    NoShowResponse,
 };
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::database::DatabasePool;
@@ -15,8 +17,16 @@ use crate::infrastructure::persistence::models::{
     CancelacionModel, NewCancelacionModel,
     SaldoFavorModel,
     MovimientoSaldoFavorModel, NewMovimientoSaldoFavorModel,
+    NoShowModel, NewNoShowModel,
 };
-use crate::infrastructure::persistence::schema::{cancelaciones, saldos_favor, movimientos_saldo_favor};
+use crate::infrastructure::persistence::schema::{cancelaciones, saldos_favor, movimientos_saldo_favor, no_shows};
+
+/// Costos de restaurantes y entradas de un file
+pub struct FileCosts {
+    pub monto_restaurantes: BigDecimal,
+    pub monto_entradas: BigDecimal,
+    pub fecha_inicio_min: Option<NaiveDate>,
+}
 
 // ==================== PORT ====================
 
@@ -30,10 +40,17 @@ pub trait SaldoFavorRepositoryPort: Send + Sync {
     async fn count_cancelaciones(&self, id_agencia: Option<i32>) -> Result<i64, ApplicationError>;
     async fn find_cancelacion_by_file(&self, id_file: i32) -> Result<Option<CancelacionModel>, ApplicationError>;
     
+    async fn create_no_show(&self, data: NewNoShowModel) -> Result<NoShowModel, ApplicationError>;
+    async fn list_no_shows(&self, id_agencia: Option<i32>, limit: i64, offset: i64) -> Result<Vec<NoShowResponse>, ApplicationError>;
+    async fn count_no_shows(&self, id_agencia: Option<i32>) -> Result<i64, ApplicationError>;
+    
     async fn create_movimiento(&self, data: NewMovimientoSaldoFavorModel) -> Result<MovimientoSaldoFavorModel, ApplicationError>;
     async fn list_movimientos(&self, id_agencia: Option<i32>, tipo: Option<&str>, limit: i64, offset: i64) -> Result<Vec<MovimientoSaldoFavorResponse>, ApplicationError>;
     
     async fn list_all_saldos(&self) -> Result<Vec<SaldoFavorResponse>, ApplicationError>;
+    
+    /// Calcula costos de restaurantes, entradas y la fecha_inicio más temprana del file
+    async fn calculate_file_costs(&self, id_file: i32) -> Result<FileCosts, ApplicationError>;
 }
 
 // ==================== IMPLEMENTATION ====================
@@ -98,34 +115,25 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
         
         let mut conn = self.pool.get_connection().await?;
         
-        let base_query = if let Some(ag_id) = id_agencia {
-            format!(r#"
-                SELECT c.id, c.id_file, c.id_agencia,
-                    c.monto_total_file, c.monto_pagado, c.monto_penalidad, c.monto_saldo_favor,
-                    c.tipo_cancelacion, c.hora_limite_cancelacion, c.motivo, c.notas,
-                    c.created_at, c.created_by,
-                    f.file_code, a.nombre as agencia_nombre
-                FROM cancelaciones c
-                INNER JOIN files f ON f.id = c.id_file
-                INNER JOIN agencias a ON a.id = c.id_agencia
-                WHERE c.id_agencia = {}
-                ORDER BY c.created_at DESC
-                LIMIT {} OFFSET {}
-            "#, ag_id, limit, offset)
+        let where_clause = if let Some(ag_id) = id_agencia {
+            format!("WHERE c.id_agencia = {}", ag_id)
         } else {
-            format!(r#"
-                SELECT c.id, c.id_file, c.id_agencia,
-                    c.monto_total_file, c.monto_pagado, c.monto_penalidad, c.monto_saldo_favor,
-                    c.tipo_cancelacion, c.hora_limite_cancelacion, c.motivo, c.notas,
-                    c.created_at, c.created_by,
-                    f.file_code, a.nombre as agencia_nombre
-                FROM cancelaciones c
-                INNER JOIN files f ON f.id = c.id_file
-                INNER JOIN agencias a ON a.id = c.id_agencia
-                ORDER BY c.created_at DESC
-                LIMIT {} OFFSET {}
-            "#, limit, offset)
+            String::new()
         };
+        
+        let sql = format!(r#"
+            SELECT c.id, c.id_file, c.id_agencia,
+                c.monto_total_file, c.monto_pagado, c.monto_saldo_favor, c.monto_operador,
+                c.tipo_cancelacion, c.motivo, c.notas,
+                c.created_at, c.created_by,
+                f.file_code, a.nombre as agencia_nombre
+            FROM cancelaciones c
+            INNER JOIN files f ON f.id = c.id_file
+            INNER JOIN agencias a ON a.id = c.id_agencia
+            {}
+            ORDER BY c.created_at DESC
+            LIMIT {} OFFSET {}
+        "#, where_clause, limit, offset);
         
         #[derive(QueryableByName)]
         struct Row {
@@ -134,10 +142,9 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
             #[diesel(sql_type = Integer)] id_agencia: i32,
             #[diesel(sql_type = Numeric)] monto_total_file: BigDecimal,
             #[diesel(sql_type = Numeric)] monto_pagado: BigDecimal,
-            #[diesel(sql_type = Numeric)] monto_penalidad: BigDecimal,
             #[diesel(sql_type = Numeric)] monto_saldo_favor: BigDecimal,
+            #[diesel(sql_type = Numeric)] monto_operador: BigDecimal,
             #[diesel(sql_type = Text)] tipo_cancelacion: String,
-            #[diesel(sql_type = Nullable<Timestamptz>)] hora_limite_cancelacion: Option<chrono::DateTime<chrono::Utc>>,
             #[diesel(sql_type = Nullable<Text>)] motivo: Option<String>,
             #[diesel(sql_type = Nullable<Text>)] notas: Option<String>,
             #[diesel(sql_type = Timestamptz)] created_at: chrono::DateTime<chrono::Utc>,
@@ -146,7 +153,7 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
             #[diesel(sql_type = Text)] agencia_nombre: String,
         }
         
-        let rows: Vec<Row> = diesel::sql_query(base_query)
+        let rows: Vec<Row> = diesel::sql_query(sql)
             .load(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(format!("Error listando cancelaciones: {}", e)))?;
@@ -159,10 +166,9 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
                 id_agencia: r.id_agencia,
                 monto_total_file: r.monto_total_file.to_f64().unwrap_or(0.0),
                 monto_pagado: r.monto_pagado.to_f64().unwrap_or(0.0),
-                monto_penalidad: r.monto_penalidad.to_f64().unwrap_or(0.0),
                 monto_saldo_favor: r.monto_saldo_favor.to_f64().unwrap_or(0.0),
+                monto_operador: r.monto_operador.to_f64().unwrap_or(0.0),
                 tipo_cancelacion: r.tipo_cancelacion,
-                hora_limite_cancelacion: r.hora_limite_cancelacion,
                 motivo: r.motivo,
                 notas: r.notas,
                 created_at: r.created_at,
@@ -200,6 +206,109 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
             .optional()
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
+    
+    // ==================== NO SHOWS ====================
+    
+    #[instrument(skip(self))]
+    async fn create_no_show(&self, data: NewNoShowModel) -> Result<NoShowModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        diesel::insert_into(no_shows::table)
+            .values(&data)
+            .returning(NoShowModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error creando no_show: {}", e)))
+    }
+    
+    #[instrument(skip(self))]
+    async fn list_no_shows(&self, id_agencia: Option<i32>, limit: i64, offset: i64) -> Result<Vec<NoShowResponse>, ApplicationError> {
+        use diesel::sql_types::{Integer, Nullable, Text, Numeric, Date, Timestamptz};
+        
+        let mut conn = self.pool.get_connection().await?;
+        
+        let where_clause = if let Some(ag_id) = id_agencia {
+            format!("WHERE ns.id_agencia = {}", ag_id)
+        } else {
+            String::new()
+        };
+        
+        let sql = format!(r#"
+            SELECT ns.id, ns.id_cancelacion, ns.id_file, ns.id_agencia,
+                ns.monto_restaurantes, ns.monto_entradas, ns.monto_saldo_favor, ns.monto_operador,
+                ns.fecha_inicio_file, ns.hora_corte, ns.notas,
+                ns.created_at, ns.created_by,
+                f.file_code, a.nombre as agencia_nombre
+            FROM no_shows ns
+            INNER JOIN files f ON f.id = ns.id_file
+            INNER JOIN agencias a ON a.id = ns.id_agencia
+            {}
+            ORDER BY ns.created_at DESC
+            LIMIT {} OFFSET {}
+        "#, where_clause, limit, offset);
+        
+        #[derive(QueryableByName)]
+        struct Row {
+            #[diesel(sql_type = Integer)] id: i32,
+            #[diesel(sql_type = Integer)] id_cancelacion: i32,
+            #[diesel(sql_type = Integer)] id_file: i32,
+            #[diesel(sql_type = Integer)] id_agencia: i32,
+            #[diesel(sql_type = Numeric)] monto_restaurantes: BigDecimal,
+            #[diesel(sql_type = Numeric)] monto_entradas: BigDecimal,
+            #[diesel(sql_type = Numeric)] monto_saldo_favor: BigDecimal,
+            #[diesel(sql_type = Numeric)] monto_operador: BigDecimal,
+            #[diesel(sql_type = Date)] fecha_inicio_file: NaiveDate,
+            #[diesel(sql_type = Timestamptz)] hora_corte: chrono::DateTime<chrono::Utc>,
+            #[diesel(sql_type = Nullable<Text>)] notas: Option<String>,
+            #[diesel(sql_type = Timestamptz)] created_at: chrono::DateTime<chrono::Utc>,
+            #[diesel(sql_type = Nullable<Integer>)] created_by: Option<i32>,
+            #[diesel(sql_type = Nullable<Text>)] file_code: Option<String>,
+            #[diesel(sql_type = Text)] agencia_nombre: String,
+        }
+        
+        let rows: Vec<Row> = diesel::sql_query(sql)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error listando no_shows: {}", e)))?;
+        
+        Ok(rows.into_iter().map(|r| {
+            use bigdecimal::ToPrimitive;
+            NoShowResponse {
+                id: r.id,
+                id_cancelacion: r.id_cancelacion,
+                id_file: r.id_file,
+                id_agencia: r.id_agencia,
+                monto_restaurantes: r.monto_restaurantes.to_f64().unwrap_or(0.0),
+                monto_entradas: r.monto_entradas.to_f64().unwrap_or(0.0),
+                monto_saldo_favor: r.monto_saldo_favor.to_f64().unwrap_or(0.0),
+                monto_operador: r.monto_operador.to_f64().unwrap_or(0.0),
+                fecha_inicio_file: r.fecha_inicio_file,
+                hora_corte: r.hora_corte,
+                notas: r.notas,
+                created_at: r.created_at,
+                created_by: r.created_by,
+                file_code: r.file_code,
+                agencia_nombre: Some(r.agencia_nombre),
+            }
+        }).collect())
+    }
+    
+    #[instrument(skip(self))]
+    async fn count_no_shows(&self, id_agencia: Option<i32>) -> Result<i64, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let mut query = no_shows::table.into_boxed();
+        if let Some(ag_id) = id_agencia {
+            query = query.filter(no_shows::id_agencia.eq(ag_id));
+        }
+        
+        query.count()
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))
+    }
+    
+    // ==================== MOVIMIENTOS ====================
     
     #[instrument(skip(self))]
     async fn create_movimiento(&self, data: NewMovimientoSaldoFavorModel) -> Result<MovimientoSaldoFavorModel, ApplicationError> {
@@ -289,6 +398,8 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
         }).collect())
     }
     
+    // ==================== SALDOS ====================
+    
     #[instrument(skip(self))]
     async fn list_all_saldos(&self) -> Result<Vec<SaldoFavorResponse>, ApplicationError> {
         use diesel::sql_types::{Integer, Text, Numeric, Timestamptz};
@@ -330,5 +441,77 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
                 updated_at: r.updated_at,
             }
         }).collect())
+    }
+    
+    // ==================== FILE COSTS ====================
+    
+    #[instrument(skip(self))]
+    async fn calculate_file_costs(&self, id_file: i32) -> Result<FileCosts, ApplicationError> {
+        use diesel::sql_types::{Numeric, Nullable, Date};
+        
+        let mut conn = self.pool.get_connection().await?;
+        
+        // Costo total de restaurantes del file
+        #[derive(QueryableByName)]
+        struct RestRow {
+            #[diesel(sql_type = Numeric)]
+            total: BigDecimal,
+        }
+        
+        let rest_sql = format!(r#"
+            SELECT COALESCE(SUM(fr.precio), 0) as total
+            FROM file_restaurantes fr
+            INNER JOIN file_tours ft ON ft.id = fr.id_file_tour
+            WHERE ft.id_file = {} AND fr.status != 'anulado'
+        "#, id_file);
+        
+        let rest_row: RestRow = diesel::sql_query(rest_sql)
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error calculando costos restaurantes: {}", e)))?;
+        
+        // Costo total de entradas del file (cantidad × precio)
+        #[derive(QueryableByName)]
+        struct EntRow {
+            #[diesel(sql_type = Numeric)]
+            total: BigDecimal,
+        }
+        
+        let ent_sql = format!(r#"
+            SELECT COALESCE(SUM(fe.cantidad * ep.precio), 0) as total
+            FROM file_entradas fe
+            INNER JOIN entrada_precios ep ON ep.id = fe.id_entrada_precio
+            INNER JOIN file_tours ft ON ft.id = fe.id_file_tour
+            WHERE ft.id_file = {} AND fe.status != 'anulado'
+        "#, id_file);
+        
+        let ent_row: EntRow = diesel::sql_query(ent_sql)
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error calculando costos entradas: {}", e)))?;
+        
+        // Fecha de inicio más temprana de los file_tours
+        #[derive(QueryableByName)]
+        struct FechaRow {
+            #[diesel(sql_type = Nullable<Date>)]
+            fecha_min: Option<NaiveDate>,
+        }
+        
+        let fecha_sql = format!(r#"
+            SELECT MIN(ft.fecha_tour) as fecha_min
+            FROM file_tours ft
+            WHERE ft.id_file = {}
+        "#, id_file);
+        
+        let fecha_row: FechaRow = diesel::sql_query(fecha_sql)
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error obteniendo fecha inicio: {}", e)))?;
+        
+        Ok(FileCosts {
+            monto_restaurantes: rest_row.total,
+            monto_entradas: ent_row.total,
+            fecha_inicio_min: fecha_row.fecha_min,
+        })
     }
 }

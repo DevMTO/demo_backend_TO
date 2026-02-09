@@ -797,6 +797,7 @@ pub enum FileRelationStatus {
     Completado,
     Cancelado,
     Anulado,
+    NoShow,
 }
 
 impl FileRelationStatus {
@@ -811,7 +812,8 @@ impl FileRelationStatus {
             "completado" => Ok(Self::Completado),
             "cancelado" => Ok(Self::Cancelado),
             "anulado" => Ok(Self::Anulado),
-            _ => Err(format!("Status inválido: {}. Valores permitidos: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado", s))
+            "no_show" => Ok(Self::NoShow),
+            _ => Err(format!("Status invalido: {}. Valores permitidos: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado, no_show", s))
         }
     }
 
@@ -825,6 +827,7 @@ impl FileRelationStatus {
             Self::Completado => "completado",
             Self::Cancelado => "cancelado",
             Self::Anulado => "anulado",
+            Self::NoShow => "no_show",
         }
     }
 }

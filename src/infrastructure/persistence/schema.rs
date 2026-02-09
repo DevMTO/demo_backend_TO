@@ -57,11 +57,10 @@ diesel::table! {
         id_agencia -> Int4,
         monto_total_file -> Numeric,
         monto_pagado -> Numeric,
-        monto_penalidad -> Numeric,
         monto_saldo_favor -> Numeric,
+        monto_operador -> Numeric,
         #[max_length = 30]
         tipo_cancelacion -> Varchar,
-        hora_limite_cancelacion -> Nullable<Timestamptz>,
         motivo -> Nullable<Text>,
         notas -> Nullable<Text>,
         created_at -> Timestamptz,
@@ -317,6 +316,24 @@ diesel::table! {
         saldo_anterior -> Numeric,
         saldo_posterior -> Numeric,
         concepto -> Nullable<Text>,
+        created_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
+    no_shows (id) {
+        id -> Int4,
+        id_cancelacion -> Int4,
+        id_file -> Int4,
+        id_agencia -> Int4,
+        monto_restaurantes -> Numeric,
+        monto_entradas -> Numeric,
+        monto_saldo_favor -> Numeric,
+        monto_operador -> Numeric,
+        fecha_inicio_file -> Date,
+        hora_corte -> Timestamptz,
+        notas -> Nullable<Text>,
         created_at -> Timestamptz,
         created_by -> Nullable<Int4>,
     }
@@ -665,6 +682,10 @@ diesel::joinable!(movimientos_saldo_favor -> files (id_file_destino));
 diesel::joinable!(movimientos_saldo_favor -> pagos_files (id_pago_file));
 diesel::joinable!(movimientos_saldo_favor -> saldos_favor (id_saldo_favor));
 diesel::joinable!(movimientos_saldo_favor -> users (created_by));
+diesel::joinable!(no_shows -> agencias (id_agencia));
+diesel::joinable!(no_shows -> cancelaciones (id_cancelacion));
+diesel::joinable!(no_shows -> files (id_file));
+diesel::joinable!(no_shows -> users (created_by));
 diesel::joinable!(notification_users -> notifications (notification_id));
 diesel::joinable!(notification_users -> users (user_id));
 diesel::joinable!(pagos -> files (id_file));
@@ -702,6 +723,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     guias,
     movimientos,
     movimientos_saldo_favor,
+    no_shows,
     notification_users,
     notifications,
     pagos,

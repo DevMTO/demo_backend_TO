@@ -190,6 +190,8 @@ impl FileRepositoryPort for PostgresFileRepository {
         let results = files::table
             .filter(files::fecha_inicio.ge(today))
             .filter(files::status.ne("cancelado"))
+            .filter(files::status.ne("anulado"))
+            .filter(files::status.ne("no_show"))
             .order(files::fecha_inicio.asc())
             .limit(50)
             .select(FileModel::as_select())

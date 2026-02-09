@@ -1,9 +1,9 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use diesel::prelude::*;
 use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
 
-use crate::infrastructure::persistence::schema::{cancelaciones, saldos_favor, movimientos_saldo_favor};
+use crate::infrastructure::persistence::schema::{cancelaciones, saldos_favor, movimientos_saldo_favor, no_shows};
 
 // ==================== CANCELACION ====================
 
@@ -16,10 +16,9 @@ pub struct CancelacionModel {
     pub id_agencia: i32,
     pub monto_total_file: BigDecimal,
     pub monto_pagado: BigDecimal,
-    pub monto_penalidad: BigDecimal,
     pub monto_saldo_favor: BigDecimal,
+    pub monto_operador: BigDecimal,
     pub tipo_cancelacion: String,
-    pub hora_limite_cancelacion: Option<DateTime<Utc>>,
     pub motivo: Option<String>,
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -33,11 +32,47 @@ pub struct NewCancelacionModel {
     pub id_agencia: i32,
     pub monto_total_file: BigDecimal,
     pub monto_pagado: BigDecimal,
-    pub monto_penalidad: BigDecimal,
     pub monto_saldo_favor: BigDecimal,
+    pub monto_operador: BigDecimal,
     pub tipo_cancelacion: String,
-    pub hora_limite_cancelacion: Option<DateTime<Utc>>,
     pub motivo: Option<String>,
+    pub notas: Option<String>,
+    pub created_by: Option<i32>,
+}
+
+// ==================== NO SHOW ====================
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
+#[diesel(table_name = no_shows)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct NoShowModel {
+    pub id: i32,
+    pub id_cancelacion: i32,
+    pub id_file: i32,
+    pub id_agencia: i32,
+    pub monto_restaurantes: BigDecimal,
+    pub monto_entradas: BigDecimal,
+    pub monto_saldo_favor: BigDecimal,
+    pub monto_operador: BigDecimal,
+    pub fecha_inicio_file: NaiveDate,
+    pub hora_corte: DateTime<Utc>,
+    pub notas: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+}
+
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = no_shows)]
+pub struct NewNoShowModel {
+    pub id_cancelacion: i32,
+    pub id_file: i32,
+    pub id_agencia: i32,
+    pub monto_restaurantes: BigDecimal,
+    pub monto_entradas: BigDecimal,
+    pub monto_saldo_favor: BigDecimal,
+    pub monto_operador: BigDecimal,
+    pub fecha_inicio_file: NaiveDate,
+    pub hora_corte: DateTime<Utc>,
     pub notas: Option<String>,
     pub created_by: Option<i32>,
 }

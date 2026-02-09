@@ -1,21 +1,29 @@
-//! Service para gestión de Saldos a Favor y Cancelaciones
+//! Service para gestión de Saldos a Favor, Cancelaciones y No Shows
+//!
+//! Lógica de negocio:
+//! - Cancelación normal (antes de 8PM del día anterior al file): todo el monto pagado → saldo a favor
+//! - No-show (después de 8PM): solo restaurantes + entradas → saldo a favor, el resto → operador
 
 use std::sync::Arc;
 use bigdecimal::{BigDecimal, ToPrimitive, FromPrimitive};
+use chrono::{Utc, NaiveTime};
 use tracing::{info, instrument};
 
 use crate::application::dtos::{
-    CancelarFileRequest, CancelacionResponse,
+    CancelarFileRequest, CancelacionResponse, RegistrarNoShowRequest,
     SaldoFavorResponse, SaldoFavorDashboard,
-    MovimientoSaldoFavorResponse,
+    MovimientoSaldoFavorResponse, NoShowResponse,
     UsarSaldoFavorRequest,
 };
 use crate::application::ports::FileRepositoryPort;
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::models::{
-    NewCancelacionModel, NewMovimientoSaldoFavorModel,
+    NewCancelacionModel, NewMovimientoSaldoFavorModel, NewNoShowModel,
 };
 use crate::infrastructure::persistence::repositories::SaldoFavorRepositoryPort;
+
+/// Hora límite: 20:00 (8PM) para cancelaciones normales
+const HORA_LIMITE: u32 = 20;
 
 pub struct SaldoFavorService {
     saldo_repo: Arc<dyn SaldoFavorRepositoryPort>,
@@ -30,7 +38,8 @@ impl SaldoFavorService {
         Self { saldo_repo, file_repo }
     }
     
-    /// Cancela un file y genera saldo a favor para la agencia
+    /// Cancelación normal de un file (agencia cancela antes de 8PM del día anterior)
+    /// Todo el monto pagado se convierte en saldo a favor
     #[instrument(skip(self))]
     pub async fn cancelar_file(&self, request: CancelarFileRequest, user_id: i32) -> Result<CancelacionResponse, ApplicationError> {
         // 1. Obtener el file
@@ -38,8 +47,8 @@ impl SaldoFavorService {
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", request.id_file)))?;
         
         // 2. Verificar que se puede cancelar
-        if file.status == "cancelado" || file.status == "anulado" {
-            return Err(ApplicationError::Validation("El file ya está cancelado o anulado".to_string()));
+        if file.status == "cancelado" || file.status == "anulado" || file.status == "no_show" {
+            return Err(ApplicationError::Validation("El file ya esta cancelado, anulado o marcado como no-show".to_string()));
         }
         
         let allowed_statuses = ["pendiente", "reservado", "confirmado", "asignado"];
@@ -50,81 +59,60 @@ impl SaldoFavorService {
         }
         
         // 3. Verificar que no haya cancelación previa
-        if let Some(_) = self.saldo_repo.find_cancelacion_by_file(request.id_file).await? {
+        if self.saldo_repo.find_cancelacion_by_file(request.id_file).await?.is_some() {
             return Err(ApplicationError::Validation("El file ya tiene una cancelación registrada".to_string()));
         }
         
-        // 4. Calcular montos
+        // 4. Verificar tiempo: debe ser antes de las 8PM del día anterior al inicio del file
+        let costs = self.saldo_repo.calculate_file_costs(request.id_file).await?;
+        let fecha_inicio = costs.fecha_inicio_min
+            .unwrap_or(file.fecha_inicio);
+        
+        let now = Utc::now();
+        let limite = fecha_inicio
+            .pred_opt() // día anterior
+            .unwrap_or(fecha_inicio)
+            .and_time(NaiveTime::from_hms_opt(HORA_LIMITE, 0, 0).unwrap())
+            .and_utc();
+        
+        if now >= limite {
+            return Err(ApplicationError::Validation(
+                format!("La hora límite para cancelar este file era las {}:00 del día anterior ({}). Para registrar un no-show, contacte al administrador.", 
+                    HORA_LIMITE, fecha_inicio.pred_opt().unwrap_or(fecha_inicio))
+            ));
+        }
+        
+        // 5. En cancelación normal: todo el pagado va a saldo a favor
         let monto_total = BigDecimal::from_f64(file.monto_total.to_f64().unwrap_or(0.0)).unwrap_or_default();
         let monto_pagado = BigDecimal::from_f64(file.monto_pagado.to_f64().unwrap_or(0.0)).unwrap_or_default();
+        let monto_saldo_favor = monto_pagado.clone();
+        let monto_operador = BigDecimal::from(0);
         
-        let porcentaje_penalidad = request.porcentaje_penalidad.unwrap_or(0.0);
-        let penalidad_factor = BigDecimal::from_f64(porcentaje_penalidad / 100.0).unwrap_or_default();
-        let monto_penalidad = &monto_pagado * &penalidad_factor;
-        let monto_saldo_favor = &monto_pagado - &monto_penalidad;
-        
-        // Determinar tipo de cancelación
-        let tipo_cancelacion = if porcentaje_penalidad > 0.0 {
-            "fuera_tiempo".to_string()
-        } else {
-            "en_tiempo".to_string()
-        };
-        
-        // 5. Crear la cancelación
+        // 6. Crear la cancelación
         let cancelacion = self.saldo_repo.create_cancelacion(NewCancelacionModel {
             id_file: request.id_file,
             id_agencia: file.id_agencia,
             monto_total_file: monto_total.clone(),
             monto_pagado: monto_pagado.clone(),
-            monto_penalidad: monto_penalidad.clone(),
             monto_saldo_favor: monto_saldo_favor.clone(),
-            tipo_cancelacion,
-            hora_limite_cancelacion: None,
+            monto_operador: monto_operador.clone(),
+            tipo_cancelacion: "cancelacion".to_string(),
             motivo: request.motivo,
             notas: request.notas,
             created_by: Some(user_id),
         }).await?;
         
-        // 6. Actualizar el status del file a 'cancelado'
+        // 7. Actualizar el status del file a 'cancelado'
         let mut file_to_update = file.clone();
         file_to_update.status = "cancelado".to_string();
         self.file_repo.update(&file_to_update).await?;
         
-        // 7. Si hay saldo a favor, actualizar el saldo de la agencia
+        // 8. Si hay saldo a favor, actualizar el saldo de la agencia
         if monto_saldo_favor > BigDecimal::from(0) {
-            let saldo = self.saldo_repo.get_saldo_by_agencia(file.id_agencia).await?
-                .ok_or_else(|| ApplicationError::NotFound(
-                    format!("Saldo a favor no encontrado para agencia {}", file.id_agencia)
-                ))?;
-            
-            let saldo_anterior = saldo.saldo_disponible.clone();
-            let nuevo_disponible = &saldo.saldo_disponible + &monto_saldo_favor;
-            let nuevo_total = &saldo.saldo_total_generado + &monto_saldo_favor;
-            
-            self.saldo_repo.update_saldo(
-                saldo.id,
-                nuevo_disponible.clone(),
-                saldo.saldo_utilizado.clone(),
-                nuevo_total,
-            ).await?;
-            
-            // 8. Registrar movimiento de ingreso
-            self.saldo_repo.create_movimiento(NewMovimientoSaldoFavorModel {
-                id_saldo_favor: saldo.id,
-                id_agencia: file.id_agencia,
-                tipo: "ingreso".to_string(),
-                monto: monto_saldo_favor.clone(),
-                id_cancelacion: Some(cancelacion.id),
-                id_file_destino: None,
-                id_pago_file: None,
-                saldo_anterior,
-                saldo_posterior: nuevo_disponible,
-                concepto: Some(format!("Saldo a favor por cancelación de file #{}", file.file_code.as_deref().unwrap_or("?"))),
-                created_by: Some(user_id),
-            }).await?;
+            self.registrar_ingreso_saldo(file.id_agencia, &monto_saldo_favor, cancelacion.id, &file, user_id).await?;
         }
         
-        info!("File {} cancelado. Saldo a favor generado: {}", request.id_file, monto_saldo_favor);
+        info!("File {} cancelado (normal). Saldo a favor: {}", request.id_file, monto_saldo_favor);
         
         Ok(CancelacionResponse {
             id: cancelacion.id,
@@ -132,10 +120,9 @@ impl SaldoFavorService {
             id_agencia: cancelacion.id_agencia,
             monto_total_file: cancelacion.monto_total_file.to_f64().unwrap_or(0.0),
             monto_pagado: cancelacion.monto_pagado.to_f64().unwrap_or(0.0),
-            monto_penalidad: cancelacion.monto_penalidad.to_f64().unwrap_or(0.0),
             monto_saldo_favor: cancelacion.monto_saldo_favor.to_f64().unwrap_or(0.0),
+            monto_operador: cancelacion.monto_operador.to_f64().unwrap_or(0.0),
             tipo_cancelacion: cancelacion.tipo_cancelacion,
-            hora_limite_cancelacion: cancelacion.hora_limite_cancelacion,
             motivo: cancelacion.motivo,
             notas: cancelacion.notas,
             created_at: cancelacion.created_at,
@@ -143,6 +130,152 @@ impl SaldoFavorService {
             file_code: file.file_code,
             agencia_nombre: None,
         })
+    }
+    
+    /// Registrar un no-show (solo admin, después de 8PM)
+    /// Solo restaurantes + entradas van a saldo a favor, el resto al operador
+    #[instrument(skip(self))]
+    pub async fn registrar_no_show(&self, request: RegistrarNoShowRequest, user_id: i32) -> Result<NoShowResponse, ApplicationError> {
+        // 1. Obtener el file
+        let file = self.file_repo.find_by_id(request.id_file).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", request.id_file)))?;
+        
+        // 2. Verificar que se puede registrar no-show
+        if file.status == "cancelado" || file.status == "anulado" || file.status == "no_show" {
+            return Err(ApplicationError::Validation("El file ya esta cancelado, anulado o marcado como no-show".to_string()));
+        }
+        
+        // 3. Verificar que no haya cancelación previa
+        if self.saldo_repo.find_cancelacion_by_file(request.id_file).await?.is_some() {
+            return Err(ApplicationError::Validation("El file ya tiene una cancelación/no-show registrado".to_string()));
+        }
+        
+        // 4. Calcular costos del file
+        let costs = self.saldo_repo.calculate_file_costs(request.id_file).await?;
+        let fecha_inicio = costs.fecha_inicio_min
+            .unwrap_or(file.fecha_inicio);
+        
+        let monto_total = BigDecimal::from_f64(file.monto_total.to_f64().unwrap_or(0.0)).unwrap_or_default();
+        let monto_pagado = BigDecimal::from_f64(file.monto_pagado.to_f64().unwrap_or(0.0)).unwrap_or_default();
+        
+        // 5. Calcular saldo a favor (solo restaurantes + entradas)
+        let monto_restaurantes = costs.monto_restaurantes;
+        let monto_entradas = costs.monto_entradas;
+        let monto_saldo_favor = &monto_restaurantes + &monto_entradas;
+        
+        // El monto_saldo_favor no puede exceder el monto_pagado
+        let monto_saldo_favor = if monto_saldo_favor > monto_pagado {
+            monto_pagado.clone()
+        } else {
+            monto_saldo_favor
+        };
+        
+        // Lo que queda para el operador
+        let monto_operador = &monto_pagado - &monto_saldo_favor;
+        
+        // 6. Crear la cancelación (tipo no_show)
+        let cancelacion = self.saldo_repo.create_cancelacion(NewCancelacionModel {
+            id_file: request.id_file,
+            id_agencia: file.id_agencia,
+            monto_total_file: monto_total.clone(),
+            monto_pagado: monto_pagado.clone(),
+            monto_saldo_favor: monto_saldo_favor.clone(),
+            monto_operador: monto_operador.clone(),
+            tipo_cancelacion: "no_show".to_string(),
+            motivo: request.motivo,
+            notas: request.notas.clone(),
+            created_by: Some(user_id),
+        }).await?;
+        
+        // 7. Crear el registro de no_show con desglose
+        let no_show = self.saldo_repo.create_no_show(NewNoShowModel {
+            id_cancelacion: cancelacion.id,
+            id_file: request.id_file,
+            id_agencia: file.id_agencia,
+            monto_restaurantes: monto_restaurantes.clone(),
+            monto_entradas: monto_entradas.clone(),
+            monto_saldo_favor: monto_saldo_favor.clone(),
+            monto_operador: monto_operador.clone(),
+            fecha_inicio_file: fecha_inicio,
+            hora_corte: Utc::now(),
+            notas: request.notas,
+            created_by: Some(user_id),
+        }).await?;
+        
+        // 8. Actualizar el status del file a 'no_show'
+        let mut file_to_update = file.clone();
+        file_to_update.status = "no_show".to_string();
+        self.file_repo.update(&file_to_update).await?;
+        
+        // 9. Si hay saldo a favor, actualizar
+        if monto_saldo_favor > BigDecimal::from(0) {
+            self.registrar_ingreso_saldo(file.id_agencia, &monto_saldo_favor, cancelacion.id, &file, user_id).await?;
+        }
+        
+        info!("File {} registrado como no-show. Saldo favor: {}, Operador: {}", 
+            request.id_file, 
+            monto_saldo_favor.to_f64().unwrap_or(0.0), 
+            monto_operador.to_f64().unwrap_or(0.0));
+        
+        Ok(NoShowResponse {
+            id: no_show.id,
+            id_cancelacion: no_show.id_cancelacion,
+            id_file: no_show.id_file,
+            id_agencia: no_show.id_agencia,
+            monto_restaurantes: no_show.monto_restaurantes.to_f64().unwrap_or(0.0),
+            monto_entradas: no_show.monto_entradas.to_f64().unwrap_or(0.0),
+            monto_saldo_favor: no_show.monto_saldo_favor.to_f64().unwrap_or(0.0),
+            monto_operador: no_show.monto_operador.to_f64().unwrap_or(0.0),
+            fecha_inicio_file: no_show.fecha_inicio_file,
+            hora_corte: no_show.hora_corte,
+            notas: no_show.notas,
+            created_at: no_show.created_at,
+            created_by: no_show.created_by,
+            file_code: file.file_code,
+            agencia_nombre: None,
+        })
+    }
+    
+    /// Helper: registrar ingreso de saldo a favor
+    async fn registrar_ingreso_saldo(
+        &self,
+        id_agencia: i32,
+        monto_saldo_favor: &BigDecimal,
+        id_cancelacion: i32,
+        file: &crate::domain::entities::File,
+        user_id: i32,
+    ) -> Result<(), ApplicationError> {
+        let saldo = self.saldo_repo.get_saldo_by_agencia(id_agencia).await?
+            .ok_or_else(|| ApplicationError::NotFound(
+                format!("Saldo a favor no encontrado para agencia {}", id_agencia)
+            ))?;
+        
+        let saldo_anterior = saldo.saldo_disponible.clone();
+        let nuevo_disponible = &saldo.saldo_disponible + monto_saldo_favor;
+        let nuevo_total = &saldo.saldo_total_generado + monto_saldo_favor;
+        
+        self.saldo_repo.update_saldo(
+            saldo.id,
+            nuevo_disponible.clone(),
+            saldo.saldo_utilizado.clone(),
+            nuevo_total,
+        ).await?;
+        
+        self.saldo_repo.create_movimiento(NewMovimientoSaldoFavorModel {
+            id_saldo_favor: saldo.id,
+            id_agencia,
+            tipo: "ingreso".to_string(),
+            monto: monto_saldo_favor.clone(),
+            id_cancelacion: Some(id_cancelacion),
+            id_file_destino: None,
+            id_pago_file: None,
+            saldo_anterior,
+            saldo_posterior: nuevo_disponible,
+            concepto: Some(format!("Saldo a favor por cancelación de file #{}", file.file_code.as_deref().unwrap_or("?"))),
+            created_by: Some(user_id),
+        }).await?;
+        
+        Ok(())
     }
     
     /// Usa saldo a favor para pagar un file
@@ -235,6 +368,7 @@ impl SaldoFavorService {
         let cancelaciones = self.saldo_repo.list_cancelaciones(Some(id_agencia), 10, 0).await?;
         let movimientos = self.saldo_repo.list_movimientos(Some(id_agencia), None, 10, 0).await?;
         let total_cancelaciones = self.saldo_repo.count_cancelaciones(Some(id_agencia)).await?;
+        let total_no_shows = self.saldo_repo.count_no_shows(Some(id_agencia)).await?;
         
         Ok(SaldoFavorDashboard {
             saldo: SaldoFavorResponse {
@@ -249,6 +383,7 @@ impl SaldoFavorService {
             cancelaciones_recientes: cancelaciones,
             movimientos_recientes: movimientos,
             total_cancelaciones,
+            total_no_shows,
         })
     }
     
@@ -267,6 +402,12 @@ impl SaldoFavorService {
     pub async fn list_movimientos(&self, id_agencia: Option<i32>, tipo: Option<&str>, page: i64, per_page: i64) -> Result<Vec<MovimientoSaldoFavorResponse>, ApplicationError> {
         let offset = (page - 1) * per_page;
         self.saldo_repo.list_movimientos(id_agencia, tipo, per_page, offset).await
+    }
+    
+    /// Lista no-shows con filtros
+    pub async fn list_no_shows(&self, id_agencia: Option<i32>, page: i64, per_page: i64) -> Result<Vec<NoShowResponse>, ApplicationError> {
+        let offset = (page - 1) * per_page;
+        self.saldo_repo.list_no_shows(id_agencia, per_page, offset).await
     }
     
     /// Saldo de una agencia

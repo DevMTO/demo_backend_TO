@@ -13,6 +13,9 @@ pub fn saldo_favor_routes() -> Router<AppState> {
         // Cancelaciones
         .route("/cancelar", post(saldo_favor::cancelar_file))
         .route("/cancelaciones", get(saldo_favor::list_cancelaciones))
+        // No-shows
+        .route("/no-show", post(saldo_favor::registrar_no_show))
+        .route("/no-shows", get(saldo_favor::list_no_shows))
         // Movimientos
         .route("/usar", post(saldo_favor::usar_saldo))
         .route("/movimientos", get(saldo_favor::list_movimientos))

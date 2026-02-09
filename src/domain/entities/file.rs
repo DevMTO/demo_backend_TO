@@ -12,6 +12,7 @@ use bigdecimal::BigDecimal;
 /// - Completado: El tour finalizó exitosamente
 /// - Cancelado: File cancelado por el cliente o agencia
 /// - Anulado: File anulado por incumplimiento o fuerza mayor
+/// - NoShow: File marcado como no-show (cliente no se presento)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StatusFile {
     Pendiente,
@@ -22,6 +23,7 @@ pub enum StatusFile {
     Completado,
     Cancelado,
     Anulado,
+    NoShow,
 }
 
 impl std::fmt::Display for StatusFile {
@@ -35,6 +37,7 @@ impl std::fmt::Display for StatusFile {
             StatusFile::Completado => write!(f, "completado"),
             StatusFile::Cancelado => write!(f, "cancelado"),
             StatusFile::Anulado => write!(f, "anulado"),
+            StatusFile::NoShow => write!(f, "no_show"),
         }
     }
 }
@@ -52,7 +55,8 @@ impl std::str::FromStr for StatusFile {
             "completado" => Ok(StatusFile::Completado),
             "cancelado" => Ok(StatusFile::Cancelado),
             "anulado" => Ok(StatusFile::Anulado),
-            _ => Err(format!("Status de file inválido: {}. Valores: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado", s)),
+            "no_show" => Ok(StatusFile::NoShow),
+            _ => Err(format!("Status de file invalido: {}. Valores: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado, no_show", s)),
         }
     }
 }
