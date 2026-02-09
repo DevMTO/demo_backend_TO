@@ -19,8 +19,9 @@ const DEFAULT_TTL_SECS: u64 = 300;
 /// Tiempo de expiración para listados (2 minutos)
 const LIST_TTL_SECS: u64 = 120;
 
-/// Tiempo de expiración para entidades poco frecuentes (10 minutos)
-const LONG_TTL_SECS: u64 = 600;
+/// Tiempo de expiración para entidades estáticas/poco frecuentes (24 horas)
+/// Tours, Entradas, Restaurantes, Agencias, Transportes, Vehículos, Conductores, Guías
+const LONG_TTL_SECS: u64 = 86400;
 
 /// Capacidad máxima del caché por tipo
 const DEFAULT_MAX_CAPACITY: u64 = 1000;

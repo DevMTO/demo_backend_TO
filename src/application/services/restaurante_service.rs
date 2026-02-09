@@ -10,12 +10,12 @@
 //! - Notificaciones
 
 use std::sync::Arc;
-use tracing::{info, warn, debug, instrument};
+use tracing::{info, warn, instrument};
 
 use crate::application::dtos::{
     CreateRestauranteRequest, UpdateRestauranteRequest, RestauranteResponse, RestauranteListItemDto,
 };
-use crate::application::ports::{RestauranteRepositoryPort, PaginationOptions, NotificationServicePort, CachePort, entity_names};
+use crate::application::ports::{RestauranteRepositoryPort, PaginationOptions, NotificationServicePort};
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
     Restaurante, EntityType, UserRole,
@@ -28,7 +28,6 @@ pub struct RestauranteService {
     restaurante_repository: Arc<dyn RestauranteRepositoryPort>,
     logging_service: Arc<LoggingService>,
     notification_service: Arc<dyn NotificationServicePort>,
-    cache: Arc<dyn CachePort>,
 }
 
 impl RestauranteService {
@@ -36,82 +35,37 @@ impl RestauranteService {
         restaurante_repository: Arc<dyn RestauranteRepositoryPort>,
         logging_service: Arc<LoggingService>,
         notification_service: Arc<dyn NotificationServicePort>,
-        cache: Arc<dyn CachePort>,
     ) -> Self {
         Self {
             restaurante_repository,
             logging_service,
             notification_service,
-            cache,
         }
-    }
-
-    /// Generar clave de caché para listado
-    fn list_cache_key(&self, limit: i64, offset: i64) -> String {
-        format!("list:{}:{}", limit, offset)
     }
 
     // ===== Métodos de consulta =====
 
-    /// Listar restaurantes con paginación (incluye nombre del encargado, con caché)
+    /// Listar restaurantes con paginación (incluye nombre del encargado)
     #[instrument(skip(self))]
     pub async fn list_restaurantes(
         &self,
         limit: i64,
         offset: i64,
     ) -> Result<(Vec<RestauranteListItemDto>, i64), ApplicationError> {
-        let cache_key = self.list_cache_key(limit, offset);
-        
-        // Intentar obtener del caché
-        if let Some(cached) = self.cache.get_list(entity_names::RESTAURANTES, &cache_key).await {
-            debug!("Cache HIT para restaurantes list: {}", cache_key);
-            if let Ok(response) = serde_json::from_str::<(Vec<RestauranteListItemDto>, i64)>(&cached) {
-                return Ok(response);
-            }
-        }
-        
-        debug!("Cache MISS para restaurantes list: {}", cache_key);
-        
         let (items, total) = self.restaurante_repository.list_with_encargado(limit, offset).await?;
-        info!("Listados {} restaurantes (offset: {}, total: {})", items.len(), offset, total);
-        
-        let response = (items, total);
-        
-        // Guardar en caché
-        if let Ok(serialized) = serde_json::to_string(&response) {
-            self.cache.set_list(entity_names::RESTAURANTES, &cache_key, serialized).await;
-        }
-        
-        Ok(response)
+        info!("Listados {} restaurantes de {} total", items.len(), total);
+        Ok((items, total))
     }
 
-    /// Obtener restaurante por ID (con caché)
+    /// Obtener restaurante por ID
     #[instrument(skip(self))]
     pub async fn get_restaurante(&self, id: i32) -> Result<RestauranteResponse, ApplicationError> {
-        // Intentar obtener del caché
-        if let Some(cached) = self.cache.get_detail(entity_names::RESTAURANTES, id).await {
-            debug!("Cache HIT para restaurante: {}", id);
-            if let Ok(response) = serde_json::from_str::<RestauranteResponse>(&cached) {
-                return Ok(response);
-            }
-        }
-        
-        debug!("Cache MISS para restaurante: {}", id);
-        
         let restaurante = self.restaurante_repository
             .find_by_id(id)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Restaurante {} no encontrado", id)))?;
         
-        let response = RestauranteResponse::from(restaurante.clone());
-        info!("Restaurante encontrado: {} (ID: {})", restaurante.nombre, id);
-        
-        // Guardar en caché
-        if let Ok(serialized) = serde_json::to_string(&response) {
-            self.cache.set_detail(entity_names::RESTAURANTES, id, serialized).await;
-        }
-        
-        Ok(response)
+        Ok(RestauranteResponse::from(restaurante))
     }
 
     /// Buscar restaurantes por tipo de atención
@@ -189,9 +143,7 @@ impl RestauranteService {
             warn!("Error al enviar notificación de restaurante creado: {}", e);
         }
         
-        // Invalidar caché de restaurantes
-        self.cache.invalidate_entity(entity_names::RESTAURANTES).await;
-        
+
         Ok(RestauranteResponse::from(created))
     }
 
@@ -261,9 +213,7 @@ impl RestauranteService {
             warn!("Error al enviar notificación de restaurante actualizado: {}", e);
         }
         
-        // Invalidar caché del restaurante específico
-        self.cache.invalidate_detail(entity_names::RESTAURANTES, id).await;
-        
+
         Ok(RestauranteResponse::from(result))
     }
 
@@ -320,9 +270,6 @@ impl RestauranteService {
             warn!("Error al enviar notificación de restaurante desactivado: {}", e);
         }
         
-        // Invalidar caché del restaurante
-        self.cache.invalidate_detail(entity_names::RESTAURANTES, id).await;
-        
         Ok(())
     }
 
@@ -372,9 +319,7 @@ impl RestauranteService {
             warn!("Error al enviar notificación de restaurante eliminado permanentemente: {}", e);
         }
         
-        // Invalidar caché de restaurantes
-        self.cache.invalidate_entity(entity_names::RESTAURANTES).await;
-        
+
         Ok(())
     }
 
@@ -432,9 +377,6 @@ impl RestauranteService {
         ).await {
             warn!("Error al enviar notificación de restaurante restaurado: {}", e);
         }
-        
-        // Invalidar caché del restaurante
-        self.cache.invalidate_detail(entity_names::RESTAURANTES, id).await;
         
         Ok(())
     }

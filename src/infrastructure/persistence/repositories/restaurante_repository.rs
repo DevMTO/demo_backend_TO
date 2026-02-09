@@ -1,10 +1,12 @@
+use std::sync::Arc;
+use std::time::Instant;
 use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tracing::{info, instrument};
 
 use crate::application::dtos::RestauranteListItemDto;
-use crate::application::ports::{RestauranteRepositoryPort, PaginationOptions, PaginatedResult};
+use crate::application::ports::{RestauranteRepositoryPort, PaginationOptions, PaginatedResult, CachePort, entity_names};
 use crate::domain::{entities::Restaurante, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
@@ -12,10 +14,24 @@ use crate::infrastructure::persistence::{
     schema::{restaurantes, personas},
 };
 
-pub struct PostgresRestauranteRepository { pool: DatabasePool }
+pub struct PostgresRestauranteRepository {
+    pool: DatabasePool,
+    cache: Arc<dyn CachePort>,
+}
 
 impl PostgresRestauranteRepository {
-    pub fn new(pool: DatabasePool) -> Self { Self { pool } }
+    pub fn new(pool: DatabasePool, cache: Arc<dyn CachePort>) -> Self {
+        Self { pool, cache }
+    }
+
+    fn list_cache_key(limit: i64, offset: i64) -> String {
+        format!("list:{}:{}", limit, offset)
+    }
+
+    async fn invalidate_cache(&self) {
+        self.cache.invalidate_entity(entity_names::RESTAURANTES).await;
+        info!("[CACHE INVALIDATED] restaurantes");
+    }
 }
 
 #[async_trait]
@@ -28,15 +44,36 @@ impl RestauranteRepositoryPort for PostgresRestauranteRepository {
             .get_result::<RestauranteModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         info!("Restaurante creado: {} (id: {})", result.nombre, result.id);
+        self.invalidate_cache().await;
         Ok(result.into())
     }
     
     async fn find_by_id(&self, id: i32) -> Result<Option<Restaurante>, ApplicationError> {
+        let start = Instant::now();
+        
+        // Check cache
+        if let Some(cached) = self.cache.get_detail(entity_names::RESTAURANTES, id).await {
+            if let Ok(restaurante) = serde_json::from_str::<Restaurante>(&cached) {
+                info!("[CACHE HIT] restaurante #{} | {}ms", id, start.elapsed().as_millis());
+                return Ok(Some(restaurante));
+            }
+        }
+        
         let mut conn = self.pool.get_connection().await?;
         let result = restaurantes::table.filter(restaurantes::id.eq(id))
             .first::<RestauranteModel>(&mut conn).await.optional()
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(result.map(Into::into))
+        
+        if let Some(ref model) = result {
+            let restaurante: Restaurante = model.clone().into();
+            if let Ok(serialized) = serde_json::to_string(&restaurante) {
+                self.cache.set_detail(entity_names::RESTAURANTES, id, serialized).await;
+            }
+            info!("[CACHE MISS \u{2192} DB] restaurante #{} | {}ms", id, start.elapsed().as_millis());
+            return Ok(Some(restaurante));
+        }
+        
+        Ok(None)
     }
     
     async fn update(&self, restaurante: &Restaurante) -> Result<Restaurante, ApplicationError> {
@@ -102,6 +139,7 @@ impl RestauranteRepositoryPort for PostgresRestauranteRepository {
         let affected = diesel::update(restaurantes::table.filter(restaurantes::id.eq(id)))
             .set((restaurantes::is_active.eq(false), restaurantes::updated_by.eq(Some(user_id))))
             .execute(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        if affected > 0 { self.invalidate_cache().await; }
         Ok(affected > 0)
     }
     
@@ -110,6 +148,7 @@ impl RestauranteRepositoryPort for PostgresRestauranteRepository {
         let affected = diesel::update(restaurantes::table.filter(restaurantes::id.eq(id)))
             .set((restaurantes::is_active.eq(true), restaurantes::updated_by.eq(Some(user_id))))
             .execute(&mut conn).await.map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        if affected > 0 { self.invalidate_cache().await; }
         Ok(affected > 0)
     }
     
@@ -145,6 +184,17 @@ impl RestauranteRepositoryPort for PostgresRestauranteRepository {
     }
     
     async fn list_with_encargado(&self, limit: i64, offset: i64) -> Result<(Vec<RestauranteListItemDto>, i64), ApplicationError> {
+        let start = Instant::now();
+        let cache_key = Self::list_cache_key(limit, offset);
+        
+        // Check cache
+        if let Some(cached) = self.cache.get_list(entity_names::RESTAURANTES, &cache_key).await {
+            if let Ok(response) = serde_json::from_str::<(Vec<RestauranteListItemDto>, i64)>(&cached) {
+                info!("[CACHE HIT] restaurantes list '{}' | {}ms", cache_key, start.elapsed().as_millis());
+                return Ok(response);
+            }
+        }
+        
         let mut conn = self.pool.get_connection().await?;
         
         // Count total (todos, activos e inactivos)
@@ -191,6 +241,14 @@ impl RestauranteRepositoryPort for PostgresRestauranteRepository {
             })
             .collect();
         
-        Ok((items, total))
+        let response = (items, total);
+        
+        // Store in cache
+        if let Ok(serialized) = serde_json::to_string(&response) {
+            self.cache.set_list(entity_names::RESTAURANTES, &cache_key, serialized).await;
+        }
+        
+        info!("[CACHE MISS \u{2192} DB] restaurantes list '{}' ({} items, total: {}) | {}ms", cache_key, response.0.len(), total, start.elapsed().as_millis());
+        Ok(response)
     }
 }

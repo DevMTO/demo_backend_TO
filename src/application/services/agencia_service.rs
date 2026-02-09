@@ -8,13 +8,13 @@
 //! - Notificaciones
 
 use std::sync::Arc;
-use tracing::{info, warn, debug, instrument};
+use tracing::{info, warn, instrument};
 
 use crate::application::dtos::{
     CreateAgenciaRequest, UpdateAgenciaRequest, AgenciaResponse, AgenciaListItemDto,
 };
 use crate::application::ports::{
-    AgenciaRepositoryPort, NotificationServicePort, CachePort, entity_names,
+    AgenciaRepositoryPort, NotificationServicePort,
 };
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
@@ -28,7 +28,6 @@ pub struct AgenciaService {
     agencia_repository: Arc<dyn AgenciaRepositoryPort>,
     logging_service: Arc<LoggingService>,
     notification_service: Arc<dyn NotificationServicePort>,
-    cache: Arc<dyn CachePort>,
 }
 
 impl AgenciaService {
@@ -36,84 +35,39 @@ impl AgenciaService {
         agencia_repository: Arc<dyn AgenciaRepositoryPort>,
         logging_service: Arc<LoggingService>,
         notification_service: Arc<dyn NotificationServicePort>,
-        cache: Arc<dyn CachePort>,
     ) -> Self {
         Self {
             agencia_repository,
             logging_service,
             notification_service,
-            cache,
         }
     }
 
-    /// Generar clave de caché para listado
-    fn list_cache_key(&self, page: i64, page_size: i64) -> String {
-        format!("list:{}:{}", page, page_size)
-    }
-
-    /// Listar agencias con paginación (con caché)
+    /// Listar agencias con paginación
     #[instrument(skip(self))]
     pub async fn list_agencias(
         &self,
         page: i64,
         page_size: i64,
     ) -> Result<(Vec<AgenciaListItemDto>, i64), ApplicationError> {
-        let cache_key = self.list_cache_key(page, page_size);
-        
-        // Intentar obtener del caché
-        if let Some(cached) = self.cache.get_list(entity_names::AGENCIAS, &cache_key).await {
-            debug!("Cache HIT para agencias list: {}", cache_key);
-            if let Ok(response) = serde_json::from_str::<(Vec<AgenciaListItemDto>, i64)>(&cached) {
-                return Ok(response);
-            }
-        }
-        
-        debug!("Cache MISS para agencias list: {}", cache_key);
-        
         let offset = (page - 1) * page_size;
         let (items, total) = self.agencia_repository
             .list_with_encargado(page_size, offset)
             .await?;
-        
-        info!("Listadas {} agencias (página {}, total: {})", items.len(), page, total);
-        
-        let response = (items, total);
-        
-        // Guardar en caché
-        if let Ok(serialized) = serde_json::to_string(&response) {
-            self.cache.set_list(entity_names::AGENCIAS, &cache_key, serialized).await;
-        }
-        
-        Ok(response)
+        info!("Listadas {} agencias de {} total", items.len(), total);
+        Ok((items, total))
     }
 
-    /// Obtener agencia por ID (con caché)
+    /// Obtener agencia por ID
     #[instrument(skip(self))]
     pub async fn get_agencia(&self, id: i32) -> Result<AgenciaResponse, ApplicationError> {
-        // Intentar obtener del caché
-        if let Some(cached) = self.cache.get_detail(entity_names::AGENCIAS, id).await {
-            debug!("Cache HIT para agencia: {}", id);
-            if let Ok(response) = serde_json::from_str::<AgenciaResponse>(&cached) {
-                return Ok(response);
-            }
-        }
-        
-        debug!("Cache MISS para agencia: {}", id);
-        
         let agencia = self.agencia_repository
             .find_by_id(id)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id)))?;
         
-        let response = AgenciaResponse::from(agencia.clone());
         info!("Agencia encontrada: {} (ID: {})", agencia.nombre, id);
-        
-        // Guardar en caché
-        if let Ok(serialized) = serde_json::to_string(&response) {
-            self.cache.set_detail(entity_names::AGENCIAS, id, serialized).await;
-        }
-        
-        Ok(response)
+        Ok(AgenciaResponse::from(agencia))
     }
 
     /// Obtener agencia por RUC
@@ -180,9 +134,7 @@ impl AgenciaService {
             warn!("Error al enviar notificación de agencia creada: {}", e);
         }
         
-        // Invalidar caché de agencias
-        self.cache.invalidate_entity(entity_names::AGENCIAS).await;
-        
+
         Ok(AgenciaResponse::from(created))
     }
 
@@ -254,9 +206,7 @@ impl AgenciaService {
             warn!("Error al enviar notificación de agencia actualizada: {}", e);
         }
         
-        // Invalidar caché de la agencia específica
-        self.cache.invalidate_detail(entity_names::AGENCIAS, id).await;
-        
+
         Ok(AgenciaResponse::from(result))
     }
 
@@ -309,9 +259,7 @@ impl AgenciaService {
             warn!("Error al enviar notificación de agencia desactivada: {}", e);
         }
         
-        // Invalidar caché de la agencia
-        self.cache.invalidate_detail(entity_names::AGENCIAS, id).await;
-        
+
         Ok(())
     }
 
@@ -366,9 +314,7 @@ impl AgenciaService {
             warn!("Error al enviar notificación de agencia restaurada: {}", e);
         }
         
-        // Invalidar caché de la agencia
-        self.cache.invalidate_detail(entity_names::AGENCIAS, id).await;
-        
+
         Ok(AgenciaResponse::from(agencia))
     }
 
@@ -421,9 +367,6 @@ impl AgenciaService {
         ).await {
             warn!("Error al enviar notificación de agencia eliminada: {}", e);
         }
-        
-        // Invalidar caché de agencias
-        self.cache.invalidate_entity(entity_names::AGENCIAS).await;
         
         Ok(())
     }

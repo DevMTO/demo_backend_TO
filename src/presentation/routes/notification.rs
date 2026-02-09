@@ -2,7 +2,7 @@
 
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{get, post, patch},
 };
 
 use crate::presentation::handlers::notification;
@@ -17,9 +17,9 @@ pub fn notification_routes() -> Router<AppState> {
         .route("/me", get(notification::get_my_notifications))
         .route("/me/unread-count", get(notification::get_unread_count))
         .route("/me/read-all", post(notification::mark_all_as_read))
-        .route("/me/dismiss-all", post(notification::dismiss_all_notifications))
+        .route("/me/dismiss-all", patch(notification::dismiss_all_notifications))
         .route("/me/{id}/read", post(notification::mark_as_read))
-        .route("/me/{id}/dismiss", post(notification::dismiss_notification))
+        .route("/me/{id}/dismiss", patch(notification::dismiss_notification))
         // Admin notifications (crear, listar todas, eliminar)
         .route("/", get(notification::list_all_notifications).post(notification::create_notification))
         .route("/cleanup", post(notification::cleanup_notifications))

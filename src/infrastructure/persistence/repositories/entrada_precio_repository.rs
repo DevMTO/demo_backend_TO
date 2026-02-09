@@ -1,9 +1,11 @@
+use std::sync::Arc;
+use std::time::Instant;
 use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use tracing::{instrument, debug};
+use tracing::{instrument, debug, info};
 
-use crate::application::ports::EntradaPrecioRepositoryPort;
+use crate::application::ports::{EntradaPrecioRepositoryPort, CachePort, entity_names};
 use crate::domain::entities::EntradaPrecio;
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::database::DatabasePool;
@@ -14,11 +16,17 @@ use crate::infrastructure::persistence::schema::entrada_precios;
 
 pub struct PostgresEntradaPrecioRepository {
     pool: DatabasePool,
+    cache: Arc<dyn CachePort>,
 }
 
 impl PostgresEntradaPrecioRepository {
-    pub fn new(pool: DatabasePool) -> Self {
-        Self { pool }
+    pub fn new(pool: DatabasePool, cache: Arc<dyn CachePort>) -> Self {
+        Self { pool, cache }
+    }
+    
+    async fn invalidate_cache(&self) {
+        self.cache.invalidate_entity(entity_names::ENTRADA_PRECIOS).await;
+        info!("[CACHE INVALIDATED] entrada_precios");
     }
 }
 
@@ -37,6 +45,7 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error al crear precio: {e}")))?;
         
         debug!("Precio de entrada creado: ID {}", result.id);
+        self.invalidate_cache().await;
         Ok(result.into())
     }
     
@@ -60,13 +69,22 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error al crear precios en batch: {e}")))?;
         
         debug!("{} precios de entrada creados en batch", results.len());
+        self.invalidate_cache().await;
         Ok(results.into_iter().map(EntradaPrecio::from).collect())
     }
     
     #[instrument(skip(self))]
     async fn find_by_id(&self, id: i32) -> Result<Option<EntradaPrecio>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
+        let start = Instant::now();
         
+        if let Some(cached) = self.cache.get_detail(entity_names::ENTRADA_PRECIOS, id).await {
+            if let Ok(precio) = serde_json::from_str::<EntradaPrecio>(&cached) {
+                info!("[CACHE HIT] entrada_precio #{} | {}ms", id, start.elapsed().as_millis());
+                return Ok(Some(precio));
+            }
+        }
+        
+        let mut conn = self.pool.get_connection().await?;
         let result = entrada_precios::table
             .find(id)
             .first::<EntradaPrecioModel>(&mut conn)
@@ -74,13 +92,30 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
             .optional()
             .map_err(|e| ApplicationError::Repository(format!("Error al buscar precio: {e}")))?;
         
+        if let Some(ref model) = result {
+            let precio = EntradaPrecio::from(model.clone());
+            if let Ok(serialized) = serde_json::to_string(&precio) {
+                self.cache.set_detail(entity_names::ENTRADA_PRECIOS, id, serialized).await;
+            }
+            info!("[CACHE MISS → DB] entrada_precio #{} | {}ms", id, start.elapsed().as_millis());
+        }
+        
         Ok(result.map(EntradaPrecio::from))
     }
     
     #[instrument(skip(self))]
     async fn find_by_entrada(&self, id_entrada: i32) -> Result<Vec<EntradaPrecio>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
+        let start = Instant::now();
+        let cache_key = format!("entrada:{}", id_entrada);
         
+        if let Some(cached) = self.cache.get_list(entity_names::ENTRADA_PRECIOS, &cache_key).await {
+            if let Ok(precios) = serde_json::from_str::<Vec<EntradaPrecio>>(&cached) {
+                info!("[CACHE HIT] entrada_precios entrada #{} | {}ms", id_entrada, start.elapsed().as_millis());
+                return Ok(precios);
+            }
+        }
+        
+        let mut conn = self.pool.get_connection().await?;
         let results = entrada_precios::table
             .filter(entrada_precios::id_entrada.eq(id_entrada))
             .order((entrada_precios::tipo_precio.asc(), entrada_precios::edad_minima.asc()))
@@ -88,7 +123,14 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
             .await
             .map_err(|e| ApplicationError::Repository(format!("Error al buscar precios: {e}")))?;
         
-        Ok(results.into_iter().map(EntradaPrecio::from).collect())
+        let precios: Vec<EntradaPrecio> = results.into_iter().map(EntradaPrecio::from).collect();
+        
+        if let Ok(serialized) = serde_json::to_string(&precios) {
+            self.cache.set_list(entity_names::ENTRADA_PRECIOS, &cache_key, serialized).await;
+        }
+        
+        info!("[CACHE MISS → DB] entrada_precios entrada #{} ({} precios) | {}ms", id_entrada, precios.len(), start.elapsed().as_millis());
+        Ok(precios)
     }
     
     #[instrument(skip(self))]
@@ -146,6 +188,7 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error al actualizar precio: {e}")))?;
         
         debug!("Precio de entrada actualizado: ID {}", result.id);
+        self.invalidate_cache().await;
         Ok(result.into())
     }
     
@@ -159,6 +202,7 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error al eliminar precio: {e}")))?;
         
         debug!("[DELETE] Precio de entrada eliminado: ID {}", id);
+        if deleted > 0 { self.invalidate_cache().await; }
         Ok(deleted > 0)
     }
     
@@ -174,6 +218,7 @@ impl EntradaPrecioRepositoryPort for PostgresEntradaPrecioRepository {
         .map_err(|e| ApplicationError::Repository(format!("Error al eliminar precios: {e}")))?;
         
         debug!("[DELETE] {} precios eliminados para entrada {}", deleted, id_entrada);
+        if deleted > 0 { self.invalidate_cache().await; }
         Ok(deleted as i64)
     }
     

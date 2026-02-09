@@ -1,9 +1,11 @@
+use std::sync::Arc;
+use std::time::Instant;
 use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tracing::{debug, warn, info, instrument};
 
-use crate::application::ports::{AgenciaRepositoryPort, PaginationOptions, PaginatedResult};
+use crate::application::ports::{AgenciaRepositoryPort, PaginationOptions, PaginatedResult, CachePort, entity_names};
 use crate::domain::{entities::Agencia, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
@@ -13,11 +15,21 @@ use crate::infrastructure::persistence::{
 
 pub struct PostgresAgenciaRepository {
     pool: DatabasePool,
+    cache: Arc<dyn CachePort>,
 }
 
 impl PostgresAgenciaRepository {
-    pub fn new(pool: DatabasePool) -> Self {
-        Self { pool }
+    pub fn new(pool: DatabasePool, cache: Arc<dyn CachePort>) -> Self {
+        Self { pool, cache }
+    }
+
+    fn list_cache_key(limit: i64, offset: i64) -> String {
+        format!("list:{}:{}", limit, offset)
+    }
+
+    async fn invalidate_cache(&self) {
+        self.cache.invalidate_entity(entity_names::AGENCIAS).await;
+        info!("[CACHE INVALIDATED] agencias");
     }
 }
 
@@ -39,11 +51,22 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             })?;
         
         info!("Agencia creada: {} (id: {})", result.nombre, result.id);
+        self.invalidate_cache().await;
         Ok(result.into())
     }
     
     #[instrument(skip(self))]
     async fn find_by_id(&self, id: i32) -> Result<Option<Agencia>, ApplicationError> {
+        let start = Instant::now();
+        
+        // Check cache
+        if let Some(cached) = self.cache.get_detail(entity_names::AGENCIAS, id).await {
+            if let Ok(agencia) = serde_json::from_str::<Agencia>(&cached) {
+                info!("[CACHE HIT] agencia #{} | {}ms", id, start.elapsed().as_millis());
+                return Ok(Some(agencia));
+            }
+        }
+        
         let mut conn = self.pool.get_connection().await?;
         let result = agencias::table
             .filter(agencias::id.eq(id))
@@ -51,7 +74,17 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             .await
             .optional()
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(result.map(Into::into))
+        
+        if let Some(ref model) = result {
+            let agencia: Agencia = model.clone().into();
+            if let Ok(serialized) = serde_json::to_string(&agencia) {
+                self.cache.set_detail(entity_names::AGENCIAS, id, serialized).await;
+            }
+            info!("[CACHE MISS → DB] agencia #{} | {}ms", id, start.elapsed().as_millis());
+            return Ok(Some(agencia));
+        }
+        
+        Ok(None)
     }
     
     #[instrument(skip(self))]
@@ -95,6 +128,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             .get_result::<AgenciaModel>(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        self.invalidate_cache().await;
         Ok(result.into())
     }
     
@@ -105,6 +139,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             .execute(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        if affected > 0 { self.invalidate_cache().await; }
         Ok(affected > 0)
     }
     
@@ -116,6 +151,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             .execute(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        if affected > 0 { self.invalidate_cache().await; }
         Ok(affected > 0)
     }
     
@@ -157,6 +193,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             .execute(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        if affected > 0 { self.invalidate_cache().await; }
         Ok(affected > 0)
     }
     
@@ -167,6 +204,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             .execute(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        if affected > 0 { self.invalidate_cache().await; }
         Ok(affected > 0)
     }
     
@@ -188,6 +226,17 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
     #[instrument(skip(self))]
     async fn list_with_encargado(&self, limit: i64, offset: i64) -> Result<(Vec<crate::application::dtos::AgenciaListItemDto>, i64), ApplicationError> {
         use crate::infrastructure::persistence::schema::personas;
+        
+        let start = Instant::now();
+        let cache_key = Self::list_cache_key(limit, offset);
+        
+        // Check cache
+        if let Some(cached) = self.cache.get_list(entity_names::AGENCIAS, &cache_key).await {
+            if let Ok(response) = serde_json::from_str::<(Vec<crate::application::dtos::AgenciaListItemDto>, i64)>(&cached) {
+                info!("[CACHE HIT] agencias list '{}' | {}ms", cache_key, start.elapsed().as_millis());
+                return Ok(response);
+            }
+        }
         
         debug!("Listando agencias con encargado (limit: {}, offset: {})", limit, offset);
         let mut conn = self.pool.get_connection().await?;
@@ -236,7 +285,14 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             })
             .collect();
         
-        info!("Listadas {} agencias de {} total", items.len(), total);
-        Ok((items, total))
+        let response = (items, total);
+        
+        // Store in cache
+        if let Ok(serialized) = serde_json::to_string(&response) {
+            self.cache.set_list(entity_names::AGENCIAS, &cache_key, serialized).await;
+        }
+        
+        info!("[CACHE MISS → DB] agencias list '{}' ({} items, total: {}) | {}ms", cache_key, response.0.len(), total, start.elapsed().as_millis());
+        Ok(response)
     }
 }
