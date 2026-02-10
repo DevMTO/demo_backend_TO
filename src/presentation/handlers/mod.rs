@@ -15,7 +15,6 @@ pub mod file_relations;
 pub mod guia;
 pub mod my_files;
 pub mod notification;
-pub mod pago;
 pub mod persona;
 pub mod relation_status;
 pub mod restaurante;

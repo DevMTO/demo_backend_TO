@@ -19,7 +19,6 @@ pub mod entrada;
 pub mod entrada_precio;
 pub mod file;
 pub mod file_tour;
-pub mod pago;
 
 // Re-exports - Auth core
 pub use user::{User, UserRole};
@@ -48,4 +47,3 @@ pub use restaurante::Restaurante;
 pub use entrada::Entrada;
 pub use entrada_precio::EntradaPrecio;
 pub use file::File;
-pub use pago::{Pago, TipoMovimiento};

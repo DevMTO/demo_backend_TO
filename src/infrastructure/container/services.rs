@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::application::ports::NotificationServicePort;
 use crate::application::services::{
     LoggingService, NotificationService, UserService, AgenciaService,
-    PersonaService, TourService, FileService, PagoService, RestauranteService,
+    PersonaService, TourService, FileService, RestauranteService,
     TransporteService, VehiculoService, ConductorService, EntradaService,
     EntradaPrecioService, GuiaService, MyFilesService, PostgresMyFilesRepository,
     ContabilidadService, FileAssignmentService, MisPagosService, PostgresMisPagosRepository,
@@ -29,7 +29,6 @@ pub(super) struct Services {
     pub persona: Arc<PersonaService>,
     pub tour: Arc<TourService>,
     pub file: Arc<FileService>,
-    pub pago: Arc<PagoService>,
     pub restaurante: Arc<RestauranteService>,
     pub transporte: Arc<TransporteService>,
     pub vehiculo: Arc<VehiculoService>,
@@ -99,13 +98,6 @@ impl Services {
             repos.agencia.clone(),
         ));
 
-        let pago = Arc::new(PagoService::new(
-            repos.pago.clone(),
-            repos.file.clone(),
-            logging.clone(),
-            notify.clone(),
-        ));
-
         let restaurante = Arc::new(RestauranteService::new(
             repos.restaurante.clone(),
             logging.clone(),
@@ -151,11 +143,8 @@ impl Services {
         let my_files = Arc::new(MyFilesService::new(my_files_repo));
 
         let contabilidad = Arc::new(ContabilidadService::new(
-            repos.cuenta.clone(),
-            repos.movimiento.clone(),
             repos.pago_file.clone(),
             repos.pago_proveedor.clone(),
-            repos.tarifa_servicio.clone(),
             repos.agencia.clone(),
             repos.file.clone(),
             notify.clone(),
@@ -185,7 +174,7 @@ impl Services {
         ));
 
         Self {
-            logging, notification, user, agencia, persona, tour, file, pago,
+            logging, notification, user, agencia, persona, tour, file,
             restaurante, transporte, vehiculo, conductor, entrada,
             entrada_precio, guia, my_files, contabilidad, file_assignment,
             mis_pagos, saldo_favor,

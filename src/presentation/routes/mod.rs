@@ -18,7 +18,6 @@ mod entrada_precio;
 mod file;
 mod file_tour;
 mod file_vehiculos;
-mod pago;
 mod user;
 mod activity_log;
 mod notification;
@@ -77,7 +76,6 @@ pub fn create_router(
         .nest("/files", file::file_routes())
         .nest("/file-tours", file_tour::file_tour_routes())
         .nest("/file-vehiculos", file_vehiculos::file_vehiculos_routes())
-        .nest("/pagos", pago::pago_routes())
         .nest("/logs", activity_log::activity_log_routes())
         .nest("/notifications", notification::notification_routes())
         .nest("/storage", storage::storage_routes())

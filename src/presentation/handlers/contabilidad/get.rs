@@ -13,10 +13,7 @@ use crate::presentation::extractors::AuthUser;
 use crate::presentation::routes::AppState;
 use crate::presentation::handlers::common::{json_ok, PaginatedResponse, PaginationInfo};
 
-use super::query_params::{
-    MovimientosQueryParams, PagosFilesQueryParams, 
-    PagosProveedoresQueryParams, TarifasQueryParams,
-};
+use super::query_params::{PagosFilesQueryParams, PagosProveedoresQueryParams};
 
 /// Helper para verificar si el usuario tiene rol de admin
 fn is_admin_or_operador(role: &UserRole) -> bool {
@@ -33,30 +30,8 @@ fn is_own_agencia(auth: &AuthUser, id_agencia: i32) -> bool {
 // DASHBOARD HANDLERS
 // ============================================================================
 
-/// GET /api/contabilidad/dashboard/admin
-/// Obtiene el dashboard de contabilidad para el admin/operador
-#[instrument(skip(state, auth))]
-pub async fn get_admin_dashboard(
-    State(state): State<AppState>,
-    auth: AuthUser,
-) -> Result<impl IntoResponse, ApplicationError> {
-    if !is_admin_or_operador(&auth.user.role) {
-        return Err(ApplicationError::Forbidden(
-            "No tienes permiso para ver el dashboard de contabilidad".to_string(),
-        ));
-    }
-
-    let dashboard = state
-        .container
-        .contabilidad_service
-        .get_admin_dashboard()
-        .await?;
-
-    Ok(json_ok(dashboard))
-}
-
 /// GET /api/contabilidad/dashboard/agencia/:id_agencia
-/// Obtiene el dashboard de contabilidad para una agencia específica
+/// Obtiene el dashboard de contabilidad para una agencia especifica
 #[instrument(skip(state, auth))]
 pub async fn get_agencia_dashboard(
     State(state): State<AppState>,
@@ -79,65 +54,6 @@ pub async fn get_agencia_dashboard(
         .await?;
 
     Ok(json_ok(dashboard))
-}
-
-// ============================================================================
-// MOVIMIENTOS HANDLERS
-// ============================================================================
-
-/// GET /api/contabilidad/movimientos
-/// Lista movimientos con filtros y paginación
-#[instrument(skip(state, auth))]
-pub async fn list_movimientos(
-    State(state): State<AppState>,
-    auth: AuthUser,
-    Query(params): Query<MovimientosQueryParams>,
-) -> Result<impl IntoResponse, ApplicationError> {
-    if !is_admin_or_operador(&auth.user.role) {
-        return Err(ApplicationError::Forbidden(
-            "No tienes permiso para ver los movimientos".to_string(),
-        ));
-    }
-
-    let fecha_desde = params.fecha_desde.as_ref().and_then(|f| {
-        NaiveDate::parse_from_str(f, "%Y-%m-%d")
-            .ok()
-            .map(|d| d.and_hms_opt(0, 0, 0).unwrap().and_utc())
-    });
-    let fecha_hasta = params.fecha_hasta.as_ref().and_then(|f| {
-        NaiveDate::parse_from_str(f, "%Y-%m-%d")
-            .ok()
-            .map(|d| d.and_hms_opt(23, 59, 59).unwrap().and_utc())
-    });
-
-    let offset = (params.page - 1) * params.page_size;
-
-    let (items, total) = state
-        .container
-        .contabilidad_service
-        .list_movimientos(
-            params.id_cuenta,
-            params.tipo.as_deref(),
-            fecha_desde,
-            fecha_hasta,
-            params.referencia_tipo.as_deref(),
-            params.referencia_id,
-            params.page_size,
-            offset,
-        )
-        .await?;
-
-    let total_pages = (total as f64 / params.page_size as f64).ceil() as i64;
-
-    Ok(json_ok(PaginatedResponse {
-        items,
-        pagination: PaginationInfo {
-            page: params.page,
-            page_size: params.page_size,
-            total,
-            total_pages,
-        },
-    }))
 }
 
 // ============================================================================
@@ -254,31 +170,4 @@ pub async fn list_pagos_proveedores(
             total_pages,
         },
     }))
-}
-
-// ============================================================================
-// TARIFAS HANDLERS
-// ============================================================================
-
-/// GET /api/contabilidad/tarifas
-/// Lista tarifas de servicios
-#[instrument(skip(state, auth))]
-pub async fn list_tarifas(
-    State(state): State<AppState>,
-    auth: AuthUser,
-    Query(params): Query<TarifasQueryParams>,
-) -> Result<impl IntoResponse, ApplicationError> {
-    if !is_admin_or_operador(&auth.user.role) {
-        return Err(ApplicationError::Forbidden(
-            "No tienes permiso para ver las tarifas".to_string(),
-        ));
-    }
-
-    let tarifas = state
-        .container
-        .contabilidad_service
-        .list_tarifas(params.tipo_servicio.as_deref(), params.solo_activas)
-        .await?;
-
-    Ok(json_ok(tarifas))
 }

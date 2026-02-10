@@ -16,7 +16,7 @@ use crate::presentation::handlers::common::json_created;
 
 /// Helper para verificar si el usuario tiene rol autorizado
 fn has_saldo_favor_access(role: &UserRole) -> bool {
-    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
+    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador | UserRole::Agencias)
 }
 
 // ============================================================================
@@ -61,8 +61,8 @@ pub async fn usar_saldo(
         ));
     }
 
-    // AgenciasContador solo puede usar el saldo de su agencia
-    if auth.user.role == UserRole::AgenciasContador {
+    // Agencias solo pueden usar el saldo de su propia agencia
+    if matches!(auth.user.role, UserRole::AgenciasContador | UserRole::Agencias) {
         if auth.user.id_entidad != Some(request.id_agencia) {
             return Err(ApplicationError::Forbidden(
                 "Solo puedes usar el saldo de tu propia agencia".to_string(),

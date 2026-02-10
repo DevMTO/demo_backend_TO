@@ -87,22 +87,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    cuentas (id) {
-        id -> Int4,
-        #[max_length = 100]
-        nombre -> Varchar,
-        #[max_length = 20]
-        tipo -> Varchar,
-        id_agencia -> Nullable<Int4>,
-        saldo_actual -> Numeric,
-        is_active -> Bool,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-        created_by -> Nullable<Int4>,
-    }
-}
-
-diesel::table! {
     entrada_precios (id) {
         id -> Int4,
         id_entrada -> Int4,
@@ -280,29 +264,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    movimientos (id) {
-        id -> Int4,
-        id_cuenta -> Int4,
-        #[max_length = 10]
-        tipo -> Varchar,
-        monto -> Numeric,
-        #[max_length = 255]
-        concepto -> Varchar,
-        #[max_length = 50]
-        referencia_tipo -> Nullable<Varchar>,
-        referencia_id -> Nullable<Int4>,
-        fecha_movimiento -> Timestamptz,
-        saldo_anterior -> Numeric,
-        saldo_posterior -> Numeric,
-        notas -> Nullable<Text>,
-        comprobante_url -> Nullable<Text>,
-        comprobante_key -> Nullable<Text>,
-        created_at -> Timestamptz,
-        created_by -> Nullable<Int4>,
-    }
-}
-
-diesel::table! {
     movimientos_saldo_favor (id) {
         id -> Int4,
         id_saldo_favor -> Int4,
@@ -373,29 +334,6 @@ diesel::table! {
         expires_at -> Nullable<Timestamptz>,
         created_at -> Timestamptz,
         created_by -> Nullable<Int4>,
-    }
-}
-
-diesel::table! {
-    pagos (id) {
-        id -> Int4,
-        id_file -> Int4,
-        #[max_length = 30]
-        tipo_movimiento -> Varchar,
-        #[max_length = 200]
-        concepto -> Varchar,
-        monto -> Numeric,
-        #[max_length = 50]
-        metodo_pago -> Nullable<Varchar>,
-        #[max_length = 100]
-        referencia -> Nullable<Varchar>,
-        evidencia -> Nullable<Jsonb>,
-        fecha_pago -> Timestamptz,
-        notas -> Nullable<Text>,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-        created_by -> Nullable<Int4>,
-        updated_by -> Nullable<Int4>,
     }
 }
 
@@ -501,24 +439,6 @@ diesel::table! {
         saldo_total_generado -> Numeric,
         updated_at -> Timestamptz,
         created_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    tarifas_servicios (id) {
-        id -> Int4,
-        #[max_length = 20]
-        tipo_servicio -> Varchar,
-        id_servicio -> Int4,
-        precio_venta -> Numeric,
-        precio_costo -> Numeric,
-        margen -> Nullable<Numeric>,
-        vigente_desde -> Date,
-        vigente_hasta -> Nullable<Date>,
-        is_active -> Bool,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-        created_by -> Nullable<Int4>,
     }
 }
 
@@ -649,8 +569,6 @@ diesel::joinable!(cancelaciones -> files (id_file));
 diesel::joinable!(cancelaciones -> users (created_by));
 diesel::joinable!(conductores -> personas (id_persona));
 diesel::joinable!(conductores -> transportes (id_transporte));
-diesel::joinable!(cuentas -> agencias (id_agencia));
-diesel::joinable!(cuentas -> users (created_by));
 diesel::joinable!(entrada_precios -> entradas (id_entrada));
 diesel::joinable!(file_entradas -> entrada_precios (id_entrada_precio));
 diesel::joinable!(file_entradas -> entradas (id_entrada));
@@ -674,8 +592,6 @@ diesel::joinable!(file_vehiculos -> users (created_by));
 diesel::joinable!(file_vehiculos -> vehiculos (id_vehiculo));
 diesel::joinable!(files -> agencias (id_agencia));
 diesel::joinable!(guias -> personas (id_persona));
-diesel::joinable!(movimientos -> cuentas (id_cuenta));
-diesel::joinable!(movimientos -> users (created_by));
 diesel::joinable!(movimientos_saldo_favor -> agencias (id_agencia));
 diesel::joinable!(movimientos_saldo_favor -> cancelaciones (id_cancelacion));
 diesel::joinable!(movimientos_saldo_favor -> files (id_file_destino));
@@ -688,7 +604,6 @@ diesel::joinable!(no_shows -> files (id_file));
 diesel::joinable!(no_shows -> users (created_by));
 diesel::joinable!(notification_users -> notifications (notification_id));
 diesel::joinable!(notification_users -> users (user_id));
-diesel::joinable!(pagos -> files (id_file));
 diesel::joinable!(pagos_files -> agencias (id_agencia));
 diesel::joinable!(pagos_files -> files (id_file));
 diesel::joinable!(pagos_proveedores -> file_guias (id_file_guia));
@@ -700,7 +615,6 @@ diesel::joinable!(pagos_proveedores -> restaurantes (id_restaurante));
 diesel::joinable!(pagos_proveedores -> transportes (id_transporte));
 diesel::joinable!(restaurantes -> personas (encargado));
 diesel::joinable!(saldos_favor -> agencias (id_agencia));
-diesel::joinable!(tarifas_servicios -> users (created_by));
 diesel::joinable!(transportes -> personas (encargado));
 diesel::joinable!(user_sessions -> users (user_id));
 diesel::joinable!(vehiculos -> transportes (id_transporte));
@@ -710,7 +624,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     agencias,
     cancelaciones,
     conductores,
-    cuentas,
     entrada_precios,
     entradas,
     file_entradas,
@@ -721,18 +634,15 @@ diesel::allow_tables_to_appear_in_same_query!(
     file_vehiculos,
     files,
     guias,
-    movimientos,
     movimientos_saldo_favor,
     no_shows,
     notification_users,
     notifications,
-    pagos,
     pagos_files,
     pagos_proveedores,
     personas,
     restaurantes,
     saldos_favor,
-    tarifas_servicios,
     tours,
     transportes,
     user_sessions,

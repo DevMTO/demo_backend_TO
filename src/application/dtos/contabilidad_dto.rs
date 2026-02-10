@@ -1,12 +1,9 @@
 //! DTOs para el módulo de contabilidad
 //!
 //! Incluye requests y responses para:
-//! - Dashboard contabilidad admin
 //! - Dashboard contabilidad agencia
 //! - Pagos de files (agencias al admin)
-//! - Pagos a proveedores (admin a transportes/restaurantes/guías)
-//! - Movimientos financieros
-//! - Tarifas de servicios
+//! - Pagos a proveedores (admin a transportes/restaurantes/guias)
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
@@ -14,39 +11,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 // ============================================================================
-// DASHBOARD ADMIN
+// DASHBOARD AGENCIA
 // ============================================================================
-
-/// Dashboard de contabilidad para el admin/operador
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct AdminContabilidadDashboard {
-    /// Saldo actual de la cuenta del operador
-    #[ts(type = "string")]
-    pub saldo_actual: BigDecimal,
-    /// Total de ingresos del período
-    #[ts(type = "string")]
-    pub total_ingresos: BigDecimal,
-    /// Total de egresos del período
-    #[ts(type = "string")]
-    pub total_egresos: BigDecimal,
-    /// Balance del período (ingresos - egresos)
-    #[ts(type = "string")]
-    pub balance_periodo: BigDecimal,
-    /// Total pendiente por cobrar de agencias
-    #[ts(type = "string")]
-    pub total_pendiente_cobrar: BigDecimal,
-    /// Total pendiente por pagar a proveedores
-    #[ts(type = "string")]
-    pub total_pendiente_pagar: BigDecimal,
-    /// Cantidad de files pendientes de pago
-    pub files_pendientes_pago: i32,
-    /// Cantidad de pagos a proveedores pendientes
-    pub pagos_proveedores_pendientes: i32,
-    /// Últimos movimientos (top 10)
-    pub ultimos_movimientos: Vec<MovimientoResponse>,
-}
 
 /// Dashboard de contabilidad para agencia
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -70,52 +36,8 @@ pub struct AgenciaContabilidadDashboard {
     pub monto_pendiente: BigDecimal,
     /// Files pendientes de pago
     pub files_pendientes: Vec<PagoFileResponse>,
-    /// Últimos pagos realizados
+    /// Ultimos pagos realizados
     pub ultimos_pagos: Vec<PagoFileResponse>,
-}
-
-// ============================================================================
-// MOVIMIENTOS
-// ============================================================================
-
-/// Response de movimiento financiero
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct MovimientoResponse {
-    pub id: i32,
-    pub id_cuenta: i32,
-    pub cuenta_nombre: Option<String>,
-    pub tipo: String,  // 'ingreso', 'egreso'
-    #[ts(type = "string")]
-    pub monto: BigDecimal,
-    pub concepto: String,
-    pub referencia_tipo: Option<String>,
-    pub referencia_id: Option<i32>,
-    pub fecha_movimiento: DateTime<Utc>,
-    #[ts(type = "string")]
-    pub saldo_anterior: BigDecimal,
-    #[ts(type = "string")]
-    pub saldo_posterior: BigDecimal,
-    pub notas: Option<String>,
-    pub comprobante_url: Option<String>,
-    pub created_at: DateTime<Utc>,
-}
-
-/// Request para crear movimiento manual (ajustes)
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct CreateMovimientoRequest {
-    pub id_cuenta: i32,
-    pub tipo: String,  // 'ingreso', 'egreso'
-    #[ts(type = "string")]
-    pub monto: BigDecimal,
-    pub concepto: String,
-    pub notas: Option<String>,
-    /// Comprobante en base64 (se subirá a Tigris)
-    pub comprobante_base64: Option<String>,
-    pub comprobante_filename: Option<String>,
 }
 
 // ============================================================================
@@ -138,7 +60,7 @@ pub struct PagoFileResponse {
     pub monto_pagado: BigDecimal,
     #[ts(type = "string")]
     pub monto_pendiente: BigDecimal,
-    pub estado: String,  // 'pendiente', 'parcial', 'pagado', 'vencido'
+    pub estado: String,
     pub fecha_vencimiento: Option<String>,
     pub comprobante_url: Option<String>,
     pub verificado_por: Option<i32>,
@@ -157,7 +79,7 @@ pub struct RegistrarPagoFileRequest {
     #[ts(type = "string")]
     pub monto: BigDecimal,
     pub notas: Option<String>,
-    /// Comprobante en base64 (se subirá a Tigris)
+    /// Comprobante en base64 (se subira a Tigris)
     pub comprobante_base64: Option<String>,
     pub comprobante_filename: Option<String>,
 }
@@ -173,7 +95,7 @@ pub struct VerificarPagoFileRequest {
 }
 
 // ============================================================================
-// PAGOS A PROVEEDORES (Admin -> Transportes/Restaurantes/Guías)
+// PAGOS A PROVEEDORES (Admin -> Transportes/Restaurantes/Guias)
 // ============================================================================
 
 /// Response de pago a proveedor
@@ -182,7 +104,7 @@ pub struct VerificarPagoFileRequest {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct PagoProveedorResponse {
     pub id: i32,
-    pub tipo_proveedor: String,  // 'transporte', 'restaurante', 'guia'
+    pub tipo_proveedor: String,
     pub proveedor_id: i32,
     pub proveedor_nombre: Option<String>,
     pub id_file_tour: Option<i32>,
@@ -190,7 +112,7 @@ pub struct PagoProveedorResponse {
     pub tour_nombre: Option<String>,
     #[ts(type = "string")]
     pub monto: BigDecimal,
-    pub estado: String,  // 'pendiente', 'pagado'
+    pub estado: String,
     pub fecha_pago: Option<DateTime<Utc>>,
     pub comprobante_url: Option<String>,
     pub notas: Option<String>,
@@ -198,12 +120,12 @@ pub struct PagoProveedorResponse {
     pub pagado_por: Option<String>,
 }
 
-/// Request para crear pago a proveedor (al asignar servicio)
+/// Request para crear pago a proveedor
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreatePagoProveedorRequest {
-    pub tipo_proveedor: String,  // 'transporte', 'restaurante', 'guia'
+    pub tipo_proveedor: String,
     pub id_transporte: Option<i32>,
     pub id_restaurante: Option<i32>,
     pub id_guia: Option<i32>,
@@ -223,7 +145,7 @@ pub struct CreatePagoProveedorRequest {
 pub struct PagarProveedorRequest {
     pub id_pago_proveedor: i32,
     pub notas: Option<String>,
-    /// Comprobante en base64 (se subirá a Tigris)
+    /// Comprobante en base64 (se subira a Tigris)
     pub comprobante_base64: Option<String>,
     pub comprobante_filename: Option<String>,
 }
@@ -235,66 +157,15 @@ pub struct PagarProveedorRequest {
 pub struct MarcarPagoProveedorPagadoRequest {
     /// Notas adicionales sobre el pago
     pub notas: Option<String>,
-    /// URL del comprobante de pago (si ya se subió)
+    /// URL del comprobante de pago (si ya se subio)
     pub comprobante_url: Option<String>,
-}
-
-// ============================================================================
-// TARIFAS DE SERVICIOS
-// ============================================================================
-
-/// Response de tarifa de servicio
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct TarifaServicioResponse {
-    pub id: i32,
-    pub tipo_servicio: String,  // 'tour', 'entrada', 'restaurante', 'transporte', 'guia'
-    pub id_servicio: i32,
-    pub servicio_nombre: Option<String>,
-    #[ts(type = "string")]
-    pub precio_venta: BigDecimal,
-    #[ts(type = "string")]
-    pub precio_costo: BigDecimal,
-    #[ts(type = "string | null")]
-    pub margen: Option<BigDecimal>,
-    pub vigente_desde: String,
-    pub vigente_hasta: Option<String>,
-    pub is_active: bool,
-}
-
-/// Request para crear/actualizar tarifa
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct CreateTarifaServicioRequest {
-    pub tipo_servicio: String,
-    pub id_servicio: i32,
-    #[ts(type = "string")]
-    pub precio_venta: BigDecimal,
-    #[ts(type = "string")]
-    pub precio_costo: BigDecimal,
-    pub vigente_desde: String,  // YYYY-MM-DD
-    pub vigente_hasta: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct UpdateTarifaServicioRequest {
-    #[ts(type = "string | null")]
-    pub precio_venta: Option<BigDecimal>,
-    #[ts(type = "string | null")]
-    pub precio_costo: Option<BigDecimal>,
-    pub vigente_hasta: Option<String>,
-    pub is_active: Option<bool>,
 }
 
 // ============================================================================
 // MIS PAGOS (Vista de proveedores)
 // ============================================================================
 
-/// Vista de pago para un guía
+/// Vista de pago para un guia
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -306,7 +177,7 @@ pub struct MiPagoGuiaResponse {
     pub fecha_tour: Option<String>,
     #[ts(type = "string")]
     pub monto: BigDecimal,
-    pub estado: String,  // 'pendiente', 'pagado'
+    pub estado: String,
     pub fecha_pago: Option<DateTime<Utc>>,
     pub comprobante_url: Option<String>,
 }
@@ -351,25 +222,13 @@ pub struct MiPagoRestauranteResponse {
 // LISTADOS Y FILTROS
 // ============================================================================
 
-/// Filtros para listar movimientos
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct MovimientosFilter {
-    pub id_cuenta: Option<i32>,
-    pub tipo: Option<String>,  // 'ingreso', 'egreso'
-    pub fecha_desde: Option<String>,
-    pub fecha_hasta: Option<String>,
-    pub referencia_tipo: Option<String>,
-}
-
 /// Filtros para listar pagos de files
 #[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct PagosFilesFilter {
     pub id_agencia: Option<i32>,
-    pub estado: Option<String>,  // 'pendiente', 'parcial', 'pagado', 'vencido'
+    pub estado: Option<String>,
     pub fecha_desde: Option<String>,
     pub fecha_hasta: Option<String>,
 }
@@ -383,34 +242,4 @@ pub struct PagosProveedoresFilter {
     pub estado: Option<String>,
     pub fecha_desde: Option<String>,
     pub fecha_hasta: Option<String>,
-}
-
-/// Lista paginada genérica para contabilidad
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PaginatedContabilidadResponse<T> {
-    pub items: Vec<T>,
-    pub total: i64,
-    pub page: i32,
-    pub page_size: i32,
-    pub total_pages: i32,
-}
-
-// ============================================================================
-// RESUMEN FINANCIERO
-// ============================================================================
-
-/// Resumen financiero por período
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct ResumenFinanciero {
-    pub periodo: String,  // "2025-01", "2025-Q1", "2025"
-    #[ts(type = "string")]
-    pub total_ingresos: BigDecimal,
-    #[ts(type = "string")]
-    pub total_egresos: BigDecimal,
-    #[ts(type = "string")]
-    pub balance: BigDecimal,
-    pub cantidad_files: i32,
-    pub cantidad_pagos_proveedores: i32,
 }

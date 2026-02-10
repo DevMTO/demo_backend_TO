@@ -22,7 +22,6 @@ pub mod entrada_dto;
 pub mod entrada_precio_dto;
 pub mod file_dto;
 pub mod file_relations_dto;
-pub mod pago_dto;
 
 // Contabilidad DTOs
 pub mod contabilidad_dto;
@@ -50,7 +49,6 @@ pub use entrada_dto::*;
 pub use entrada_precio_dto::*;
 pub use file_dto::*;
 pub use file_relations_dto::*;
-pub use pago_dto::*;
 pub use user_dto::{
     UserListItemDto, 
     UserDetailDto, 

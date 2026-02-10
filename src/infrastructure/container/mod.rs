@@ -13,7 +13,7 @@ use crate::application::ports::{
     UserRepositoryPort, PersonaRepositoryPort, AgenciaRepositoryPort,
     TourRepositoryPort, TransporteRepositoryPort, VehiculoRepositoryPort,
     ConductorRepositoryPort, GuiaRepositoryPort, RestauranteRepositoryPort,
-    EntradaRepositoryPort, FileRepositoryPort, PagoRepositoryPort,
+    EntradaRepositoryPort, FileRepositoryPort,
     ActivityLogRepositoryPort, NotificationRepositoryPort,
     FileEntradaRepositoryPort, FileGuiaRepositoryPort, FilePasajeroRepositoryPort,
     FileRestauranteRepositoryPort, FileVehiculoRepositoryPort, FileTourRepositoryPort,
@@ -21,7 +21,7 @@ use crate::application::ports::{
 };
 use crate::application::services::{
     LoggingService, NotificationService, UserService, AgenciaService,
-    PersonaService, TourService, FileService, PagoService, RestauranteService,
+    PersonaService, TourService, FileService, RestauranteService,
     TransporteService, VehiculoService, ConductorService, EntradaService,
     EntradaPrecioService, GuiaService, MyFilesService, ContabilidadService,
     FileAssignmentService, MisPagosService, SaldoFavorService,
@@ -56,7 +56,6 @@ pub struct DependencyContainer {
     pub persona_service: Arc<PersonaService>,
     pub tour_service: Arc<TourService>,
     pub file_service: Arc<FileService>,
-    pub pago_service: Arc<PagoService>,
     pub restaurante_service: Arc<RestauranteService>,
     pub transporte_service: Arc<TransporteService>,
     pub vehiculo_service: Arc<VehiculoService>,
@@ -85,7 +84,6 @@ pub struct DependencyContainer {
     pub restaurante_repository: Arc<dyn RestauranteRepositoryPort>,
     pub entrada_repository: Arc<dyn EntradaRepositoryPort>,
     pub file_repository: Arc<dyn FileRepositoryPort>,
-    pub pago_repository: Arc<dyn PagoRepositoryPort>,
     pub activity_log_repository: Arc<dyn ActivityLogRepositoryPort>,
     pub notification_repository: Arc<dyn NotificationRepositoryPort>,
 
@@ -156,7 +154,6 @@ impl DependencyContainer {
             persona_service: svcs.persona,
             tour_service: svcs.tour,
             file_service: svcs.file,
-            pago_service: svcs.pago,
             restaurante_service: svcs.restaurante,
             transporte_service: svcs.transporte,
             vehiculo_service: svcs.vehiculo,
@@ -181,7 +178,6 @@ impl DependencyContainer {
             restaurante_repository: repos.restaurante,
             entrada_repository: repos.entrada,
             file_repository: repos.file,
-            pago_repository: repos.pago,
             activity_log_repository: repos.activity_log,
             notification_repository: repos.notification,
             // File Relations

@@ -17,7 +17,7 @@ use super::query_params::{CancelacionesQueryParams, MovimientosSaldoQueryParams,
 
 /// Helper para verificar si el usuario tiene rol autorizado para saldos a favor
 fn has_saldo_favor_access(role: &UserRole) -> bool {
-    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
+    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador | UserRole::Agencias)
 }
 
 /// Helper para verificar si es admin general
@@ -43,8 +43,8 @@ pub async fn get_dashboard(
         ));
     }
 
-    // Agencias_contador solo puede ver su propia agencia
-    if auth.user.role == UserRole::AgenciasContador {
+    // Agencias solo pueden ver su propia agencia
+    if matches!(auth.user.role, UserRole::AgenciasContador | UserRole::Agencias) {
         if auth.user.id_entidad != Some(id_agencia) {
             return Err(ApplicationError::Forbidden(
                 "Solo puedes ver el saldo de tu propia agencia".to_string(),
@@ -99,7 +99,7 @@ pub async fn get_saldo_agencia(
         ));
     }
 
-    if auth.user.role == UserRole::AgenciasContador && auth.user.id_entidad != Some(id_agencia) {
+    if (auth.user.role == UserRole::AgenciasContador || auth.user.role == UserRole::Agencias) && auth.user.id_entidad != Some(id_agencia) {
         return Err(ApplicationError::Forbidden(
             "Solo puedes ver el saldo de tu propia agencia".to_string(),
         ));

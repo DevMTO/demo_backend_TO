@@ -19,7 +19,6 @@ pub mod entrada_repository;
 pub mod entrada_precio_repository;
 pub mod file_repository;
 pub mod file_relations_repository;
-pub mod pago_repository;
 
 // Contabilidad repositories
 pub mod contabilidad_repository;
@@ -45,7 +44,6 @@ pub use entrada_repository::*;
 pub use entrada_precio_repository::*;
 pub use file_repository::*;
 pub use file_relations_repository::*;
-pub use pago_repository::*;
 
 // Re-exports - Contabilidad
 pub use contabilidad_repository::*;

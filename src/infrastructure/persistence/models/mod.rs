@@ -18,7 +18,6 @@ pub mod restaurante_model;
 pub mod entrada_model;
 pub mod entrada_precio_model;
 pub mod file_model;
-pub mod pago_model;
 
 // File relation models
 pub mod file_entrada_model;
@@ -51,7 +50,6 @@ pub use restaurante_model::*;
 pub use entrada_model::*;
 pub use entrada_precio_model::*;
 pub use file_model::*;
-pub use pago_model::*;
 
 // Re-exports - File relations
 pub use file_entrada_model::*;
