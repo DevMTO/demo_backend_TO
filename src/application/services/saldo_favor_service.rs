@@ -15,27 +15,31 @@ use crate::application::dtos::{
     MovimientoSaldoFavorResponse, NoShowResponse,
     UsarSaldoFavorRequest,
 };
-use crate::application::ports::FileRepositoryPort;
+use crate::application::ports::{FileRepositoryPort, PagoFileRepositoryPort};
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::models::{
     NewCancelacionModel, NewMovimientoSaldoFavorModel, NewNoShowModel,
+    UpdatePagoFileModel,
 };
 use crate::infrastructure::persistence::repositories::SaldoFavorRepositoryPort;
 
-/// Hora límite: 20:00 (8PM) para cancelaciones normales
-const HORA_LIMITE: u32 = 20;
+/// Hora límite: 20:40 (8:40 PM) para cancelaciones normales
+const HORA_LIMITE_HORA: u32 = 20;
+const HORA_LIMITE_MIN: u32 = 40;
 
 pub struct SaldoFavorService {
     saldo_repo: Arc<dyn SaldoFavorRepositoryPort>,
     file_repo: Arc<dyn FileRepositoryPort>,
+    pago_file_repo: Arc<dyn PagoFileRepositoryPort>,
 }
 
 impl SaldoFavorService {
     pub fn new(
         saldo_repo: Arc<dyn SaldoFavorRepositoryPort>,
         file_repo: Arc<dyn FileRepositoryPort>,
+        pago_file_repo: Arc<dyn PagoFileRepositoryPort>,
     ) -> Self {
-        Self { saldo_repo, file_repo }
+        Self { saldo_repo, file_repo, pago_file_repo }
     }
     
     /// Cancelación normal de un file (agencia cancela antes de 8PM del día anterior)
@@ -72,13 +76,13 @@ impl SaldoFavorService {
         let limite = fecha_inicio
             .pred_opt() // día anterior
             .unwrap_or(fecha_inicio)
-            .and_time(NaiveTime::from_hms_opt(HORA_LIMITE, 0, 0).unwrap())
+            .and_time(NaiveTime::from_hms_opt(HORA_LIMITE_HORA, HORA_LIMITE_MIN, 0).unwrap())
             .and_utc();
         
         if now >= limite {
             return Err(ApplicationError::Validation(
-                format!("La hora límite para cancelar este file era las {}:00 del día anterior ({}). Para registrar un no-show, contacte al administrador.", 
-                    HORA_LIMITE, fecha_inicio.pred_opt().unwrap_or(fecha_inicio))
+                format!("La hora límite para cancelar este file era las {}:{:02} del día anterior ({}). Para registrar un no-show, contacte al administrador.", 
+                    HORA_LIMITE_HORA, HORA_LIMITE_MIN, fecha_inicio.pred_opt().unwrap_or(fecha_inicio))
             ));
         }
         
@@ -106,6 +110,15 @@ impl SaldoFavorService {
         let mut file_to_update = file.clone();
         file_to_update.status = "cancelado".to_string();
         self.file_repo.update(&file_to_update).await?;
+        
+        // 7b. Actualizar el pago del file a estado 'cancelado'
+        if let Ok(Some(pago)) = self.pago_file_repo.find_by_file(request.id_file).await {
+            let update = UpdatePagoFileModel {
+                estado: Some("cancelado"),
+                ..Default::default()
+            };
+            self.pago_file_repo.update(pago.id, update).await?;
+        }
         
         // 8. Si hay saldo a favor, actualizar el saldo de la agencia
         if monto_saldo_favor > BigDecimal::from(0) {
@@ -206,6 +219,15 @@ impl SaldoFavorService {
         let mut file_to_update = file.clone();
         file_to_update.status = "no_show".to_string();
         self.file_repo.update(&file_to_update).await?;
+        
+        // 8b. Actualizar el pago del file a estado 'no_show'
+        if let Ok(Some(pago)) = self.pago_file_repo.find_by_file(request.id_file).await {
+            let update = UpdatePagoFileModel {
+                estado: Some("no_show"),
+                ..Default::default()
+            };
+            self.pago_file_repo.update(pago.id, update).await?;
+        }
         
         // 9. Si hay saldo a favor, actualizar
         if monto_saldo_favor > BigDecimal::from(0) {

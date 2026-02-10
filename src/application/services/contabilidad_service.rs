@@ -149,11 +149,16 @@ impl ContabilidadService {
             .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id_agencia)))?;
         
         // Obtener todos los pagos de files de esta agencia
-        let pagos = self.pago_file_repository
+        let all_pagos = self.pago_file_repository
             .find_by_agencia(id_agencia, 1000, 0) // Traer todos para calcular totales
             .await?;
         
-        // Calcular totales
+        // Excluir pagos de files cancelados y no_show de los totales
+        let pagos: Vec<_> = all_pagos.into_iter()
+            .filter(|p| p.estado != "cancelado" && p.estado != "no_show")
+            .collect();
+        
+        // Calcular totales (solo files activos)
         let total_files = pagos.len() as i32;
         let monto_total_files = pagos.iter()
             .map(|p| &p.monto_total)
