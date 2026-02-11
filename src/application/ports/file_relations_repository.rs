@@ -20,6 +20,7 @@ use crate::infrastructure::persistence::models::{
     FilePasajeroWithPersonaModel, FileRestauranteModel, 
     FileVehiculoModel, FileVehiculoWithPersonaModel, FileTourModel, FileTourWithTourModel,
     file_pasajero_model::UpdateFilePasajeroModel,
+    file_vehiculo_model::UpdateFileVehiculoModel,
 };
 // FileVehiculoWithDetailsModel viene de repositories
 use crate::infrastructure::persistence::repositories::FileVehiculoWithDetailsModel;
@@ -106,6 +107,8 @@ pub trait FileVehiculoRepositoryPort: Send + Sync {
     async fn is_vehiculo_assigned(&self, id_vehiculo: i32, id_file_tour: i32) -> Result<bool, ApplicationError>;
     /// Actualiza el status de un file_vehiculo
     async fn update_status(&self, id: i32, status: &str) -> Result<FileVehiculoModel, ApplicationError>;
+    /// Actualiza los campos de un file_vehiculo (vehículo, conductor, capacidad, status)
+    async fn update(&self, id: i32, data: UpdateFileVehiculoModel) -> Result<FileVehiculoModel, ApplicationError>;
 }
 
 /// Repositorio para file_tours

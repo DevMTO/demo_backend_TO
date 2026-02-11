@@ -523,6 +523,26 @@ pub struct AssignVehiculoToFileTourRequest {
     pub capacidad_asignada: Option<i32>,
 }
 
+/// Request para actualizar un file_vehiculo (cambiar vehículo, conductor, capacidad o status)
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateFileVehiculoRequest {
+    /// Nuevo vehículo asignado (cambia también capacidad_asignada si no se especifica)
+    pub id_vehiculo: Option<i32>,
+    /// Nuevo conductor asignado
+    pub id_conductor: Option<i32>,
+    /// Si true, quita el conductor (setea a NULL). Tiene prioridad sobre id_conductor.
+    #[serde(default)]
+    pub clear_conductor: bool,
+    /// Nueva capacidad asignada
+    #[validate(range(min = 1, message = "Capacidad asignada debe ser al menos 1"))]
+    pub capacidad_asignada: Option<i32>,
+    /// Nuevo status: reservado, confirmado, cancelado, etc.
+    #[validate(length(min = 1, max = 20))]
+    pub status: Option<String>,
+}
+
 // ==================== FILE DETALLE COMPLETO ====================
 
 /// Respuesta completa de un File con todos sus datos relacionados

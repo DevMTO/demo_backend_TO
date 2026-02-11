@@ -85,3 +85,13 @@ pub struct NewFileVehiculoModel<'a> {
     pub status: Option<&'a str>,
 }
 
+/// Modelo para actualizar file_vehiculos (PATCH parcial)
+#[derive(Debug, Clone, AsChangeset)]
+#[diesel(table_name = file_vehiculos)]
+pub struct UpdateFileVehiculoModel {
+    pub id_vehiculo: Option<i32>,
+    pub id_conductor: Option<Option<i32>>,  // Option<Option> para poder setear a NULL
+    pub capacidad_asignada: Option<i32>,
+    pub status: Option<String>,
+}
+

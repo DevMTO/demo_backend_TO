@@ -2,7 +2,7 @@
 
 use axum::{
     Router,
-    routing::get,
+    routing::{get, put},
 };
 
 use crate::presentation::handlers::file_relations;
@@ -12,4 +12,5 @@ use super::state::AppState;
 pub fn file_vehiculos_routes() -> Router<AppState> {
     Router::new()
         .route("/", get(file_relations::list_all_file_vehiculos))
+        .route("/{id}", put(file_relations::update_file_vehiculo))
 }

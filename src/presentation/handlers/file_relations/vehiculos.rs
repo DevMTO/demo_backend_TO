@@ -1,15 +1,16 @@
 //! Handlers para FileVehiculos (vehículos vinculados a file_tours)
 
 use axum::{extract::{Path, State}, response::IntoResponse, Json};
-use tracing::instrument;
+use tracing::{info, instrument};
 use validator::Validate;
 
 use crate::application::dtos::{
     AssignVehiculoToFileTourRequest, FileVehiculoResponse, FileVehiculoListItemDto,
-    ResourceStatusUpdateResponse, UpdateVehiculoStatusRequest,
+    ResourceStatusUpdateResponse, UpdateVehiculoStatusRequest, UpdateFileVehiculoRequest,
 };
 use crate::domain::entities::StatusConductor;
 use crate::domain::errors::ApplicationError;
+use crate::infrastructure::persistence::models::file_vehiculo_model::UpdateFileVehiculoModel;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use crate::presentation::handlers::common::{json_ok, json_created, json_deleted};
@@ -252,4 +253,97 @@ pub async fn update_vehiculo_status(
         new_status: request.status,
         message: "Status actualizado correctamente".to_string(),
     }))
+}
+
+/// Actualiza un file_vehiculo (vehículo, conductor, capacidad, status)
+#[instrument(skip(state, auth, request))]
+pub async fn update_file_vehiculo(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+    Json(request): Json<UpdateFileVehiculoRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    
+    // Verificar que la asignación existe
+    let existing = state.container.file_vehiculo_repository
+        .find_by_id(id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Asignación file_vehiculo {} no encontrada", id)))?;
+    
+    // Si se cambia el vehículo, verificar que existe y obtener su capacidad
+    let mut new_capacidad = request.capacidad_asignada;
+    if let Some(new_vehiculo_id) = request.id_vehiculo {
+        let vehiculo = state.container.vehiculo_repository
+            .find_by_id(new_vehiculo_id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Vehículo {} no encontrado", new_vehiculo_id)))?;
+        
+        // Si no se especificó capacidad explícitamente, usar la del nuevo vehículo
+        if new_capacidad.is_none() {
+            new_capacidad = Some(vehiculo.capacidad);
+        }
+    }
+    
+    // Determinar el cambio de conductor
+    let conductor_change: Option<Option<i32>> = if request.clear_conductor {
+        // Quitar conductor explícitamente
+        Some(None)
+    } else if let Some(new_conductor_id) = request.id_conductor {
+        // Asignar nuevo conductor, verificar que existe
+        state.container.conductor_repository
+            .find_by_id(new_conductor_id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Conductor {} no encontrado", new_conductor_id)))?;
+        Some(Some(new_conductor_id))
+    } else {
+        // No se cambió conductor
+        None
+    };
+    
+    // Manejar cambio de conductor: liberar antiguo, ocupar nuevo
+    if let Some(ref new_conductor_opt) = conductor_change {
+        // Liberar conductor anterior si existía
+        if let Some(old_conductor_id) = existing.id_conductor {
+            let should_release = match new_conductor_opt {
+                Some(new_id) => *new_id != old_conductor_id,
+                None => true,
+            };
+            if should_release {
+                let _ = state.container.conductor_repository
+                    .update_status(old_conductor_id, "disponible")
+                    .await;
+            }
+        }
+        // Asignar nuevo conductor si existe
+        if let Some(new_conductor_id) = new_conductor_opt {
+            let conductor = state.container.conductor_repository
+                .find_by_id(*new_conductor_id)
+                .await?;
+            if let Some(c) = conductor {
+                if c.status == StatusConductor::Disponible {
+                    let _ = state.container.conductor_repository
+                        .update_status(*new_conductor_id, "en_servicio")
+                        .await;
+                }
+            }
+        }
+    }
+    
+    // Construir modelo de actualización
+    let update_data = UpdateFileVehiculoModel {
+        id_vehiculo: request.id_vehiculo,
+        id_conductor: conductor_change,
+        capacidad_asignada: new_capacidad,
+        status: request.status.clone(),
+    };
+    
+    // Ejecutar actualización
+    let result = state.container.file_vehiculo_repository
+        .update(id, update_data)
+        .await?;
+    
+    info!("FileVehiculo {} actualizado por usuario {}", id, auth.user.id);
+    
+    Ok(json_ok(FileVehiculoResponse::from(result)))
 }

@@ -688,6 +688,21 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
         Ok(result)
     }
     
+    #[instrument(skip(self, data))]
+    async fn update(&self, id: i32, data: crate::infrastructure::persistence::models::file_vehiculo_model::UpdateFileVehiculoModel) -> Result<FileVehiculoModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(file_vehiculos::table.filter(file_vehiculos::id.eq(id)))
+            .set(&data)
+            .returning(FileVehiculoModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando file_vehiculo: {}", e)))?;
+        
+        info!("FileVehiculo {} actualizado", id);
+        Ok(result)
+    }
+    
     #[instrument(skip(self))]
     async fn find_by_file_tour_with_persona(&self, id_file_tour: i32) -> Result<Vec<FileVehiculoWithPersonaModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
