@@ -57,7 +57,11 @@ pub struct FilePasajeroWithPersonaModel {
     #[diesel(sql_type = Nullable<Text>)]
     pub pasajero_apellidos: Option<String>,
     #[diesel(sql_type = Nullable<Text>)]
+    pub pasajero_tipo_documento: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
     pub pasajero_documento: Option<String>,
+    #[diesel(sql_type = Nullable<Text>)]
+    pub pasajero_telefono: Option<String>,
 }
 
 /// Modelo insertable para crear file_pasajeros

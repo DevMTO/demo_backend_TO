@@ -369,7 +369,9 @@ impl FilePasajeroRepositoryPort for PostgresFilePasajeroRepository {
                 fp.status,
                 p.nombre as pasajero_nombre,
                 p.apellidos as pasajero_apellidos,
-                p.nro_documento as pasajero_documento
+                p.tipo_documento as pasajero_tipo_documento,
+                p.nro_documento as pasajero_documento,
+                p.telefono as pasajero_telefono
             FROM file_pasajeros fp
             LEFT JOIN personas p ON p.id = fp.id_persona
             WHERE fp.id_file = $1

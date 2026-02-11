@@ -181,7 +181,9 @@ pub struct FilePasajeroResponse {
     // Datos del pasajero relacionado (pueden ser None si id_persona es None)
     pub pasajero_nombre: Option<String>,
     pub pasajero_apellidos: Option<String>,
+    pub pasajero_tipo_documento: Option<String>,
     pub pasajero_documento: Option<String>,
+    pub pasajero_telefono: Option<String>,
 }
 
 impl From<FilePasajeroModel> for FilePasajeroResponse {
@@ -200,7 +202,9 @@ impl From<FilePasajeroModel> for FilePasajeroResponse {
             status: m.status,
             pasajero_nombre: None,
             pasajero_apellidos: None,
+            pasajero_tipo_documento: None,
             pasajero_documento: None,
+            pasajero_telefono: None,
         }
     }
 }
@@ -221,7 +225,9 @@ impl From<FilePasajeroWithPersonaModel> for FilePasajeroResponse {
             status: m.status,
             pasajero_nombre: m.pasajero_nombre,
             pasajero_apellidos: m.pasajero_apellidos,
+            pasajero_tipo_documento: m.pasajero_tipo_documento,
             pasajero_documento: m.pasajero_documento,
+            pasajero_telefono: m.pasajero_telefono,
         }
     }
 }
