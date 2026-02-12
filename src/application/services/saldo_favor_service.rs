@@ -1,8 +1,8 @@
 //! Service para gestión de Saldos a Favor, Cancelaciones y No Shows
 //!
 //! Lógica de negocio:
-//! - Cancelación normal (antes de 8PM del día anterior al file): todo el monto pagado → saldo a favor
-//! - No-show (después de 8PM): solo restaurantes + entradas → saldo a favor, el resto → operador
+//! - Cancelación normal (antes de 8:40 AM del día anterior al tour): todo el monto pagado → saldo a favor (solo si file confirmado/asignado)
+//! - No-show: todo queda como no_show (admin puede luego mover a saldo a favor manualmente)
 
 use std::sync::Arc;
 use bigdecimal::{BigDecimal, ToPrimitive, FromPrimitive};
@@ -23,8 +23,8 @@ use crate::infrastructure::persistence::models::{
 };
 use crate::infrastructure::persistence::repositories::SaldoFavorRepositoryPort;
 
-/// Hora límite: 20:40 (8:40 PM) para cancelaciones normales
-const HORA_LIMITE_HORA: u32 = 20;
+/// Hora límite: 08:40 (8:40 AM) para cancelaciones normales
+const HORA_LIMITE_HORA: u32 = 8;
 const HORA_LIMITE_MIN: u32 = 40;
 
 pub struct SaldoFavorService {
@@ -42,8 +42,8 @@ impl SaldoFavorService {
         Self { saldo_repo, file_repo, pago_file_repo }
     }
     
-    /// Cancelación normal de un file (agencia cancela antes de 8PM del día anterior)
-    /// Todo el monto pagado se convierte en saldo a favor
+    /// Cancelación normal de un file (agencia cancela antes de 8:40 AM del día anterior)
+    /// Saldo a favor automático SOLO si el file estaba confirmado o asignado y tenía pagos
     #[instrument(skip(self))]
     pub async fn cancelar_file(&self, request: CancelarFileRequest, user_id: i32) -> Result<CancelacionResponse, ApplicationError> {
         // 1. Obtener el file
@@ -86,11 +86,21 @@ impl SaldoFavorService {
             ));
         }
         
-        // 5. En cancelación normal: todo el pagado va a saldo a favor
+        // 5. En cancelación: saldo a favor SOLO si file estaba confirmado o asignado y tenía pagos
         let monto_total = BigDecimal::from_f64(file.monto_total.to_f64().unwrap_or(0.0)).unwrap_or_default();
-        let monto_pagado = BigDecimal::from_f64(file.monto_pagado.to_f64().unwrap_or(0.0)).unwrap_or_default();
-        let monto_saldo_favor = monto_pagado.clone();
-        let monto_operador = BigDecimal::from(0);
+        
+        // Usar monto_pagado del pago_file (que es donde se registra el pago real)
+        let monto_pagado = if let Ok(Some(pago)) = self.pago_file_repo.find_by_file(request.id_file).await {
+            pago.monto_pagado.clone()
+        } else {
+            BigDecimal::from_f64(file.monto_pagado.to_f64().unwrap_or(0.0)).unwrap_or_default()
+        };
+        
+        let genera_saldo = (file.status == "confirmado" || file.status == "asignado") 
+            && monto_pagado > BigDecimal::from(0);
+        
+        let monto_saldo_favor = if genera_saldo { monto_pagado.clone() } else { BigDecimal::from(0) };
+        let monto_operador = &monto_pagado - &monto_saldo_favor;
         
         // 6. Crear la cancelación
         let cancelacion = self.saldo_repo.create_cancelacion(NewCancelacionModel {
@@ -145,8 +155,8 @@ impl SaldoFavorService {
         })
     }
     
-    /// Registrar un no-show (solo admin, después de 8PM)
-    /// Solo restaurantes + entradas van a saldo a favor, el resto al operador
+    /// Registrar un no-show
+    /// Todo queda como no_show. El admin puede luego mover montos a saldo a favor manualmente.
     #[instrument(skip(self))]
     pub async fn registrar_no_show(&self, request: RegistrarNoShowRequest, user_id: i32) -> Result<NoShowResponse, ApplicationError> {
         // 1. Obtener el file
@@ -169,22 +179,22 @@ impl SaldoFavorService {
             .unwrap_or(file.fecha_inicio);
         
         let monto_total = BigDecimal::from_f64(file.monto_total.to_f64().unwrap_or(0.0)).unwrap_or_default();
-        let monto_pagado = BigDecimal::from_f64(file.monto_pagado.to_f64().unwrap_or(0.0)).unwrap_or_default();
         
-        // 5. Calcular saldo a favor (solo restaurantes + entradas)
-        let monto_restaurantes = costs.monto_restaurantes;
-        let monto_entradas = costs.monto_entradas;
-        let monto_saldo_favor = &monto_restaurantes + &monto_entradas;
-        
-        // El monto_saldo_favor no puede exceder el monto_pagado
-        let monto_saldo_favor = if monto_saldo_favor > monto_pagado {
-            monto_pagado.clone()
+        // Usar monto_pagado del pago_file (que es donde se registra el pago real)
+        let monto_pagado = if let Ok(Some(pago)) = self.pago_file_repo.find_by_file(request.id_file).await {
+            pago.monto_pagado.clone()
         } else {
-            monto_saldo_favor
+            BigDecimal::from_f64(file.monto_pagado.to_f64().unwrap_or(0.0)).unwrap_or_default()
         };
         
-        // Lo que queda para el operador
-        let monto_operador = &monto_pagado - &monto_saldo_favor;
+        // 5. Calcular montos — todo queda como no_show, sin saldo a favor automático
+        let monto_restaurantes = costs.monto_restaurantes;
+        let monto_entradas = costs.monto_entradas;
+        // No se convierte a saldo a favor automáticamente; admin puede hacerlo manualmente después
+        let monto_saldo_favor = BigDecimal::from(0);
+        
+        // Todo el monto pagado queda como no_show (operador)
+        let monto_operador = monto_pagado.clone();
         
         // 6. Crear la cancelación (tipo no_show)
         let cancelacion = self.saldo_repo.create_cancelacion(NewCancelacionModel {
@@ -229,15 +239,12 @@ impl SaldoFavorService {
             self.pago_file_repo.update(pago.id, update).await?;
         }
         
-        // 9. Si hay saldo a favor, actualizar
-        if monto_saldo_favor > BigDecimal::from(0) {
-            self.registrar_ingreso_saldo(file.id_agencia, &monto_saldo_favor, cancelacion.id, &file, user_id).await?;
-        }
+        // 9. No se genera saldo a favor automáticamente para no-shows.
+        //    El admin puede mover montos a saldo a favor manualmente en el futuro.
         
-        info!("File {} registrado como no-show. Saldo favor: {}, Operador: {}", 
+        info!("File {} registrado como no-show. Monto pagado: {} (todo a no_show, sin saldo favor automático)", 
             request.id_file, 
-            monto_saldo_favor.to_f64().unwrap_or(0.0), 
-            monto_operador.to_f64().unwrap_or(0.0));
+            monto_pagado.to_f64().unwrap_or(0.0));
         
         Ok(NoShowResponse {
             id: no_show.id,
