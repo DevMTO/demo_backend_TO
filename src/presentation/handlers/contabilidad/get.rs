@@ -17,12 +17,12 @@ use super::query_params::{PagosFilesQueryParams, PagosProveedoresQueryParams};
 
 /// Helper para verificar si el usuario tiene rol de admin
 fn is_admin_or_operador(role: &UserRole) -> bool {
-    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
+    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador | UserRole::AgenciasGerente)
 }
 
 /// Helper para verificar si el usuario es agencia/contador de agencia y pertenece a esa agencia
 fn is_own_agencia(auth: &AuthUser, id_agencia: i32) -> bool {
-    matches!(auth.user.role, UserRole::Agencias | UserRole::AgenciasContador) 
+    matches!(auth.user.role, UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente)
         && auth.user.id_entidad == Some(id_agencia)
 }
 

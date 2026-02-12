@@ -729,7 +729,7 @@ impl FileService {
         // 9. Notificar también al contador de la agencia específica (filtrado por id_entidad)
         // Solo notificará a los usuarios AgenciasContador que pertenezcan a ESTA agencia
         if let Err(e) = self.notification_service.notify_roles_for_entity(
-            vec![UserRole::AgenciasContador],
+            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente],
             file.id_agencia, // Filtrar por la agencia del file
             "💰 Nuevo pago pendiente",
             &format!(

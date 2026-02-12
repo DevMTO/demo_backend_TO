@@ -84,6 +84,7 @@ impl<'a> From<&'a User> for NewUserModel<'a> {
             role: match &user.role {
                 UserRole::SuperAdmin => "superadmin",
                 UserRole::Admin => "admin",
+                UserRole::AgenciasGerente => "agencias_gerente",
                 UserRole::Agencias => "agencias",
                 UserRole::AgenciasContador => "agencias_contador",
                 UserRole::Transportes => "transportes",
