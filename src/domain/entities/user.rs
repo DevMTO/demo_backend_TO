@@ -9,6 +9,8 @@ pub enum UserRole {
     SuperAdmin,
     /// Administrador/Operador - gestiona files, tours, personal y contabilidad general
     Admin,
+    /// Gerente de agencia - ve contabilidad, saldos y pagos de su agencia, pero no crea reservas
+    AgenciasGerente,
     /// Personal de agencias - gestión de agencia
     Agencias,
     /// Contador de agencia - maneja contabilidad de una agencia específica (vinculado a id_entidad)
@@ -30,6 +32,7 @@ impl std::fmt::Display for UserRole {
             UserRole::Admin => write!(f, "admin"),
             UserRole::Agencias => write!(f, "agencias"),
             UserRole::AgenciasContador => write!(f, "agencias_contador"),
+            UserRole::AgenciasGerente => write!(f, "agencias_gerente"),
             UserRole::Transportes => write!(f, "transportes"),
             UserRole::Conductores => write!(f, "conductores"),
             UserRole::Guias => write!(f, "guias"),
@@ -45,6 +48,7 @@ impl std::str::FromStr for UserRole {
         match s.to_lowercase().as_str() {
             "superadmin" => Ok(UserRole::SuperAdmin),
             "admin" => Ok(UserRole::Admin),
+            "agencias_gerente" | "gerente_agencia" => Ok(UserRole::AgenciasGerente),
             "agencias" | "agencia" => Ok(UserRole::Agencias),
             "agencias_contador" | "contador_agencia" => Ok(UserRole::AgenciasContador),
             "transportes" | "transporte" => Ok(UserRole::Transportes),
@@ -75,12 +79,12 @@ impl UserRole {
     
     /// Verifica si es Agencias o superior (incluye contador)
     pub fn is_agencias(&self) -> bool {
-        matches!(self, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias | UserRole::AgenciasContador)
+        matches!(self, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente)
     }
     
     /// Verifica si tiene acceso a contabilidad de agencia
     pub fn has_agencia_accounting_access(&self) -> bool {
-        matches!(self, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
+        matches!(self, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador | UserRole::AgenciasGerente)
     }
     
     /// Verifica si tiene acceso a contabilidad general (admin)
@@ -226,7 +230,7 @@ impl User {
     
     /// Verifica si puede acceder al panel de administración
     pub fn can_access_management(&self) -> bool {
-        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias)
+        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias | UserRole::AgenciasGerente)
     }
     
     /// Verifica si puede gestionar vehículos

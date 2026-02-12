@@ -41,7 +41,7 @@ pub async fn upload_agencia_logo(
         })?;
     
     // Verificar si el usuario tiene rol de agencia
-    let is_agencia_user = auth_user.user.role == UserRole::Agencias;
+    let is_agencia_user = auth_user.user.role == UserRole::Agencias || auth_user.user.role == UserRole::AgenciasGerente;
     
     // Verificar permisos: SuperAdmin, Admin, o encargado de la agencia
     let mut can_upload = auth_user.user.role == UserRole::SuperAdmin 
@@ -167,7 +167,7 @@ pub async fn upload_agencia_banner(
         })?;
     
     // Verificar si el usuario tiene rol de agencia
-    let is_agencia_user = auth_user.user.role == UserRole::Agencias;
+    let is_agencia_user = auth_user.user.role == UserRole::Agencias || auth_user.user.role == UserRole::AgenciasGerente;
     
     // Verificar permisos
     let mut can_upload = auth_user.user.role == UserRole::SuperAdmin 
@@ -272,7 +272,7 @@ pub async fn delete_agencia_logo(
         })?;
     
     // Verificar permisos
-    let is_agencia_user = auth_user.user.role == UserRole::Agencias;
+    let is_agencia_user = auth_user.user.role == UserRole::Agencias || auth_user.user.role == UserRole::AgenciasGerente;
     
     let mut can_delete = auth_user.user.role == UserRole::SuperAdmin 
         || auth_user.user.role == UserRole::Admin
@@ -354,7 +354,7 @@ pub async fn delete_agencia_banner(
         })?;
     
     // Verificar permisos
-    let is_agencia_user = auth_user.user.role == UserRole::Agencias;
+    let is_agencia_user = auth_user.user.role == UserRole::Agencias || auth_user.user.role == UserRole::AgenciasGerente;
     
     let mut can_delete = auth_user.user.role == UserRole::SuperAdmin 
         || auth_user.user.role == UserRole::Admin
