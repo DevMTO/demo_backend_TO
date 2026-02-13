@@ -17,7 +17,7 @@ use super::query_params::{PagosFilesQueryParams, PagosProveedoresQueryParams};
 
 /// Helper para verificar si el usuario tiene rol de admin
 fn is_admin_or_operador(role: &UserRole) -> bool {
-    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador | UserRole::AgenciasGerente)
+    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
 }
 
 /// Helper para verificar si el usuario es agencia/contador de agencia y pertenece a esa agencia
@@ -70,7 +70,7 @@ pub async fn list_pagos_files(
 ) -> Result<impl IntoResponse, ApplicationError> {
     let id_agencia_filter = if is_admin_or_operador(&auth.user.role) {
         params.id_agencia
-    } else if auth.user.role == UserRole::Agencias {
+    } else if auth.user.role == UserRole::Agencias || auth.user.role == UserRole::AgenciasGerente {
         auth.user.id_entidad
     } else {
         return Err(ApplicationError::Forbidden(
