@@ -121,6 +121,9 @@ impl SaldoFavorService {
         file_to_update.status = "cancelado".to_string();
         self.file_repo.update(&file_to_update).await?;
         
+        // 7a. Cascadear status a file_tours y sub-relaciones
+        self.saldo_repo.cascade_file_status(request.id_file, "cancelado").await?;
+        
         // 7b. Actualizar el pago del file a estado 'cancelado'
         if let Ok(Some(pago)) = self.pago_file_repo.find_by_file(request.id_file).await {
             let update = UpdatePagoFileModel {
@@ -229,6 +232,9 @@ impl SaldoFavorService {
         let mut file_to_update = file.clone();
         file_to_update.status = "no_show".to_string();
         self.file_repo.update(&file_to_update).await?;
+        
+        // 8a. Cascadear status a file_tours y sub-relaciones
+        self.saldo_repo.cascade_file_status(request.id_file, "no_show").await?;
         
         // 8b. Actualizar el pago del file a estado 'no_show'
         if let Ok(Some(pago)) = self.pago_file_repo.find_by_file(request.id_file).await {

@@ -5,7 +5,7 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use bigdecimal::BigDecimal;
 use chrono::NaiveDate;
-use tracing::instrument;
+use tracing::{instrument, info};
 
 use crate::application::dtos::{
     CancelacionResponse, SaldoFavorResponse, MovimientoSaldoFavorResponse,
@@ -51,6 +51,9 @@ pub trait SaldoFavorRepositoryPort: Send + Sync {
     
     /// Calcula costos de restaurantes, entradas y la fecha_inicio más temprana del file
     async fn calculate_file_costs(&self, id_file: i32) -> Result<FileCosts, ApplicationError>;
+    
+    /// Cascadea un cambio de status a todos los file_tours y sus sub-relaciones (entradas, restaurantes, guías, vehículos)
+    async fn cascade_file_status(&self, id_file: i32, new_status: &str) -> Result<(), ApplicationError>;
 }
 
 // ==================== IMPLEMENTATION ====================
@@ -513,5 +516,64 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
             monto_entradas: ent_row.total,
             fecha_inicio_min: fecha_row.fecha_min,
         })
+    }
+    
+    /// Cascadea un cambio de status a todos los file_tours y sus sub-relaciones
+    #[instrument(skip(self))]
+    async fn cascade_file_status(&self, id_file: i32, new_status: &str) -> Result<(), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        // 1. Actualizar file_tours
+        let sql_tours = format!(
+            "UPDATE file_tours SET status = '{}' WHERE id_file = {} AND status NOT IN ('completado', 'anulado')",
+            new_status, id_file
+        );
+        diesel::sql_query(sql_tours)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error cascada file_tours: {}", e)))?;
+        
+        // 2. Actualizar file_entradas (via file_tours)
+        let sql_entradas = format!(
+            "UPDATE file_entradas SET status = '{}' WHERE id_file_tour IN (SELECT id FROM file_tours WHERE id_file = {}) AND status NOT IN ('completado', 'anulado')",
+            new_status, id_file
+        );
+        diesel::sql_query(sql_entradas)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error cascada file_entradas: {}", e)))?;
+        
+        // 3. Actualizar file_restaurantes (via file_tours)
+        let sql_rest = format!(
+            "UPDATE file_restaurantes SET status = '{}' WHERE id_file_tour IN (SELECT id FROM file_tours WHERE id_file = {}) AND status NOT IN ('completado', 'anulado')",
+            new_status, id_file
+        );
+        diesel::sql_query(sql_rest)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error cascada file_restaurantes: {}", e)))?;
+        
+        // 4. Actualizar file_guias (via file_tours)
+        let sql_guias = format!(
+            "UPDATE file_guias SET status = '{}' WHERE id_file_tour IN (SELECT id FROM file_tours WHERE id_file = {}) AND status NOT IN ('completado', 'anulado')",
+            new_status, id_file
+        );
+        diesel::sql_query(sql_guias)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error cascada file_guias: {}", e)))?;
+        
+        // 5. Actualizar file_vehiculos (via file_tours)
+        let sql_vehi = format!(
+            "UPDATE file_vehiculos SET status = '{}' WHERE id_file_tour IN (SELECT id FROM file_tours WHERE id_file = {}) AND status NOT IN ('completado', 'anulado')",
+            new_status, id_file
+        );
+        diesel::sql_query(sql_vehi)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error cascada file_vehiculos: {}", e)))?;
+        
+        info!("Cascada de status '{}' completada para file {}", new_status, id_file);
+        Ok(())
     }
 }
