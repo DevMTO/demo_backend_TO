@@ -27,6 +27,7 @@ pub trait PagoFileRepositoryPort: Send + Sync {
     async fn count_filtered(&self, id_agencia: Option<i32>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>) -> Result<i64, ApplicationError>;
     async fn create(&self, data: NewPagoFileModel<'_>) -> Result<PagoFileModel, ApplicationError>;
     async fn update(&self, id: i32, data: UpdatePagoFileModel<'_>) -> Result<PagoFileModel, ApplicationError>;
+    async fn find_all_by_file(&self, id_file: i32) -> Result<Vec<PagoFileModel>, ApplicationError>;
     async fn sum_pendiente_cobrar(&self) -> Result<BigDecimal, ApplicationError>;
     async fn sum_pendiente_agencia(&self, id_agencia: i32) -> Result<BigDecimal, ApplicationError>;
     async fn count_pendientes(&self) -> Result<i64, ApplicationError>;

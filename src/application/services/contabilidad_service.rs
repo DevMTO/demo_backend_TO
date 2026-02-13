@@ -27,6 +27,7 @@ use crate::domain::entities::{
 };
 use crate::infrastructure::persistence::models::{
     NewPagoProveedorModel,
+    NewPagoFileModel,
     UpdatePagoFileModel, UpdatePagoProveedorModel,
     PagoFileModel, PagoProveedorModel,
 };
@@ -138,11 +139,33 @@ impl ContabilidadService {
         let pagos = self.pago_file_repository
             .find_filtered(id_agencia, estado, fecha_desde, fecha_hasta, limit, offset)
             .await?;
-        
+
         let total = self.pago_file_repository
             .count_filtered(id_agencia, estado, fecha_desde, fecha_hasta)
             .await?;
-        
+
+        // Group pagos by file to calculate cumulative monto_pagado per file
+        let mut file_ids: Vec<i32> = pagos.iter().map(|p| p.id_file).collect();
+        file_ids.sort_unstable();
+        file_ids.dedup();
+
+        // Fetch all pagos for these files to calculate totals
+        let mut file_pagos_totals: std::collections::HashMap<i32, (BigDecimal, BigDecimal)> = std::collections::HashMap::new();
+        for id_file in file_ids {
+            if let Ok(all_pagos) = self.pago_file_repository.find_all_by_file(id_file).await {
+                let monto_total = all_pagos.iter()
+                    .find(|p| p.monto_pagado == BigDecimal::from_str("0").unwrap())
+                    .map(|p| p.monto_total.clone())
+                    .unwrap_or_else(|| BigDecimal::from_str("0").unwrap());
+
+                let monto_pagado_total = all_pagos.iter()
+                    .map(|p| &p.monto_pagado)
+                    .fold(BigDecimal::from_str("0").unwrap(), |acc, m| acc + m);
+
+                file_pagos_totals.insert(id_file, (monto_total, monto_pagado_total));
+            }
+        }
+
         let mut responses = Vec::new();
         for p in pagos {
             let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(p.id_agencia).await {
@@ -150,14 +173,23 @@ impl ContabilidadService {
             } else {
                 None
             };
-            responses.push(self.pago_file_to_response(p, agencia_nombre).await);
+
+            // Get the calculated totals for this file
+            let (monto_total, monto_pagado_total) = file_pagos_totals
+                .get(&p.id_file)
+                .cloned()
+                .unwrap_or_else(|| (p.monto_total.clone(), p.monto_pagado.clone()));
+
+            let monto_pendiente = &monto_total - &monto_pagado_total;
+
+            responses.push(self.pago_file_to_response_with_calculated_pending(p, agencia_nombre, Some(monto_pendiente)).await);
         }
-        
+
         Ok((responses, total))
     }
 
     /// Registrar pago de file (agencia sube comprobante)
-    #[instrument(skip(self))]
+
     pub async fn registrar_pago_file(
         &self,
         request: RegistrarPagoFileRequest,
@@ -165,54 +197,75 @@ impl ContabilidadService {
         comprobante_url: Option<String>,
         comprobante_key: Option<String>,
     ) -> Result<PagoFileResponse, ApplicationError> {
-        // Obtener pago actual
-        let pago = self.pago_file_repository
+        // 1. Obtener el registro de deuda original para saber cuál es el file
+        let pago_original = self.pago_file_repository
             .find_by_id(request.id_pago_file)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Pago {} no encontrado", request.id_pago_file)))?;
+            
+        let id_file = pago_original.id_file;
+        let id_agencia = pago_original.id_agencia;
+
+        // 2. Obtener TODOS los pagos asociados a este file para calcular saldos reales
+        let all_pagos = self.pago_file_repository.find_all_by_file(id_file).await?;
         
-        // Validar que hay monto pendiente
-        let monto_pendiente = &pago.monto_total - &pago.monto_pagado;
-        if request.monto > monto_pendiente {
+        let monto_total = all_pagos.iter()
+            .find(|p| p.monto_pagado == BigDecimal::from_str("0").unwrap())
+            .map(|p| p.monto_total.clone())
+            .unwrap_or_else(|| BigDecimal::from_str("0").unwrap());
+            
+        let monto_pagado_actual = all_pagos.iter()
+            .map(|p| &p.monto_pagado)
+            .fold(BigDecimal::from_str("0").unwrap(), |acc, m| acc + m);
+
+        // 3. Validar que hay monto pendiente
+        let monto_pendiente = &monto_total - &monto_pagado_actual;
+        
+        if request.monto.clone() + BigDecimal::from_str("0.1").unwrap() > monto_pendiente {
             return Err(ApplicationError::Validation(
                 format!("El monto {} excede el pendiente {}", request.monto, monto_pendiente)
             ));
         }
+        let nuevo_total_pagado = &monto_pagado_actual + &request.monto;
+        let deuda_saldada = nuevo_total_pagado.clone() + BigDecimal::from_str("0.1").unwrap() >= monto_total;
         
-        // Calcular nuevo monto pagado y estado
-        let nuevo_monto_pagado = &pago.monto_pagado + &request.monto;
-        let nuevo_estado = if nuevo_monto_pagado >= pago.monto_total {
-            "pagado"
-        } else {
-            "parcial"
+        // 4. Crear NUEVO registro de pago
+        let nuevo_estado = if deuda_saldada { "pagado" } else { "parcial" };
+        let new_pago = NewPagoFileModel {
+            id_file,
+            id_agencia,
+            monto_total: monto_total.clone(),
+            monto_pagado: request.monto.clone(),
+            estado: nuevo_estado,
+            fecha_vencimiento: None,
+            notas: request.notas.as_deref(),
+            created_by,
         };
         
-        // Actualizar pago con comprobante si existe
-        let update = UpdatePagoFileModel {
-            monto_pagado: Some(nuevo_monto_pagado.clone()),
-            estado: Some(nuevo_estado),
+        // Crear el registro del pago
+        let pago_creado_model = self.pago_file_repository.create(new_pago).await?;
+        
+        // Actualizar comprobante en el pago recién creado
+        let update_pago = UpdatePagoFileModel {
             comprobante_url: comprobante_url.as_deref(),
             comprobante_key: comprobante_key.as_deref(),
-            notas: request.notas.as_deref(),
             ..Default::default()
         };
+        let pago_registrado = self.pago_file_repository.update(pago_creado_model.id, update_pago).await?;
         
-        let pago_actualizado = self.pago_file_repository
-            .update(request.id_pago_file, update)
-            .await?;
-        
-        info!("Pago de file {} registrado: {} -> {}", request.id_pago_file, pago.estado, nuevo_estado);
-        
-        // Obtener nombre de agencia para notificacion
-        let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(pago_actualizado.id_agencia).await {
+        info!("Nuevo pago registrado para file {}: S/ {}", id_file, request.monto);
+
+        // 5. Preparar respuesta y notificaciones
+        // Obtener nombre de agencia
+        let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(id_agencia).await {
             Some(agencia.nombre.clone())
         } else {
             None
         };
         
         // Notificar a los admins del pago registrado
-        let estado_texto = if nuevo_estado == "pagado" { "completo" } else { "parcial" };
-        let titulo_notif = if nuevo_estado == "pagado" {
+        let estado_texto = if deuda_saldada { "completo" } else { "parcial" };
+        let titulo_notif = if deuda_saldada {
             "Pago Completo Registrado"
         } else {
             "Pago Parcial Registrado"
@@ -222,15 +275,15 @@ impl ContabilidadService {
             vec![UserRole::SuperAdmin, UserRole::Admin],
             titulo_notif,
             &format!(
-                "Se ha registrado un pago {} para el file #{}.\nAgencia: {}\nMonto pagado: S/ {}\nMonto total: S/ {}\nPendiente: S/ {}",
+                "Se ha registrado un pago {} para el file #{}.\nAgencia: {}\nMonto pagado ahora: S/ {}\nMonto total deuda: S/ {}\nNuevo pendiente: S/ {}",
                 estado_texto,
-                pago.id_file,
+                id_file,
                 agencia_nombre.clone().unwrap_or_else(|| "Desconocida".to_string()),
                 request.monto,
-                pago.monto_total,
-                &pago.monto_total - &nuevo_monto_pagado
+                monto_total,
+                &monto_total - &nuevo_total_pagado
             ),
-            if nuevo_estado == "pagado" { NotificationType::Success } else { NotificationType::Info },
+            if deuda_saldada { NotificationType::Success } else { NotificationType::Info },
             NotificationCategory::Financial,
             NotificationPriority::High,
             created_by,
@@ -238,7 +291,7 @@ impl ContabilidadService {
             warn!("Error al enviar notificacion de pago registrado: {}", e);
         }
         
-        Ok(self.pago_file_to_response(pago_actualizado, agencia_nombre).await)
+        Ok(self.pago_file_to_response(pago_registrado, agencia_nombre).await)
     }
 
     /// Verificar pago de file (admin verifica)
@@ -254,31 +307,10 @@ impl ContabilidadService {
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Pago {} no encontrado", request.id_pago_file)))?;
         
-        if !request.aprobado {
-            // Si no se aprueba, volver a pendiente
-            let update = UpdatePagoFileModel {
-                estado: Some("pendiente"),
-                notas: request.notas.as_deref(),
-                ..Default::default()
-            };
-            
-            let pago_actualizado = self.pago_file_repository
-                .update(request.id_pago_file, update)
-                .await?;
-            
-            warn!("Pago de file {} rechazado por verificador {}", request.id_pago_file, verificado_por);
-            
-            let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(pago_actualizado.id_agencia).await {
-                Some(agencia.nombre)
-            } else {
-                None
-            };
-            
-            return Ok(self.pago_file_to_response(pago_actualizado, agencia_nombre).await);
-        }
+        let estado = if request.aprobado { "verificado" } else { "rechazado" };
         
-        // Verificar el pago
         let update = UpdatePagoFileModel {
+            estado: Some(estado),
             verificado_por: Some(verificado_por),
             verificado_at: Some(Utc::now()),
             notas: request.notas.as_deref(),
@@ -289,7 +321,11 @@ impl ContabilidadService {
             .update(request.id_pago_file, update)
             .await?;
         
-        info!("Pago de file {} verificado por {}", request.id_pago_file, verificado_por);
+        if request.aprobado {
+            info!("Pago de file {} verificado por {}", request.id_pago_file, verificado_por);
+        } else {
+            warn!("Pago de file {} rechazado por verificador {}", request.id_pago_file, verificado_por);
+        }
         
         let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(pago_actualizado.id_agencia).await {
             Some(agencia.nombre)
@@ -405,15 +441,24 @@ impl ContabilidadService {
     // ========================================================================
 
     async fn pago_file_to_response(&self, p: PagoFileModel, agencia_nombre: Option<String>) -> PagoFileResponse {
+        self.pago_file_to_response_with_calculated_pending(p, agencia_nombre, None).await
+    }
+
+    async fn pago_file_to_response_with_calculated_pending(
+        &self,
+        p: PagoFileModel,
+        agencia_nombre: Option<String>,
+        calculated_monto_pendiente: Option<BigDecimal>,
+    ) -> PagoFileResponse {
         // Obtener codigo del file
         let file_code = if let Ok(Some(file)) = self.file_repository.find_by_id(p.id_file).await {
             file.file_code
         } else {
             None
         };
-        
-        let monto_pendiente = &p.monto_total - &p.monto_pagado;
-        
+
+        let monto_pendiente = calculated_monto_pendiente.unwrap_or_else(|| &p.monto_total - &p.monto_pagado);
+
         PagoFileResponse {
             id: p.id,
             id_file: p.id_file,
