@@ -26,6 +26,8 @@ pub struct CancelacionResponse {
     /// Info del file (populated via JOIN)
     pub file_code: Option<String>,
     pub agencia_nombre: Option<String>,
+    /// ID del file_tour (solo para cancelaciones/no-shows a nivel de tour)
+    pub id_file_tour: Option<i32>,
 }
 
 /// Request para cancelar un file (cancelación normal, antes de 8PM)
@@ -44,6 +46,26 @@ pub struct CancelarFileRequest {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct RegistrarNoShowRequest {
     pub id_file: i32,
+    pub motivo: Option<String>,
+    pub notas: Option<String>,
+}
+
+/// Request para cancelar un file_tour individual (cancelación a nivel de tour)
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct CancelarFileTourRequest {
+    pub id_file_tour: i32,
+    pub motivo: Option<String>,
+    pub notas: Option<String>,
+}
+
+/// Request para registrar no-show en un file_tour individual
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct NoShowFileTourRequest {
+    pub id_file_tour: i32,
     pub motivo: Option<String>,
     pub notas: Option<String>,
 }
@@ -71,6 +93,8 @@ pub struct NoShowResponse {
     /// Info adicional
     pub file_code: Option<String>,
     pub agencia_nombre: Option<String>,
+    /// ID del file_tour (solo para no-shows a nivel de tour)
+    pub id_file_tour: Option<i32>,
 }
 
 // ==================== SALDO FAVOR DTOs ====================

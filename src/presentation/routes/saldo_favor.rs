@@ -12,9 +12,11 @@ pub fn saldo_favor_routes() -> Router<AppState> {
         .route("/dashboard/{id_agencia}", get(saldo_favor::get_dashboard))
         // Cancelaciones
         .route("/cancelar", post(saldo_favor::cancelar_file))
+        .route("/cancelar-tour", post(saldo_favor::cancelar_file_tour))
         .route("/cancelaciones", get(saldo_favor::list_cancelaciones))
         // No-shows
         .route("/no-show", post(saldo_favor::registrar_no_show))
+        .route("/no-show-tour", post(saldo_favor::registrar_no_show_file_tour))
         .route("/no-shows", get(saldo_favor::list_no_shows))
         // Movimientos
         .route("/usar", post(saldo_favor::usar_saldo))

@@ -14,8 +14,9 @@ use crate::application::dtos::{
     SaldoFavorResponse, SaldoFavorDashboard,
     MovimientoSaldoFavorResponse, NoShowResponse,
     UsarSaldoFavorRequest,
+    CancelarFileTourRequest, NoShowFileTourRequest,
 };
-use crate::application::ports::{FileRepositoryPort, PagoFileRepositoryPort};
+use crate::application::ports::{FileRepositoryPort, PagoFileRepositoryPort, FileTourRepositoryPort};
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::models::{
     NewCancelacionModel, NewMovimientoSaldoFavorModel, NewNoShowModel,
@@ -31,6 +32,7 @@ pub struct SaldoFavorService {
     saldo_repo: Arc<dyn SaldoFavorRepositoryPort>,
     file_repo: Arc<dyn FileRepositoryPort>,
     pago_file_repo: Arc<dyn PagoFileRepositoryPort>,
+    file_tour_repo: Arc<dyn FileTourRepositoryPort>,
 }
 
 impl SaldoFavorService {
@@ -38,8 +40,9 @@ impl SaldoFavorService {
         saldo_repo: Arc<dyn SaldoFavorRepositoryPort>,
         file_repo: Arc<dyn FileRepositoryPort>,
         pago_file_repo: Arc<dyn PagoFileRepositoryPort>,
+        file_tour_repo: Arc<dyn FileTourRepositoryPort>,
     ) -> Self {
-        Self { saldo_repo, file_repo, pago_file_repo }
+        Self { saldo_repo, file_repo, pago_file_repo, file_tour_repo }
     }
     
     /// Cancelación normal de un file (agencia cancela antes de 8:40 AM del día anterior)
@@ -114,6 +117,7 @@ impl SaldoFavorService {
             motivo: request.motivo,
             notas: request.notas,
             created_by: Some(user_id),
+            id_file_tour: None,
         }).await?;
         
         // 7. Actualizar el status del file a 'cancelado'
@@ -155,6 +159,7 @@ impl SaldoFavorService {
             created_by: cancelacion.created_by,
             file_code: file.file_code,
             agencia_nombre: None,
+            id_file_tour: None,
         })
     }
     
@@ -211,6 +216,7 @@ impl SaldoFavorService {
             motivo: request.motivo,
             notas: request.notas.clone(),
             created_by: Some(user_id),
+            id_file_tour: None,
         }).await?;
         
         // 7. Crear el registro de no_show con desglose
@@ -226,6 +232,7 @@ impl SaldoFavorService {
             hora_corte: Utc::now(),
             notas: request.notas,
             created_by: Some(user_id),
+            id_file_tour: None,
         }).await?;
         
         // 8. Actualizar el status del file a 'no_show'
@@ -268,6 +275,210 @@ impl SaldoFavorService {
             created_by: no_show.created_by,
             file_code: file.file_code,
             agencia_nombre: None,
+            id_file_tour: None,
+        })
+    }
+    
+    /// Cancelación de un file_tour individual (antes de 8:40 AM del día anterior al tour)
+    /// Saldo a favor = costo de entradas + restaurantes del tour cancelado (solo si file confirmado/asignado y tenía pagos)
+    #[instrument(skip(self))]
+    pub async fn cancelar_file_tour(&self, request: CancelarFileTourRequest, user_id: i32) -> Result<CancelacionResponse, ApplicationError> {
+        // 1. Obtener el file_tour
+        let file_tour = self.file_tour_repo.find_by_id(request.id_file_tour).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
+        
+        // 2. Obtener el file padre
+        let file = self.file_repo.find_by_id(file_tour.id_file).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_tour.id_file)))?;
+        
+        // 3. Verificar que el file_tour se puede cancelar
+        let allowed_statuses = ["pendiente", "reservado", "confirmado", "asignado"];
+        if !allowed_statuses.contains(&file_tour.status.as_str()) {
+            return Err(ApplicationError::Validation(
+                format!("No se puede cancelar un file_tour con status '{}'. Solo: pendiente, reservado, confirmado, asignado", file_tour.status)
+            ));
+        }
+        
+        // 4. Verificar que no haya cancelación previa para este tour
+        if self.saldo_repo.find_cancelacion_by_file_tour(request.id_file_tour).await?.is_some() {
+            return Err(ApplicationError::Validation("Este file_tour ya tiene una cancelación registrada".to_string()));
+        }
+        
+        // 5. Verificar tiempo límite (8:40 AM del día anterior al tour)
+        let tour_costs = self.saldo_repo.calculate_file_tour_costs(request.id_file_tour).await?;
+        let fecha_tour = tour_costs.fecha_inicio_min
+            .or(file_tour.fecha_tour)
+            .unwrap_or(file.fecha_inicio);
+        
+        let now = Utc::now();
+        let limite = fecha_tour
+            .pred_opt().unwrap_or(fecha_tour)
+            .and_time(NaiveTime::from_hms_opt(HORA_LIMITE_HORA, HORA_LIMITE_MIN, 0).unwrap())
+            .and_utc();
+        
+        if now >= limite {
+            return Err(ApplicationError::Validation(
+                format!("La hora límite para cancelar este tour era las {}:{:02} del día anterior ({}). Para registrar un no-show, contacte al administrador.",
+                    HORA_LIMITE_HORA, HORA_LIMITE_MIN, fecha_tour.pred_opt().unwrap_or(fecha_tour))
+            ));
+        }
+        
+        // 6. Calcular montos del tour (entradas + restaurantes)
+        let monto_tour = &tour_costs.monto_entradas + &tour_costs.monto_restaurantes;
+        
+        // Usar monto_pagado del pago_file del file padre
+        let monto_pagado = if let Ok(Some(pago)) = self.pago_file_repo.find_by_file(file_tour.id_file).await {
+            pago.monto_pagado.clone()
+        } else {
+            BigDecimal::from_f64(file.monto_pagado.to_f64().unwrap_or(0.0)).unwrap_or_default()
+        };
+        
+        // 7. Saldo a favor: costo del tour cancelado SI file estaba confirmado/asignado y tenía pagos
+        let genera_saldo = (file.status == "confirmado" || file.status == "asignado")
+            && monto_pagado > BigDecimal::from(0);
+        
+        let monto_saldo_favor = if genera_saldo { monto_tour.clone() } else { BigDecimal::from(0) };
+        let monto_operador = &monto_tour - &monto_saldo_favor;
+        
+        // 8. Crear cancelación con id_file_tour
+        let cancelacion = self.saldo_repo.create_cancelacion(NewCancelacionModel {
+            id_file: file_tour.id_file,
+            id_agencia: file.id_agencia,
+            monto_total_file: monto_tour.clone(),
+            monto_pagado: monto_pagado.clone(),
+            monto_saldo_favor: monto_saldo_favor.clone(),
+            monto_operador: monto_operador.clone(),
+            tipo_cancelacion: "cancelacion_tour".to_string(),
+            motivo: request.motivo,
+            notas: request.notas,
+            created_by: Some(user_id),
+            id_file_tour: Some(request.id_file_tour),
+        }).await?;
+        
+        // 9. Cascadear status al file_tour y sub-relaciones
+        self.saldo_repo.cascade_file_tour_status(request.id_file_tour, "cancelado").await?;
+        
+        // 10. Si hay saldo a favor, registrar ingreso
+        if monto_saldo_favor > BigDecimal::from(0) {
+            self.registrar_ingreso_saldo(file.id_agencia, &monto_saldo_favor, cancelacion.id, &file, user_id).await?;
+        }
+        
+        info!("FileTour {} cancelado. Saldo a favor: {}", request.id_file_tour, monto_saldo_favor);
+        
+        Ok(CancelacionResponse {
+            id: cancelacion.id,
+            id_file: cancelacion.id_file,
+            id_agencia: cancelacion.id_agencia,
+            monto_total_file: cancelacion.monto_total_file.to_f64().unwrap_or(0.0),
+            monto_pagado: cancelacion.monto_pagado.to_f64().unwrap_or(0.0),
+            monto_saldo_favor: cancelacion.monto_saldo_favor.to_f64().unwrap_or(0.0),
+            monto_operador: cancelacion.monto_operador.to_f64().unwrap_or(0.0),
+            tipo_cancelacion: cancelacion.tipo_cancelacion,
+            motivo: cancelacion.motivo,
+            notas: cancelacion.notas,
+            created_at: cancelacion.created_at,
+            created_by: cancelacion.created_by,
+            file_code: file.file_code,
+            agencia_nombre: None,
+            id_file_tour: cancelacion.id_file_tour,
+        })
+    }
+    
+    /// Registrar no-show de un file_tour individual
+    /// Todo queda como no_show. El admin puede mover montos a saldo a favor manualmente.
+    #[instrument(skip(self))]
+    pub async fn registrar_no_show_file_tour(&self, request: NoShowFileTourRequest, user_id: i32) -> Result<NoShowResponse, ApplicationError> {
+        // 1. Obtener el file_tour
+        let file_tour = self.file_tour_repo.find_by_id(request.id_file_tour).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
+        
+        // 2. Obtener el file padre
+        let file = self.file_repo.find_by_id(file_tour.id_file).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_tour.id_file)))?;
+        
+        // 3. Verificar que se puede registrar no-show
+        if file_tour.status == "cancelado" || file_tour.status == "anulado" || file_tour.status == "no_show" {
+            return Err(ApplicationError::Validation("El file_tour ya esta cancelado, anulado o marcado como no-show".to_string()));
+        }
+        
+        // 4. Verificar que no haya cancelación previa para este tour
+        if self.saldo_repo.find_cancelacion_by_file_tour(request.id_file_tour).await?.is_some() {
+            return Err(ApplicationError::Validation("Este file_tour ya tiene una cancelación/no-show registrado".to_string()));
+        }
+        
+        // 5. Calcular costos del tour
+        let tour_costs = self.saldo_repo.calculate_file_tour_costs(request.id_file_tour).await?;
+        let fecha_tour = tour_costs.fecha_inicio_min
+            .or(file_tour.fecha_tour)
+            .unwrap_or(file.fecha_inicio);
+        
+        let monto_tour = &tour_costs.monto_entradas + &tour_costs.monto_restaurantes;
+        
+        // Monto pagado del file padre
+        let monto_pagado = if let Ok(Some(pago)) = self.pago_file_repo.find_by_file(file_tour.id_file).await {
+            pago.monto_pagado.clone()
+        } else {
+            BigDecimal::from_f64(file.monto_pagado.to_f64().unwrap_or(0.0)).unwrap_or_default()
+        };
+        
+        // 6. No-show: sin saldo a favor automático
+        let monto_saldo_favor = BigDecimal::from(0);
+        let monto_operador = monto_tour.clone();
+        
+        // 7. Crear cancelación (tipo no_show_tour)
+        let cancelacion = self.saldo_repo.create_cancelacion(NewCancelacionModel {
+            id_file: file_tour.id_file,
+            id_agencia: file.id_agencia,
+            monto_total_file: monto_tour.clone(),
+            monto_pagado: monto_pagado.clone(),
+            monto_saldo_favor: monto_saldo_favor.clone(),
+            monto_operador: monto_operador.clone(),
+            tipo_cancelacion: "no_show_tour".to_string(),
+            motivo: request.motivo,
+            notas: request.notas.clone(),
+            created_by: Some(user_id),
+            id_file_tour: Some(request.id_file_tour),
+        }).await?;
+        
+        // 8. Crear registro de no_show con desglose
+        let no_show = self.saldo_repo.create_no_show(NewNoShowModel {
+            id_cancelacion: cancelacion.id,
+            id_file: file_tour.id_file,
+            id_agencia: file.id_agencia,
+            monto_restaurantes: tour_costs.monto_restaurantes.clone(),
+            monto_entradas: tour_costs.monto_entradas.clone(),
+            monto_saldo_favor: monto_saldo_favor.clone(),
+            monto_operador: monto_operador.clone(),
+            fecha_inicio_file: fecha_tour,
+            hora_corte: Utc::now(),
+            notas: request.notas,
+            created_by: Some(user_id),
+            id_file_tour: Some(request.id_file_tour),
+        }).await?;
+        
+        // 9. Cascadear status al file_tour y sub-relaciones
+        self.saldo_repo.cascade_file_tour_status(request.id_file_tour, "no_show").await?;
+        
+        info!("FileTour {} registrado como no-show. Monto tour: {}", 
+            request.id_file_tour, monto_tour.to_f64().unwrap_or(0.0));
+        
+        Ok(NoShowResponse {
+            id: no_show.id,
+            id_cancelacion: no_show.id_cancelacion,
+            id_file: no_show.id_file,
+            id_agencia: no_show.id_agencia,
+            monto_restaurantes: no_show.monto_restaurantes.to_f64().unwrap_or(0.0),
+            monto_entradas: no_show.monto_entradas.to_f64().unwrap_or(0.0),
+            monto_saldo_favor: no_show.monto_saldo_favor.to_f64().unwrap_or(0.0),
+            monto_operador: no_show.monto_operador.to_f64().unwrap_or(0.0),
+            fecha_inicio_file: no_show.fecha_inicio_file,
+            hora_corte: no_show.hora_corte,
+            notas: no_show.notas,
+            created_at: no_show.created_at,
+            created_by: no_show.created_by,
+            file_code: file.file_code,
+            agencia_nombre: None,
+            id_file_tour: no_show.id_file_tour,
         })
     }
     

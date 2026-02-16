@@ -178,6 +178,7 @@ impl Services {
             Arc::new(PostgresSaldoFavorRepository::new(db_pool.clone())),
             repos.file.clone(),
             repos.pago_file.clone(),
+            repos.file_tour.clone(),
         ));
 
         Self {

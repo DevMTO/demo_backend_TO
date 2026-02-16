@@ -23,6 +23,7 @@ pub struct CancelacionModel {
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
+    pub id_file_tour: Option<i32>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -38,6 +39,7 @@ pub struct NewCancelacionModel {
     pub motivo: Option<String>,
     pub notas: Option<String>,
     pub created_by: Option<i32>,
+    pub id_file_tour: Option<i32>,
 }
 
 // ==================== NO SHOW ====================
@@ -59,6 +61,7 @@ pub struct NoShowModel {
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
+    pub id_file_tour: Option<i32>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -75,6 +78,7 @@ pub struct NewNoShowModel {
     pub hora_corte: DateTime<Utc>,
     pub notas: Option<String>,
     pub created_by: Option<i32>,
+    pub id_file_tour: Option<i32>,
 }
 
 // ==================== SALDO FAVOR ====================

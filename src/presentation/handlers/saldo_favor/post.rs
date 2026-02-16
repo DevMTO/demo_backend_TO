@@ -7,7 +7,7 @@ use axum::{
 };
 use tracing::instrument;
 
-use crate::application::dtos::{CancelarFileRequest, UsarSaldoFavorRequest, RegistrarNoShowRequest, CancelacionResponse, MovimientoSaldoFavorResponse, NoShowResponse};
+use crate::application::dtos::{CancelarFileRequest, UsarSaldoFavorRequest, RegistrarNoShowRequest, CancelacionResponse, MovimientoSaldoFavorResponse, NoShowResponse, CancelarFileTourRequest, NoShowFileTourRequest};
 use crate::domain::entities::UserRole;
 use crate::domain::errors::ApplicationError;
 use crate::presentation::extractors::AuthUser;
@@ -103,6 +103,55 @@ pub async fn registrar_no_show(
 
     let no_show: NoShowResponse = state.container.saldo_favor_service
         .registrar_no_show(request, auth.user.id)
+        .await?;
+    Ok(json_created(no_show))
+}
+
+// ============================================================================
+// CANCELAR FILE TOUR (individual tour dentro de un file)
+// ============================================================================
+
+/// POST /api/v1/saldos-favor/cancelar-tour
+/// Cancela un file_tour individual y genera saldo a favor por las entradas/restaurantes del tour
+#[instrument(skip(state, auth))]
+pub async fn cancelar_file_tour(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(request): Json<CancelarFileTourRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    if !has_saldo_favor_access(&auth.user.role) {
+        return Err(ApplicationError::Forbidden(
+            "No tienes permiso para cancelar tours".to_string(),
+        ));
+    }
+
+    let cancelacion: CancelacionResponse = state.container.saldo_favor_service
+        .cancelar_file_tour(request, auth.user.id)
+        .await?;
+    Ok(json_created(cancelacion))
+}
+
+// ============================================================================
+// REGISTRAR NO-SHOW FILE TOUR (Solo admin, tour individual)
+// ============================================================================
+
+/// POST /api/v1/saldos-favor/no-show-tour
+/// Registra un no-show para un file_tour individual (solo admin)
+#[instrument(skip(state, auth))]
+pub async fn registrar_no_show_file_tour(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(request): Json<NoShowFileTourRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    // Solo SuperAdmin y Admin pueden registrar no-shows
+    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin) {
+        return Err(ApplicationError::Forbidden(
+            "Solo los administradores pueden registrar no-shows de tours".to_string(),
+        ));
+    }
+
+    let no_show: NoShowResponse = state.container.saldo_favor_service
+        .registrar_no_show_file_tour(request, auth.user.id)
         .await?;
     Ok(json_created(no_show))
 }

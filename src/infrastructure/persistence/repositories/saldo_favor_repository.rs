@@ -54,6 +54,15 @@ pub trait SaldoFavorRepositoryPort: Send + Sync {
     
     /// Cascadea un cambio de status a todos los file_tours y sus sub-relaciones (entradas, restaurantes, guías, vehículos)
     async fn cascade_file_status(&self, id_file: i32, new_status: &str) -> Result<(), ApplicationError>;
+    
+    /// Cascadea un cambio de status a un file_tour específico y sus sub-relaciones
+    async fn cascade_file_tour_status(&self, id_file_tour: i32, new_status: &str) -> Result<(), ApplicationError>;
+    
+    /// Calcula costos de restaurantes y entradas de un file_tour específico
+    async fn calculate_file_tour_costs(&self, id_file_tour: i32) -> Result<FileCosts, ApplicationError>;
+    
+    /// Busca cancelación por file_tour específico
+    async fn find_cancelacion_by_file_tour(&self, id_file_tour: i32) -> Result<Option<CancelacionModel>, ApplicationError>;
 }
 
 // ==================== IMPLEMENTATION ====================
@@ -129,7 +138,8 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
                 c.monto_total_file, c.monto_pagado, c.monto_saldo_favor, c.monto_operador,
                 c.tipo_cancelacion, c.motivo, c.notas,
                 c.created_at, c.created_by,
-                f.file_code, a.nombre as agencia_nombre
+                f.file_code, a.nombre as agencia_nombre,
+                c.id_file_tour
             FROM cancelaciones c
             INNER JOIN files f ON f.id = c.id_file
             INNER JOIN agencias a ON a.id = c.id_agencia
@@ -154,6 +164,7 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
             #[diesel(sql_type = Nullable<Integer>)] created_by: Option<i32>,
             #[diesel(sql_type = Nullable<Text>)] file_code: Option<String>,
             #[diesel(sql_type = Text)] agencia_nombre: String,
+            #[diesel(sql_type = Nullable<Integer>)] id_file_tour: Option<i32>,
         }
         
         let rows: Vec<Row> = diesel::sql_query(sql)
@@ -178,6 +189,7 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
                 created_by: r.created_by,
                 file_code: r.file_code,
                 agencia_nombre: Some(r.agencia_nombre),
+                id_file_tour: r.id_file_tour,
             }
         }).collect())
     }
@@ -241,7 +253,8 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
                 ns.monto_restaurantes, ns.monto_entradas, ns.monto_saldo_favor, ns.monto_operador,
                 ns.fecha_inicio_file, ns.hora_corte, ns.notas,
                 ns.created_at, ns.created_by,
-                f.file_code, a.nombre as agencia_nombre
+                f.file_code, a.nombre as agencia_nombre,
+                ns.id_file_tour
             FROM no_shows ns
             INNER JOIN files f ON f.id = ns.id_file
             INNER JOIN agencias a ON a.id = ns.id_agencia
@@ -267,6 +280,7 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
             #[diesel(sql_type = Nullable<Integer>)] created_by: Option<i32>,
             #[diesel(sql_type = Nullable<Text>)] file_code: Option<String>,
             #[diesel(sql_type = Text)] agencia_nombre: String,
+            #[diesel(sql_type = Nullable<Integer>)] id_file_tour: Option<i32>,
         }
         
         let rows: Vec<Row> = diesel::sql_query(sql)
@@ -292,6 +306,7 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
                 created_by: r.created_by,
                 file_code: r.file_code,
                 agencia_nombre: Some(r.agencia_nombre),
+                id_file_tour: r.id_file_tour,
             }
         }).collect())
     }
@@ -575,5 +590,147 @@ impl SaldoFavorRepositoryPort for PostgresSaldoFavorRepository {
         
         info!("Cascada de status '{}' completada para file {}", new_status, id_file);
         Ok(())
+    }
+    
+    /// Cascadea un cambio de status a un file_tour específico y sus sub-relaciones
+    #[instrument(skip(self))]
+    async fn cascade_file_tour_status(&self, id_file_tour: i32, new_status: &str) -> Result<(), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        // 1. Actualizar el file_tour específico
+        let sql_tour = format!(
+            "UPDATE file_tours SET status = '{}' WHERE id = {} AND status NOT IN ('completado', 'anulado')",
+            new_status, id_file_tour
+        );
+        diesel::sql_query(sql_tour)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error cascada file_tour: {}", e)))?;
+        
+        // 2. Actualizar file_entradas del file_tour
+        let sql_entradas = format!(
+            "UPDATE file_entradas SET status = '{}' WHERE id_file_tour = {} AND status NOT IN ('completado', 'anulado')",
+            new_status, id_file_tour
+        );
+        diesel::sql_query(sql_entradas)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error cascada file_entradas del tour: {}", e)))?;
+        
+        // 3. Actualizar file_restaurantes del file_tour
+        let sql_rest = format!(
+            "UPDATE file_restaurantes SET status = '{}' WHERE id_file_tour = {} AND status NOT IN ('completado', 'anulado')",
+            new_status, id_file_tour
+        );
+        diesel::sql_query(sql_rest)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error cascada file_restaurantes del tour: {}", e)))?;
+        
+        // 4. Actualizar file_guias del file_tour
+        let sql_guias = format!(
+            "UPDATE file_guias SET status = '{}' WHERE id_file_tour = {} AND status NOT IN ('completado', 'anulado')",
+            new_status, id_file_tour
+        );
+        diesel::sql_query(sql_guias)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error cascada file_guias del tour: {}", e)))?;
+        
+        // 5. Actualizar file_vehiculos del file_tour
+        let sql_vehi = format!(
+            "UPDATE file_vehiculos SET status = '{}' WHERE id_file_tour = {} AND status NOT IN ('completado', 'anulado')",
+            new_status, id_file_tour
+        );
+        diesel::sql_query(sql_vehi)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error cascada file_vehiculos del tour: {}", e)))?;
+        
+        info!("Cascada de status '{}' completada para file_tour {}", new_status, id_file_tour);
+        Ok(())
+    }
+    
+    /// Calcula costos de restaurantes y entradas de un file_tour específico
+    #[instrument(skip(self))]
+    async fn calculate_file_tour_costs(&self, id_file_tour: i32) -> Result<FileCosts, ApplicationError> {
+        use diesel::sql_types::{Numeric, Nullable, Date};
+        
+        let mut conn = self.pool.get_connection().await?;
+        
+        // Costo de restaurantes del file_tour
+        #[derive(QueryableByName)]
+        struct RestRow {
+            #[diesel(sql_type = Numeric)]
+            total: BigDecimal,
+        }
+        
+        let rest_sql = format!(r#"
+            SELECT COALESCE(SUM(fr.precio), 0) as total
+            FROM file_restaurantes fr
+            WHERE fr.id_file_tour = {} AND fr.status != 'anulado'
+        "#, id_file_tour);
+        
+        let rest_row: RestRow = diesel::sql_query(rest_sql)
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error calculando costos restaurantes del tour: {}", e)))?;
+        
+        // Costo de entradas del file_tour (cantidad × precio)
+        #[derive(QueryableByName)]
+        struct EntRow {
+            #[diesel(sql_type = Numeric)]
+            total: BigDecimal,
+        }
+        
+        let ent_sql = format!(r#"
+            SELECT COALESCE(SUM(fe.cantidad * ep.precio), 0) as total
+            FROM file_entradas fe
+            INNER JOIN entrada_precios ep ON ep.id = fe.id_entrada_precio
+            WHERE fe.id_file_tour = {} AND fe.status != 'anulado'
+        "#, id_file_tour);
+        
+        let ent_row: EntRow = diesel::sql_query(ent_sql)
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error calculando costos entradas del tour: {}", e)))?;
+        
+        // Fecha del file_tour
+        #[derive(QueryableByName)]
+        struct FechaRow {
+            #[diesel(sql_type = Nullable<Date>)]
+            fecha_min: Option<NaiveDate>,
+        }
+        
+        let fecha_sql = format!(r#"
+            SELECT fecha_tour as fecha_min
+            FROM file_tours
+            WHERE id = {}
+        "#, id_file_tour);
+        
+        let fecha_row: FechaRow = diesel::sql_query(fecha_sql)
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error obteniendo fecha del tour: {}", e)))?;
+        
+        Ok(FileCosts {
+            monto_restaurantes: rest_row.total,
+            monto_entradas: ent_row.total,
+            fecha_inicio_min: fecha_row.fecha_min,
+        })
+    }
+    
+    /// Busca cancelación por file_tour específico
+    #[instrument(skip(self))]
+    async fn find_cancelacion_by_file_tour(&self, id_file_tour: i32) -> Result<Option<CancelacionModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        cancelaciones::table
+            .filter(cancelaciones::id_file_tour.eq(id_file_tour))
+            .select(CancelacionModel::as_select())
+            .first(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
 }
