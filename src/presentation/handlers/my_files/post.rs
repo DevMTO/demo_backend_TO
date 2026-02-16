@@ -43,9 +43,7 @@ pub async fn confirmar_asignacion_guia(
         })?;
 
     if let Err(e) = state
-        .container
-        .notification_service
-        .notify_roles(
+        .notify_roles_with_broadcast(
             vec![UserRole::SuperAdmin, UserRole::Admin],
             "Asignación confirmada",
             &format!(
@@ -96,9 +94,7 @@ pub async fn confirmar_asignacion_conductor(
         })?;
 
     if let Err(e) = state
-        .container
-        .notification_service
-        .notify_roles(
+        .notify_roles_with_broadcast(
             vec![UserRole::SuperAdmin, UserRole::Admin],
             "Asignación confirmada",
             &format!(
