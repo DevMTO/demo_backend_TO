@@ -11,7 +11,7 @@ pub struct PagosFilesQueryParams {
     pub fecha_hasta: Option<String>,
     #[serde(default = "default_page")]
     pub page: i64,
-    #[serde(default = "default_page_size")]
+    #[serde(default = "default_page_size", alias = "per_page")]
     pub page_size: i64,
 }
 
@@ -24,7 +24,7 @@ pub struct PagosProveedoresQueryParams {
     pub fecha_hasta: Option<String>,
     #[serde(default = "default_page")]
     pub page: i64,
-    #[serde(default = "default_page_size")]
+    #[serde(default = "default_page_size", alias = "per_page")]
     pub page_size: i64,
 }
 

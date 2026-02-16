@@ -110,6 +110,7 @@ pub struct NewPagoProveedorModel<'a> {
 #[derive(Debug, AsChangeset, Default)]
 #[diesel(table_name = pagos_proveedores)]
 pub struct UpdatePagoProveedorModel<'a> {
+    pub monto: Option<BigDecimal>,
     pub estado: Option<&'a str>,
     pub fecha_pago: Option<DateTime<Utc>>,
     pub comprobante_url: Option<&'a str>,

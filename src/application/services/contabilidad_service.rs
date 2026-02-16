@@ -20,6 +20,9 @@ use crate::application::dtos::contabilidad_dto::{
 use crate::application::ports::{
     PagoFileRepositoryPort, PagoProveedorRepositoryPort,
     AgenciaRepositoryPort, FileRepositoryPort, NotificationServicePort,
+    FileTourRepositoryPort, TourRepositoryPort,
+    TransporteRepositoryPort, RestauranteRepositoryPort, GuiaRepositoryPort,
+    UserRepositoryPort, PersonaRepositoryPort,
 };
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::{
@@ -42,6 +45,13 @@ pub struct ContabilidadService {
     agencia_repository: Arc<dyn AgenciaRepositoryPort>,
     file_repository: Arc<dyn FileRepositoryPort>,
     notification_service: Arc<dyn NotificationServicePort>,
+    file_tour_repository: Arc<dyn FileTourRepositoryPort>,
+    tour_repository: Arc<dyn TourRepositoryPort>,
+    transporte_repository: Arc<dyn TransporteRepositoryPort>,
+    restaurante_repository: Arc<dyn RestauranteRepositoryPort>,
+    guia_repository: Arc<dyn GuiaRepositoryPort>,
+    user_repository: Arc<dyn UserRepositoryPort>,
+    persona_repository: Arc<dyn PersonaRepositoryPort>,
 }
 
 impl ContabilidadService {
@@ -51,6 +61,13 @@ impl ContabilidadService {
         agencia_repository: Arc<dyn AgenciaRepositoryPort>,
         file_repository: Arc<dyn FileRepositoryPort>,
         notification_service: Arc<dyn NotificationServicePort>,
+        file_tour_repository: Arc<dyn FileTourRepositoryPort>,
+        tour_repository: Arc<dyn TourRepositoryPort>,
+        transporte_repository: Arc<dyn TransporteRepositoryPort>,
+        restaurante_repository: Arc<dyn RestauranteRepositoryPort>,
+        guia_repository: Arc<dyn GuiaRepositoryPort>,
+        user_repository: Arc<dyn UserRepositoryPort>,
+        persona_repository: Arc<dyn PersonaRepositoryPort>,
     ) -> Self {
         Self {
             pago_file_repository,
@@ -58,6 +75,13 @@ impl ContabilidadService {
             agencia_repository,
             file_repository,
             notification_service,
+            file_tour_repository,
+            tour_repository,
+            transporte_repository,
+            restaurante_repository,
+            guia_repository,
+            user_repository,
+            persona_repository,
         }
     }
 
@@ -79,28 +103,75 @@ impl ContabilidadService {
             .find_by_agencia(id_agencia, 1000, 0)
             .await?;
         
-        // Excluir pagos de files cancelados y no_show de los totales
+        // Excluir pagos de files cancelados y no_show
         let pagos: Vec<_> = all_pagos.into_iter()
             .filter(|p| p.estado != "cancelado" && p.estado != "no_show")
             .collect();
         
-        // Calcular totales (solo files activos)
-        let total_files = pagos.len() as i32;
-        let monto_total_files = pagos.iter()
-            .map(|p| &p.monto_total)
-            .fold(BigDecimal::from_str("0").unwrap(), |acc, m| acc + m);
-        let monto_pagado = pagos.iter()
-            .map(|p| &p.monto_pagado)
-            .fold(BigDecimal::from_str("0").unwrap(), |acc, m| acc + m);
-        let monto_pendiente = &monto_total_files - &monto_pagado;
+        // Agrupar por id_file para calcular totales correctos
+        let mut file_groups: std::collections::HashMap<i32, Vec<PagoFileModel>> = std::collections::HashMap::new();
+        for p in pagos {
+            file_groups.entry(p.id_file).or_default().push(p);
+        }
         
-        // Separar files pendientes y ultimos pagos
+        let zero = BigDecimal::from_str("0").unwrap();
+        let mut global_monto_total = zero.clone();
+        let mut global_monto_pagado = zero.clone();
         let mut files_pendientes: Vec<PagoFileResponse> = Vec::new();
         let mut ultimos_pagos: Vec<PagoFileResponse> = Vec::new();
         
-        for pago in pagos {
-            let response = self.pago_file_to_response(pago.clone(), Some(agencia.nombre.clone())).await;
-            if pago.estado == "pendiente" || pago.estado == "parcial" || pago.estado == "vencido" {
+        for (_id_file, file_pagos) in &file_groups {
+            // monto_total: del registro original (deuda, monto_pagado=0)
+            let monto_total = file_pagos.iter()
+                .find(|p| p.monto_pagado == zero)
+                .map(|p| p.monto_total.clone())
+                .unwrap_or_else(|| file_pagos[0].monto_total.clone());
+            
+            // monto_pagado: suma de todos los montos pagados
+            let monto_pagado_file = file_pagos.iter()
+                .map(|p| &p.monto_pagado)
+                .fold(zero.clone(), |acc, m| acc + m);
+            
+            let monto_pendiente_file = &monto_total - &monto_pagado_file;
+            
+            global_monto_total += &monto_total;
+            global_monto_pagado += &monto_pagado_file;
+            
+            // Usar el registro original (deuda) como base
+            let base = file_pagos.iter()
+                .find(|p| p.monto_pagado == zero)
+                .cloned()
+                .unwrap_or_else(|| file_pagos[0].clone());
+            
+            // Determinar estado global del file
+            let tolerancia = BigDecimal::from_str("0.01").unwrap();
+            let is_fully_paid = monto_pendiente_file <= tolerancia;
+            let has_partial = monto_pagado_file > zero;
+            let has_verified = file_pagos.iter().any(|p| p.estado == "verificado");
+            
+            let overall_estado = if has_verified {
+                "verificado"
+            } else if is_fully_paid {
+                "pagado"
+            } else if has_partial {
+                "parcial"
+            } else {
+                "pendiente"
+            };
+            
+            // Construir modelo con valores agregados
+            let mut aggregated = base.clone();
+            aggregated.monto_total = monto_total;
+            aggregated.monto_pagado = monto_pagado_file.clone();
+            aggregated.estado = overall_estado.to_string();
+            
+            let response = self.pago_file_to_response_with_calculated_pending(
+                aggregated,
+                Some(agencia.nombre.clone()),
+                Some(monto_pendiente_file.clone()),
+            ).await;
+            
+            if overall_estado == "pendiente" || overall_estado == "parcial" || overall_estado == "vencido" {
                 files_pendientes.push(response);
             } else {
                 if ultimos_pagos.len() < 10 {
@@ -109,12 +180,14 @@ impl ContabilidadService {
             }
         }
         
+        let monto_pendiente = &global_monto_total - &global_monto_pagado;
+        
         Ok(AgenciaContabilidadDashboard {
             id_agencia,
             nombre_agencia: agencia.nombre,
-            total_files,
-            monto_total_files,
-            monto_pagado,
+            total_files: file_groups.len() as i32,
+            monto_total_files: global_monto_total,
+            monto_pagado: global_monto_pagado,
             monto_pendiente,
             files_pendientes,
             ultimos_pagos,
@@ -156,7 +229,7 @@ impl ContabilidadService {
                 let monto_total = all_pagos.iter()
                     .find(|p| p.monto_pagado == BigDecimal::from_str("0").unwrap())
                     .map(|p| p.monto_total.clone())
-                    .unwrap_or_else(|| BigDecimal::from_str("0").unwrap());
+                    .unwrap_or_else(|| all_pagos.first().map(|p| p.monto_total.clone()).unwrap_or_else(|| BigDecimal::from_str("0").unwrap()));
 
                 let monto_pagado_total = all_pagos.iter()
                     .map(|p| &p.monto_pagado)
@@ -212,22 +285,23 @@ impl ContabilidadService {
         let monto_total = all_pagos.iter()
             .find(|p| p.monto_pagado == BigDecimal::from_str("0").unwrap())
             .map(|p| p.monto_total.clone())
-            .unwrap_or_else(|| BigDecimal::from_str("0").unwrap());
+            .unwrap_or_else(|| all_pagos.first().map(|p| p.monto_total.clone()).unwrap_or_else(|| BigDecimal::from_str("0").unwrap()));
             
         let monto_pagado_actual = all_pagos.iter()
             .map(|p| &p.monto_pagado)
             .fold(BigDecimal::from_str("0").unwrap(), |acc, m| acc + m);
 
-        // 3. Validar que hay monto pendiente
+        // 3. Validar que hay monto pendiente (tolerancia de 0.01 por redondeos)
         let monto_pendiente = &monto_total - &monto_pagado_actual;
+        let tolerancia = BigDecimal::from_str("0.01").unwrap();
         
-        if request.monto.clone() + BigDecimal::from_str("0.1").unwrap() > monto_pendiente {
+        if request.monto > &monto_pendiente + &tolerancia {
             return Err(ApplicationError::Validation(
                 format!("El monto {} excede el pendiente {}", request.monto, monto_pendiente)
             ));
         }
         let nuevo_total_pagado = &monto_pagado_actual + &request.monto;
-        let deuda_saldada = nuevo_total_pagado.clone() + BigDecimal::from_str("0.1").unwrap() >= monto_total;
+        let deuda_saldada = nuevo_total_pagado >= monto_total.clone() - &tolerancia;
         
         // 4. Crear NUEVO registro de pago
         let nuevo_estado = if deuda_saldada { "pagado" } else { "parcial" };
@@ -359,9 +433,10 @@ impl ContabilidadService {
             .count_filtered(tipo_proveedor, estado, fecha_desde, fecha_hasta)
             .await?;
         
-        let responses: Vec<PagoProveedorResponse> = pagos.into_iter()
-            .map(|p| self.pago_proveedor_to_response(p))
-            .collect();
+        let mut responses: Vec<PagoProveedorResponse> = Vec::new();
+        for p in pagos {
+            responses.push(self.pago_proveedor_to_response(p).await);
+        }
         
         Ok((responses, total))
     }
@@ -394,7 +469,7 @@ impl ContabilidadService {
         
         info!("Pago a proveedor creado: {} - {} ({})", pago.id, pago.tipo_proveedor, pago.monto);
         
-        Ok(self.pago_proveedor_to_response(pago))
+        Ok(self.pago_proveedor_to_response(pago).await)
     }
 
     /// Auto-crear pago a proveedor al asignar un servicio (monto=0, estado=pendiente)
@@ -420,7 +495,7 @@ impl ContabilidadService {
         
         if let Some(existing) = existing {
             info!("Pago a proveedor ya existe para esta relación: {} (tipo: {})", existing.id, tipo_proveedor);
-            return Ok(self.pago_proveedor_to_response(existing));
+            return Ok(self.pago_proveedor_to_response(existing).await);
         }
         
         let new_pago = NewPagoProveedorModel {
@@ -444,7 +519,7 @@ impl ContabilidadService {
         
         info!("Pago a proveedor auto-creado al asignar servicio: {} - {} (monto=0)", pago.id, pago.tipo_proveedor);
         
-        Ok(self.pago_proveedor_to_response(pago))
+        Ok(self.pago_proveedor_to_response(pago).await)
     }
 
     /// Marcar pago a proveedor como pagado
@@ -469,6 +544,7 @@ impl ContabilidadService {
         let comprobante_key: Option<&str> = None;
         
         let update = UpdatePagoProveedorModel {
+            monto: request.monto.clone(),
             estado: Some("pagado"),
             fecha_pago: Some(Utc::now()),
             comprobante_url,
@@ -483,7 +559,7 @@ impl ContabilidadService {
         
         info!("Pago a proveedor {} marcado como pagado por {}", id_pago_proveedor, pagado_by);
         
-        Ok(self.pago_proveedor_to_response(pago_actualizado))
+        Ok(self.pago_proveedor_to_response(pago_actualizado).await)
     }
 
     // ========================================================================
@@ -529,29 +605,82 @@ impl ContabilidadService {
         }
     }
 
-    fn pago_proveedor_to_response(&self, p: PagoProveedorModel) -> PagoProveedorResponse {
+    async fn pago_proveedor_to_response(&self, p: PagoProveedorModel) -> PagoProveedorResponse {
         let proveedor_id = match p.tipo_proveedor.as_str() {
             "transporte" => p.id_transporte.unwrap_or(0),
             "restaurante" => p.id_restaurante.unwrap_or(0),
             "guia" => p.id_guia.unwrap_or(0),
             _ => 0,
         };
-        
+
+        // Obtener nombre del proveedor
+        let proveedor_nombre = match p.tipo_proveedor.as_str() {
+            "transporte" => {
+                if let Some(id) = p.id_transporte {
+                    self.transporte_repository.find_by_id(id).await.ok().flatten().map(|t| t.nombre)
+                } else { None }
+            },
+            "restaurante" => {
+                if let Some(id) = p.id_restaurante {
+                    self.restaurante_repository.find_by_id(id).await.ok().flatten().map(|r| r.nombre)
+                } else { None }
+            },
+            "guia" => {
+                if let Some(id) = p.id_guia {
+                    if let Ok(Some(guia)) = self.guia_repository.find_by_id(id).await {
+                        if let Ok(Some(persona)) = self.persona_repository.find_by_id(guia.id_persona).await {
+                            Some(format!("{} {}", persona.nombre, persona.apellidos))
+                        } else {
+                            Some(format!("Guía #{}", id))
+                        }
+                    } else { None }
+                } else { None }
+            },
+            _ => None,
+        };
+
+        // Obtener info del file_tour (file_code, tour_nombre, fecha_tour)
+        let mut file_code = None;
+        let mut tour_nombre = None;
+        let mut fecha_tour = None;
+        if let Some(ft_id) = p.id_file_tour {
+            if let Ok(Some(ft)) = self.file_tour_repository.find_by_id(ft_id).await {
+                fecha_tour = ft.fecha_tour.map(|d| d.to_string());
+                // file_code from parent file
+                if let Ok(Some(file)) = self.file_repository.find_by_id(ft.id_file).await {
+                    file_code = file.file_code;
+                }
+                // tour nombre
+                if let Ok(Some(tour)) = self.tour_repository.find_by_id(ft.id_tour).await {
+                    tour_nombre = Some(tour.nombre);
+                }
+            }
+        }
+
+        // Obtener nombre del usuario que pagó
+        let pagado_por = if let Some(user_id) = p.pagado_by {
+            self.user_repository.find_by_id(user_id).await.ok().flatten().map(|u| u.username)
+        } else { None };
+
         PagoProveedorResponse {
             id: p.id,
             tipo_proveedor: p.tipo_proveedor,
             proveedor_id,
-            proveedor_nombre: None,
+            proveedor_nombre,
             id_file_tour: p.id_file_tour,
-            file_code: None,
-            tour_nombre: None,
+            id_file_vehiculo: p.id_file_vehiculo,
+            id_file_restaurante: p.id_file_restaurante,
+            id_file_guia: p.id_file_guia,
+            file_code,
+            tour_nombre,
+            fecha_tour,
             monto: p.monto,
             estado: p.estado,
             fecha_pago: p.fecha_pago,
             comprobante_url: p.comprobante_url,
             notas: p.notas,
             created_at: p.created_at,
-            pagado_por: None,
+            pagado_por,
         }
     }
 }

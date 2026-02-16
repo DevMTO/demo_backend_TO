@@ -108,8 +108,12 @@ pub struct PagoProveedorResponse {
     pub proveedor_id: i32,
     pub proveedor_nombre: Option<String>,
     pub id_file_tour: Option<i32>,
+    pub id_file_vehiculo: Option<i32>,
+    pub id_file_restaurante: Option<i32>,
+    pub id_file_guia: Option<i32>,
     pub file_code: Option<String>,
     pub tour_nombre: Option<String>,
+    pub fecha_tour: Option<String>,
     #[ts(type = "string")]
     pub monto: BigDecimal,
     pub estado: String,
@@ -155,6 +159,9 @@ pub struct PagarProveedorRequest {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct MarcarPagoProveedorPagadoRequest {
+    /// Monto real a pagar (si difiere del monto original del servicio)
+    #[ts(type = "string | undefined")]
+    pub monto: Option<BigDecimal>,
     /// Notas adicionales sobre el pago
     pub notas: Option<String>,
     /// URL del comprobante de pago (si ya se subio)

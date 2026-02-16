@@ -148,6 +148,13 @@ impl Services {
             repos.agencia.clone(),
             repos.file.clone(),
             notify.clone(),
+            repos.file_tour.clone(),
+            repos.tour.clone(),
+            repos.transporte.clone(),
+            repos.restaurante.clone(),
+            repos.guia.clone(),
+            repos.user.clone(),
+            repos.persona.clone(),
         ));
 
         let file_assignment = Arc::new(FileAssignmentService::new(
