@@ -130,6 +130,20 @@ pub async fn assign_vehiculo_to_file_tour(
         .add(request.id_file_tour, request.id_vehiculo, request.id_conductor, capacidad_asignada, Some(auth.user.id))
         .await?;
     
+    // ===== AUTO-CREAR PAGO PROVEEDOR (transporte) =====
+    let _ = state.container.contabilidad_service
+        .auto_create_pago_proveedor(
+            "transporte",
+            Some(vehiculo.id_transporte),
+            None,
+            None,
+            Some(request.id_file_tour),
+            Some(result.id),
+            None,
+            None,
+            Some(auth.user.id),
+        ).await;
+    
     // Contar pasajeros actuales del file para verificar capacidad
     let pax_count = state.container.file_pasajero_repository
         .count_by_file(file_tour.id_file)

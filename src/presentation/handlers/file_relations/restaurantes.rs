@@ -75,6 +75,20 @@ pub async fn assign_restaurante_to_file_tour(
         )
         .await?;
     
+    // ===== AUTO-CREAR PAGO PROVEEDOR (restaurante) =====
+    let _ = state.container.contabilidad_service
+        .auto_create_pago_proveedor(
+            "restaurante",
+            None,
+            Some(request.id_restaurante),
+            None,
+            Some(request.id_file_tour),
+            None,
+            Some(result.id),
+            None,
+            Some(auth.user.id),
+        ).await;
+    
     // ===== NOTIFICAR AL RESTAURANTE ASIGNADO =====
     // Obtener información del file para la notificación
     let file = state.container.file_repository

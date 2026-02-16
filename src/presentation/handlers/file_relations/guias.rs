@@ -78,6 +78,20 @@ pub async fn assign_guia_to_file_tour(
             .await?;
     }
     
+    // ===== AUTO-CREAR PAGO PROVEEDOR (guia) =====
+    let _ = state.container.contabilidad_service
+        .auto_create_pago_proveedor(
+            "guia",
+            None,
+            None,
+            Some(request.id_guia),
+            Some(request.id_file_tour),
+            None,
+            None,
+            Some(result.id),
+            Some(auth.user.id),
+        ).await;
+    
     // ===== NOTIFICAR AL GUÍA ASIGNADO =====
     // Obtener información del file para la notificación
     let file = state.container.file_repository

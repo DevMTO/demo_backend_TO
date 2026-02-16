@@ -397,6 +397,56 @@ impl ContabilidadService {
         Ok(self.pago_proveedor_to_response(pago))
     }
 
+    /// Auto-crear pago a proveedor al asignar un servicio (monto=0, estado=pendiente)
+    /// Similar a como pagos_files se auto-crea al confirmar un file.
+    /// Verifica que no exista ya un pago_proveedor para la misma relación.
+    #[instrument(skip(self))]
+    pub async fn auto_create_pago_proveedor(
+        &self,
+        tipo_proveedor: &str,
+        id_transporte: Option<i32>,
+        id_restaurante: Option<i32>,
+        id_guia: Option<i32>,
+        id_file_tour: Option<i32>,
+        id_file_vehiculo: Option<i32>,
+        id_file_restaurante: Option<i32>,
+        id_file_guia: Option<i32>,
+        created_by: Option<i32>,
+    ) -> Result<PagoProveedorResponse, ApplicationError> {
+        // Verificar si ya existe un pago_proveedor para esta relación
+        let existing = self.pago_proveedor_repository
+            .find_by_file_relation(tipo_proveedor, id_file_vehiculo, id_file_restaurante, id_file_guia)
+            .await?;
+        
+        if let Some(existing) = existing {
+            info!("Pago a proveedor ya existe para esta relación: {} (tipo: {})", existing.id, tipo_proveedor);
+            return Ok(self.pago_proveedor_to_response(existing));
+        }
+        
+        let new_pago = NewPagoProveedorModel {
+            tipo_proveedor,
+            id_transporte,
+            id_restaurante,
+            id_guia,
+            id_file_tour,
+            id_file_vehiculo,
+            id_file_restaurante,
+            id_file_guia,
+            monto: BigDecimal::from(0),
+            estado: "pendiente",
+            notas: None,
+            created_by,
+        };
+        
+        let pago = self.pago_proveedor_repository
+            .create(new_pago)
+            .await?;
+        
+        info!("Pago a proveedor auto-creado al asignar servicio: {} - {} (monto=0)", pago.id, pago.tipo_proveedor);
+        
+        Ok(self.pago_proveedor_to_response(pago))
+    }
+
     /// Marcar pago a proveedor como pagado
     #[instrument(skip(self))]
     pub async fn marcar_pago_proveedor_pagado(
