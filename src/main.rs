@@ -56,6 +56,9 @@ async fn main() -> anyhow::Result<()> {
     let broadcaster = Arc::new(infrastructure::sse::NotificationBroadcaster::new());
     tracing::info!("Notification broadcaster initialized");
     
+    // Clonar db_pool para la tarea diaria (antes de moverlo al container)
+    let db_pool_for_automation = db_pool.clone();
+
     // Crear contenedor de dependencias
     let mut container = DependencyContainer::new(db_pool, config.clone(), broadcaster.clone())?;
     
@@ -65,9 +68,39 @@ async fn main() -> anyhow::Result<()> {
     let container = Arc::new(container);
     tracing::info!("Dependency container initialized");
     
+    // Iniciar tarea diaria de automatización de estados a las 00:00
+    {
+        let db_pool_clone = db_pool_for_automation;
+        tokio::spawn(async move {
+            loop {
+                let now = chrono::Local::now();
+                let tomorrow_midnight = (now.date_naive() + chrono::Duration::days(1))
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap();
+                let duration_until_midnight = tomorrow_midnight
+                    .signed_duration_since(now.naive_local())
+                    .to_std()
+                    .unwrap_or(std::time::Duration::from_secs(60));
+
+                tracing::info!(
+                    "Daily status automation scheduled for next midnight (in {} seconds)",
+                    duration_until_midnight.as_secs()
+                );
+
+                tokio::time::sleep(duration_until_midnight).await;
+
+                tracing::info!("Running daily status automation...");
+                match db_pool_clone.run_daily_automation().await {
+                    Ok(()) => tracing::info!("Daily status automation completed successfully"),
+                    Err(e) => tracing::error!("Daily status automation failed: {}", e),
+                }
+            }
+        });
+    }
+
     // Crear router con todas las rutas
     let app = create_router(container, broadcaster, &config);
-    
+
     // Configurar dirección del servidor
     // Usar 0.0.0.0 para aceptar conexiones desde cualquier interfaz (necesario en Docker/Fly.io)
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
