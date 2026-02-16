@@ -1,7 +1,7 @@
 
 use diesel_async::pooled_connection::deadpool::Pool;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
-use diesel_async::AsyncPgConnection;
+use diesel_async::{AsyncPgConnection, RunQueryDsl};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use diesel::pg::PgConnection;
 use diesel::Connection;
@@ -53,6 +53,16 @@ impl DatabasePool {
         &self.pool
     }
     
+    /// Ejecutar la función diaria de automatización de estados
+    pub async fn run_daily_automation(&self) -> Result<(), ApplicationError> {
+        let mut conn = self.get_connection().await?;
+        diesel::sql_query("SELECT automatizar_estados_por_fecha()")
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Daily automation error: {}", e)))?;
+        Ok(())
+    }
+
     /// Ejecutar migraciones (usa conexión síncrona temporal)
     pub async fn run_migrations(&self) -> Result<(), ApplicationError> {
         // Las migraciones de Diesel necesitan una conexión síncrona
