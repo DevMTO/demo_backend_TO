@@ -189,6 +189,8 @@ impl ContabilidadService {
             monto_total_files: global_monto_total,
             monto_pagado: global_monto_pagado,
             monto_pendiente,
+            pago_anticipado: agencia.pago_anticipado,
+            dias_pago_anticipado: agencia.dias_pago_anticipado,
             files_pendientes,
             ultimos_pagos,
         })

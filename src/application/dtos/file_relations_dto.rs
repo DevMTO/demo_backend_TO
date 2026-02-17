@@ -543,15 +543,24 @@ pub struct UpdateFileVehiculoRequest {
     pub status: Option<String>,
 }
 
-/// Request para actualizar un file_guia (cambiar guía, file_tour o ambos)
+/// Request para actualizar un file_guia (cambiar guía, rol, file_tour, status)
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateFileGuiaRequest {
     /// Nuevo guía asignado
     pub id_guia: Option<i32>,
+    /// Nuevo rol del guía (e.g. "principal", "auxiliar")
+    #[validate(length(min = 1, max = 50))]
+    pub rol: Option<String>,
+    /// Si true, limpia el rol (lo pone en NULL)
+    #[serde(default)]
+    pub clear_rol: bool,
     /// Nuevo file_tour (mover la asignación a otro tour)
     pub id_file_tour: Option<i32>,
+    /// Nuevo status: asignado, confirmado, cancelado, etc.
+    #[validate(length(min = 1, max = 20))]
+    pub status: Option<String>,
 }
 
 // ==================== FILE DETALLE COMPLETO ====================

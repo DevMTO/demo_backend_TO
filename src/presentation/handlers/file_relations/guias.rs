@@ -149,7 +149,7 @@ pub async fn remove_file_guia(
     Ok(json_deleted())
 }
 
-/// Actualiza un file_guia (cambiar guía, file_tour o ambos)
+/// Actualiza un file_guia (cambiar guía, rol, file_tour, status)
 #[instrument(skip(state, auth, request))]
 pub async fn update_file_guia(
     State(state): State<AppState>,
@@ -165,14 +165,14 @@ pub async fn update_file_guia(
         .await?
         .ok_or_else(|| ApplicationError::NotFound(format!("Asignación file_guia {} no encontrada", id)))?;
     
-    // Si se cambia el guía, verificar que existe
+    // Si se cambia el guía, verificar que existe y no está duplicado
     if let Some(new_guia_id) = request.id_guia {
         state.container.guia_repository
             .find_by_id(new_guia_id)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Guía {} no encontrado", new_guia_id)))?;
         
-        // Verificar duplicado si cambia el file_tour también
+        // Verificar duplicado en el file_tour destino
         let target_ft = request.id_file_tour.unwrap_or(existing.id_file_tour);
         if state.container.file_guia_repository.is_guia_assigned(new_guia_id, target_ft).await? {
             return Err(ApplicationError::Validation("El guía ya está asignado a este file_tour".to_string()));
@@ -194,9 +194,18 @@ pub async fn update_file_guia(
         }
     }
     
+    // Manejar cambio de rol (Option<Option<String>> para poder setear a NULL)
+    let rol_change: Option<Option<String>> = if request.clear_rol {
+        Some(None)
+    } else {
+        request.rol.map(Some)
+    };
+    
     let update_data = UpdateFileGuiaModel {
         id_guia: request.id_guia,
+        rol: rol_change,
         id_file_tour: request.id_file_tour,
+        status: request.status.clone(),
     };
     
     let result = state.container.file_guia_repository

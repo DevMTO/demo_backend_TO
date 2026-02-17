@@ -86,11 +86,13 @@ pub struct UpdateFileGuiaConfirmacionModel<'a> {
     pub motivo_rechazo: Option<&'a str>,
 }
 
-/// Modelo para actualizar file_guias (PATCH parcial: id_guia, id_file_tour)
+/// Modelo para actualizar file_guias (PATCH parcial: guía, rol, file_tour, status)
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = file_guias)]
 pub struct UpdateFileGuiaModel {
     pub id_guia: Option<i32>,
+    pub rol: Option<Option<String>>,  // Option<Option> para poder setear a NULL
     pub id_file_tour: Option<i32>,
+    pub status: Option<String>,
 }
 

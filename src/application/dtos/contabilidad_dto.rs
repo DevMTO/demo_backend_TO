@@ -34,6 +34,10 @@ pub struct AgenciaContabilidadDashboard {
     /// Monto pendiente por pagar
     #[ts(type = "string")]
     pub monto_pendiente: BigDecimal,
+    /// Si la agencia tiene pago anticipado
+    pub pago_anticipado: bool,
+    /// Días de plazo para pago (cuando no es anticipado)
+    pub dias_pago_anticipado: Option<i32>,
     /// Files pendientes de pago
     pub files_pendientes: Vec<PagoFileResponse>,
     /// Ultimos pagos realizados
