@@ -1,16 +1,94 @@
 -- ========================================================================
--- MIGRACIÓN: Corregir transiciones del día del tour
+-- MIGRACIÓN: Transiciones del día del tour + cascada sub-files → file_tour → file
 --
--- Lógica:
--- 1. Día del tour + todos los sub-files en "asignado" → sub-files a "en_curso", file_tour a "en_curso"
--- 2. Pasó el día del tour + todos los sub-files en "en_curso" → sub-files a "completado", file_tour a "completado"
+-- Lógica de fecha:
+-- 1. Día del tour + todos sub-files en "asignado" → sub-files a "en_curso"
+-- 2. Pasó el día + todos sub-files en "en_curso" → sub-files a "completado"
 --
--- Corrección: el file_tour puede estar en 'confirmado' o 'asignado' para la transición a en_curso
--- (antes solo aceptaba 'asignado', pero el file_tour puede no haber llegado a ese estado)
+-- Cascada hacia arriba:
+-- 3. Si los 4 sub-files están en "en_curso" → file_tour a "en_curso"
+-- 4. Si los 4 sub-files están en "completado" → file_tour a "completado"
+-- 5. Si todos los file_tours están en "en_curso" → file a "en_curso"
+-- 6. Si todos los file_tours están en "completado" → file a "completado"
 -- ========================================================================
 
 -- ========================================================================
--- 1) ACTUALIZAR check_and_update_file_tour_status
+-- 1) FUNCIÓN: Cascada sub-files → file_tour → file
+--    Si los 4 sub-files están en el mismo estado (en_curso o completado),
+--    el file_tour sube a ese estado. Luego cascada al file.
+-- ========================================================================
+CREATE OR REPLACE FUNCTION check_subfiles_and_update_file_tour(p_file_tour_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_id_file INT;
+    v_ft_status VARCHAR(30);
+    v_total INT;
+    v_en_curso INT;
+    v_completado INT;
+BEGIN
+    SELECT id_file, status INTO v_id_file, v_ft_status
+    FROM file_tours WHERE id = p_file_tour_id;
+
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    -- Contar sub-files y sus estados (las 4 tablas juntas)
+    SELECT
+        COUNT(*),
+        COUNT(*) FILTER (WHERE s = 'en_curso'),
+        COUNT(*) FILTER (WHERE s = 'completado')
+    INTO v_total, v_en_curso, v_completado
+    FROM (
+        SELECT status AS s FROM file_guias WHERE id_file_tour = p_file_tour_id
+        UNION ALL
+        SELECT status FROM file_vehiculos WHERE id_file_tour = p_file_tour_id
+        UNION ALL
+        SELECT status FROM file_restaurantes WHERE id_file_tour = p_file_tour_id
+        UNION ALL
+        SELECT status FROM file_entradas WHERE id_file_tour = p_file_tour_id
+    ) sub;
+
+    IF v_total = 0 THEN
+        RETURN;
+    END IF;
+
+    -- Si todos completado → file_tour a completado
+    IF v_completado = v_total AND v_ft_status != 'completado' THEN
+        UPDATE file_tours SET status = 'completado' WHERE id = p_file_tour_id;
+        PERFORM check_and_update_file_status(v_id_file);
+    -- Si todos en_curso → file_tour a en_curso
+    ELSIF v_en_curso = v_total AND v_ft_status != 'en_curso' THEN
+        UPDATE file_tours SET status = 'en_curso' WHERE id = p_file_tour_id;
+        PERFORM check_and_update_file_status(v_id_file);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION check_subfiles_and_update_file_tour(INT) IS 'Cascada: si todos los sub-files de un file_tour están en en_curso o completado, sube el file_tour a ese estado';
+
+-- ========================================================================
+-- 2) ACTUALIZAR trigger de sub-files para llamar la cascada
+-- ========================================================================
+CREATE OR REPLACE FUNCTION trg_after_subfile_status_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Si el sub-file cambia a 'asignado', verificar transición a en_curso (por fecha)
+    IF NEW.status = 'asignado' THEN
+        PERFORM check_and_update_file_tour_status(NEW.id_file_tour);
+    END IF;
+
+    -- Si el sub-file cambia a 'en_curso' o 'completado', verificar cascada hacia arriba
+    IF NEW.status IN ('en_curso', 'completado') THEN
+        PERFORM check_subfiles_and_update_file_tour(NEW.id_file_tour);
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ========================================================================
+-- 3) ACTUALIZAR check_and_update_file_tour_status
 --    Acepta file_tour en 'confirmado' o 'asignado' para transición a en_curso
 -- ========================================================================
 CREATE OR REPLACE FUNCTION check_and_update_file_tour_status(p_file_tour_id INT)
