@@ -4,17 +4,16 @@ use std::sync::Arc;
 
 use crate::application::ports::NotificationServicePort;
 use crate::application::services::{
-    LoggingService, NotificationService, UserService, AgenciaService,
-    PersonaService, TourService, FileService, RestauranteService,
-    TransporteService, VehiculoService, ConductorService, EntradaService,
-    EntradaPrecioService, GuiaService, MyFilesService, PostgresMyFilesRepository,
-    ContabilidadService, FileAssignmentService, MisPagosService, PostgresMisPagosRepository,
-    SaldoFavorService,
+    AgenciaService, ConductorService, ContabilidadService, EntradaPrecioService, EntradaService,
+    FileAssignmentService, FileService, FileTourStatusService, GuiaService, LoggingService,
+    MisPagosService, MyFilesService, NotificationService, PersonaService,
+    PostgresMisPagosRepository, PostgresMyFilesRepository, RestauranteService, SaldoFavorService,
+    TourService, TransporteService, UserService, VehiculoService,
 };
 use crate::infrastructure::persistence::repositories::PostgresSaldoFavorRepository;
 use crate::infrastructure::persistence::DatabasePool;
-use crate::infrastructure::NotificationBroadcastAdapter;
 use crate::infrastructure::sse::NotificationBroadcaster;
+use crate::infrastructure::NotificationBroadcastAdapter;
 
 use super::repositories::Repositories;
 
@@ -41,6 +40,7 @@ pub(super) struct Services {
     pub file_assignment: Arc<FileAssignmentService>,
     pub mis_pagos: Arc<MisPagosService>,
     pub saldo_favor: Arc<SaldoFavorService>,
+    pub file_tour_status: Arc<FileTourStatusService>,
 }
 
 impl Services {
@@ -55,13 +55,11 @@ impl Services {
         let notification = Arc::new(NotificationService::new(repos.notification.clone()));
 
         // Adaptador de notificaciones con broadcast SSE
-        let notify: Arc<dyn NotificationServicePort> = Arc::new(
-            NotificationBroadcastAdapter::new(
-                notification.clone(),
-                repos.notification.clone(),
-                broadcaster,
-            )
-        );
+        let notify: Arc<dyn NotificationServicePort> = Arc::new(NotificationBroadcastAdapter::new(
+            notification.clone(),
+            repos.notification.clone(),
+            broadcaster,
+        ));
 
         // Servicios de negocio
         let user = Arc::new(UserService::new(
@@ -78,10 +76,7 @@ impl Services {
             notify.clone(),
         ));
 
-        let persona = Arc::new(PersonaService::new(
-            repos.persona.clone(),
-            logging.clone(),
-        ));
+        let persona = Arc::new(PersonaService::new(repos.persona.clone(), logging.clone()));
 
         let tour = Arc::new(TourService::new(
             repos.tour.clone(),
@@ -129,9 +124,7 @@ impl Services {
             notify.clone(),
         ));
 
-        let entrada_precio = Arc::new(EntradaPrecioService::new(
-            repos.entrada_precio.clone(),
-        ));
+        let entrada_precio = Arc::new(EntradaPrecioService::new(repos.entrada_precio.clone()));
 
         let guia = Arc::new(GuiaService::new(
             repos.guia.clone(),
@@ -181,11 +174,34 @@ impl Services {
             repos.file_tour.clone(),
         ));
 
+        let file_tour_status = Arc::new(FileTourStatusService::new(
+            repos.file_tour.clone(),
+            repos.file_guia.clone(),
+            repos.file_vehiculo.clone(),
+            repos.file_restaurante.clone(),
+        ));
+
         Self {
-            logging, notification, user, agencia, persona, tour, file,
-            restaurante, transporte, vehiculo, conductor, entrada,
-            entrada_precio, guia, my_files, contabilidad, file_assignment,
-            mis_pagos, saldo_favor,
+            logging,
+            notification,
+            user,
+            agencia,
+            persona,
+            tour,
+            file,
+            restaurante,
+            transporte,
+            vehiculo,
+            conductor,
+            entrada,
+            entrada_precio,
+            guia,
+            my_files,
+            contabilidad,
+            file_assignment,
+            mis_pagos,
+            saldo_favor,
+            file_tour_status,
         }
     }
 }
