@@ -60,7 +60,3 @@ pub use user_dto::{
 // Re-exports - Contabilidad
 pub use contabilidad_dto::*;
 
-// Saldo a favor DTOs
-pub mod saldo_favor_dto;
-pub use saldo_favor_dto::*;
-

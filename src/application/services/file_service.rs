@@ -710,6 +710,12 @@ impl FileService {
             fecha_vencimiento: Some(fecha_vencimiento),
             notas: request.notas.as_deref(),
             created_by: Some(confirmed_by),
+            id_file_tour: None,
+            tipo_registro: "deuda",
+            monto_saldo_favor: None,
+            saldo_autorizado: false,
+            saldo_autorizado_por: None,
+            saldo_autorizado_at: None,
         };
         
         let pago_file = self.pago_file_repository.create(new_pago).await?;

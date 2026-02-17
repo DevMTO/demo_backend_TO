@@ -3,6 +3,7 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct VehiculosQueryParams {
     pub include_deleted: Option<bool>,
     pub transporte_id: Option<i32>,

@@ -28,6 +28,7 @@ const DEFAULT_MAX_CAPACITY: u64 = 1000;
 
 /// Wrapper para valores en caché con metadata
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct CachedValue<T> {
     pub value: T,
     pub cached_at: chrono::DateTime<chrono::Utc>,
@@ -103,6 +104,7 @@ pub struct AppCache {
     pub pagos_detail: Cache<i32, CachedValue<String>>,
 }
 
+#[allow(dead_code)]
 impl AppCache {
     /// Crea una nueva instancia del caché centralizado
     pub fn new() -> Self {
@@ -496,6 +498,7 @@ pub struct CacheStats {
 }
 
 /// Helper para generar claves de caché para listados
+#[allow(dead_code)]
 pub fn list_cache_key(params: &impl Serialize) -> String {
     // Serializar los parámetros a JSON y usar como clave
     serde_json::to_string(params).unwrap_or_else(|_| "default".to_string())
@@ -605,43 +608,4 @@ impl CachePort for AppCache {
         }
     }
 
-    async fn invalidate_detail(&self, entity_type: &str, id: i32) {
-        match entity_type {
-            entity_names::TOURS => self.invalidate_tour(id).await,
-            entity_names::ENTRADAS => self.invalidate_entrada(id).await,
-            entity_names::ENTRADA_PRECIOS => {
-                self.entrada_precios_detail.invalidate(&id).await;
-            }
-            entity_names::FILES => self.invalidate_file(id).await,
-            entity_names::AGENCIAS => self.invalidate_agencia(id).await,
-            entity_names::RESTAURANTES => self.invalidate_restaurante(id).await,
-            entity_names::TRANSPORTES => self.invalidate_transporte(id).await,
-            entity_names::VEHICULOS => self.invalidate_vehiculo(id).await,
-            entity_names::CONDUCTORES => self.invalidate_conductor(id).await,
-            entity_names::GUIAS => self.invalidate_guia(id).await,
-            entity_names::PERSONAS => self.invalidate_persona(id).await,
-            entity_names::USERS => self.invalidate_user(id).await,
-            entity_names::PAGOS => self.invalidate_pago(id).await,
-            _ => {}
-        }
-    }
-
-    async fn invalidate_lists(&self, entity_type: &str) {
-        match entity_type {
-            entity_names::TOURS => self.tours_list.invalidate_all(),
-            entity_names::ENTRADAS => self.entradas_list.invalidate_all(),
-            entity_names::FILES => self.files_list.invalidate_all(),
-            entity_names::AGENCIAS => self.agencias_list.invalidate_all(),
-            entity_names::RESTAURANTES => self.restaurantes_list.invalidate_all(),
-            entity_names::TRANSPORTES => self.transportes_list.invalidate_all(),
-            entity_names::VEHICULOS => self.vehiculos_list.invalidate_all(),
-            entity_names::CONDUCTORES => self.conductores_list.invalidate_all(),
-            entity_names::GUIAS => self.guias_list.invalidate_all(),
-            entity_names::PERSONAS => self.personas_list.invalidate_all(),
-            entity_names::USERS => self.users_list.invalidate_all(),
-            entity_names::MOVIMIENTOS => self.movimientos_list.invalidate_all(),
-            entity_names::PAGOS => self.pagos_list.invalidate_all(),
-            _ => {}
-        }
-    }
 }

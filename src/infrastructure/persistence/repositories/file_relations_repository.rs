@@ -776,36 +776,6 @@ impl PostgresFileTourRepository {
 
 #[async_trait]
 impl FileTourRepositoryPort for PostgresFileTourRepository {
-    #[instrument(skip(self, data))]
-    async fn add(&self, id_file: i32, data: FileTourInputData, created_by: Option<i32>) -> Result<FileTourModel, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        
-        let new_record = NewFileTourModel {
-            id_file,
-            id_tour: data.id_tour,
-            orden: data.orden,
-            precio_aplicado: data.precio_aplicado,
-            notas: data.notas.as_deref(),
-            created_by,
-            fecha_tour: data.fecha_tour,
-            turno_tour: data.turno_tour.as_deref(),
-            lugar_recojo: data.lugar_recojo.as_deref(),
-            hora_recojo: data.hora_recojo,
-            status: data.status.as_deref().unwrap_or("pendiente"),
-            geo_recojo: data.geo_recojo.clone(),
-        };
-        
-        let result = diesel::insert_into(file_tours::table)
-            .values(&new_record)
-            .returning(FileTourModel::as_returning())
-            .get_result(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        
-        info!("Tour asignado a file: file={}, tour={}, orden={}", id_file, data.id_tour, data.orden);
-        Ok(result)
-    }
-    
     #[instrument(skip(self, tours))]
     async fn add_many(&self, id_file: i32, tours: Vec<FileTourInputData>, created_by: Option<i32>) -> Result<Vec<FileTourModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
@@ -842,17 +812,6 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
         Ok(results)
     }
     
-    async fn remove(&self, id: i32) -> Result<bool, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        
-        let affected = diesel::delete(file_tours::table.filter(file_tours::id.eq(id)))
-            .execute(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        
-        Ok(affected > 0)
-    }
-    
     async fn remove_by_file(&self, id_file: i32) -> Result<usize, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
@@ -863,18 +822,6 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
         
         info!("Eliminados {} tours del file {}", affected, id_file);
         Ok(affected)
-    }
-    
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileTourModel>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        
-        file_tours::table
-            .filter(file_tours::id_file.eq(id_file))
-            .order(file_tours::orden.asc())
-            .select(FileTourModel::as_select())
-            .load(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
     
     async fn find_by_file_with_tour(&self, id_file: i32) -> Result<Vec<FileTourWithTourModel>, ApplicationError> {
@@ -947,30 +894,6 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
             .await
             .optional()
             .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
-    
-    async fn find_by_tour(&self, id_tour: i32) -> Result<Vec<FileTourModel>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        
-        file_tours::table
-            .filter(file_tours::id_tour.eq(id_tour))
-            .select(FileTourModel::as_select())
-            .load(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
-    
-    async fn get_next_orden(&self, id_file: i32) -> Result<i32, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        
-        let max_orden: Option<i32> = file_tours::table
-            .filter(file_tours::id_file.eq(id_file))
-            .select(diesel::dsl::max(file_tours::orden))
-            .first(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        
-        Ok(max_orden.unwrap_or(0) + 1)
     }
     
     #[instrument(skip(self))]

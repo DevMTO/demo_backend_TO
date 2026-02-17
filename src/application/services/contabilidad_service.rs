@@ -103,9 +103,10 @@ impl ContabilidadService {
             .find_by_agencia(id_agencia, 1000, 0)
             .await?;
         
-        // Excluir pagos de files cancelados y no_show
+        // Excluir pagos de files cancelados/no_show y registros que no sean deuda/pago
         let pagos: Vec<_> = all_pagos.into_iter()
-            .filter(|p| p.estado != "cancelado" && p.estado != "no_show")
+            .filter(|p| p.estado != "cancelado" && p.estado != "no_show"
+                && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
             .collect();
         
         // Agrupar por id_file para calcular totales correctos
@@ -316,6 +317,12 @@ impl ContabilidadService {
             fecha_vencimiento: None,
             notas: request.notas.as_deref(),
             created_by,
+            id_file_tour: None,
+            tipo_registro: "pago",
+            monto_saldo_favor: None,
+            saldo_autorizado: false,
+            saldo_autorizado_por: None,
+            saldo_autorizado_at: None,
         };
         
         // Crear el registro del pago

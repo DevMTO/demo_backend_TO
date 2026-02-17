@@ -1,11 +1,4 @@
-﻿//! Ports (traits) para los repositorios de contabilidad
-//!
-//! Define interfaces para:
-//! - PagoFileRepositoryPort: Pagos de agencias por files
-//! - PagoProveedorRepositoryPort: Pagos del admin a proveedores
-
-use async_trait::async_trait;
-use bigdecimal::BigDecimal;
+﻿use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::models::{
@@ -28,9 +21,6 @@ pub trait PagoFileRepositoryPort: Send + Sync {
     async fn create(&self, data: NewPagoFileModel<'_>) -> Result<PagoFileModel, ApplicationError>;
     async fn update(&self, id: i32, data: UpdatePagoFileModel<'_>) -> Result<PagoFileModel, ApplicationError>;
     async fn find_all_by_file(&self, id_file: i32) -> Result<Vec<PagoFileModel>, ApplicationError>;
-    async fn sum_pendiente_cobrar(&self) -> Result<BigDecimal, ApplicationError>;
-    async fn sum_pendiente_agencia(&self, id_agencia: i32) -> Result<BigDecimal, ApplicationError>;
-    async fn count_pendientes(&self) -> Result<i64, ApplicationError>;
 }
 
 // ============================================================================
@@ -40,12 +30,9 @@ pub trait PagoFileRepositoryPort: Send + Sync {
 #[async_trait]
 pub trait PagoProveedorRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<PagoProveedorModel>, ApplicationError>;
-    async fn find_by_proveedor(&self, tipo_proveedor: &str, id_proveedor: i32, limit: i64, offset: i64) -> Result<Vec<PagoProveedorModel>, ApplicationError>;
     async fn find_filtered(&self, tipo_proveedor: Option<&str>, estado: Option<&str>, fecha_desde: Option<DateTime<Utc>>, fecha_hasta: Option<DateTime<Utc>>, limit: i64, offset: i64) -> Result<Vec<PagoProveedorModel>, ApplicationError>;
     async fn count_filtered(&self, tipo_proveedor: Option<&str>, estado: Option<&str>, fecha_desde: Option<DateTime<Utc>>, fecha_hasta: Option<DateTime<Utc>>) -> Result<i64, ApplicationError>;
     async fn create(&self, data: NewPagoProveedorModel<'_>) -> Result<PagoProveedorModel, ApplicationError>;
     async fn update(&self, id: i32, data: UpdatePagoProveedorModel<'_>) -> Result<PagoProveedorModel, ApplicationError>;
-    async fn sum_pendiente_pagar(&self) -> Result<BigDecimal, ApplicationError>;
-    async fn count_pendientes(&self) -> Result<i64, ApplicationError>;
     async fn find_by_file_relation(&self, tipo_proveedor: &str, id_file_vehiculo: Option<i32>, id_file_restaurante: Option<i32>, id_file_guia: Option<i32>) -> Result<Option<PagoProveedorModel>, ApplicationError>;
 }

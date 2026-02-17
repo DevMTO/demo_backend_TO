@@ -1,12 +1,7 @@
-//! Implementacion de repositorios de contabilidad
-//! PagoFile y PagoProveedor
-
 use async_trait::async_trait;
-use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, Utc};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use std::str::FromStr;
 use tracing::{info, instrument};
 
 use crate::application::ports::contabilidad_repository::{
@@ -20,10 +15,6 @@ use crate::infrastructure::persistence::models::{
     UpdatePagoFileModel, UpdatePagoProveedorModel,
 };
 use crate::infrastructure::persistence::schema::{pagos_files, pagos_proveedores};
-
-// ============================================================================
-// PAGO FILE REPOSITORY
-// ============================================================================
 
 pub struct PostgresPagoFileRepository {
     pool: DatabasePool,
@@ -113,44 +104,7 @@ impl PagoFileRepositoryPort for PostgresPagoFileRepository {
             .get_result::<PagoFileModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
-
-    #[instrument(skip(self))]
-    async fn sum_pendiente_cobrar(&self) -> Result<BigDecimal, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        use diesel::dsl::sum;
-        let result: Option<BigDecimal> = pagos_files::table
-            .filter(pagos_files::estado.eq_any(vec!["pendiente", "parcial", "vencido"]))
-            .select(sum(pagos_files::monto_total - pagos_files::monto_pagado))
-            .first(&mut conn).await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(result.unwrap_or_else(|| BigDecimal::from_str("0").unwrap()))
-    }
-
-    #[instrument(skip(self))]
-    async fn sum_pendiente_agencia(&self, id_agencia: i32) -> Result<BigDecimal, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        use diesel::dsl::sum;
-        let result: Option<BigDecimal> = pagos_files::table
-            .filter(pagos_files::id_agencia.eq(id_agencia))
-            .filter(pagos_files::estado.eq_any(vec!["pendiente", "parcial", "vencido"]))
-            .select(sum(pagos_files::monto_total - pagos_files::monto_pagado))
-            .first(&mut conn).await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(result.unwrap_or_else(|| BigDecimal::from_str("0").unwrap()))
-    }
-
-    #[instrument(skip(self))]
-    async fn count_pendientes(&self) -> Result<i64, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        pagos_files::table.filter(pagos_files::estado.eq_any(vec!["pendiente", "parcial", "vencido"]))
-            .count().get_result::<i64>(&mut conn).await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
 }
-
-// ============================================================================
-// PAGO PROVEEDOR REPOSITORY
-// ============================================================================
 
 pub struct PostgresPagoProveedorRepository {
     pool: DatabasePool,
@@ -166,21 +120,6 @@ impl PagoProveedorRepositoryPort for PostgresPagoProveedorRepository {
     async fn find_by_id(&self, id: i32) -> Result<Option<PagoProveedorModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         pagos_proveedores::table.find(id).first::<PagoProveedorModel>(&mut conn).await.optional()
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
-
-    #[instrument(skip(self))]
-    async fn find_by_proveedor(&self, tipo_proveedor: &str, id_proveedor: i32, limit: i64, offset: i64) -> Result<Vec<PagoProveedorModel>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        let mut query = pagos_proveedores::table.filter(pagos_proveedores::tipo_proveedor.eq(tipo_proveedor)).into_boxed();
-        query = match tipo_proveedor {
-            "transporte" => query.filter(pagos_proveedores::id_transporte.eq(id_proveedor)),
-            "restaurante" => query.filter(pagos_proveedores::id_restaurante.eq(id_proveedor)),
-            "guia" => query.filter(pagos_proveedores::id_guia.eq(id_proveedor)),
-            _ => return Err(ApplicationError::Validation(format!("Tipo invalido: {}", tipo_proveedor))),
-        };
-        query.order(pagos_proveedores::created_at.desc()).limit(limit).offset(offset)
-            .load::<PagoProveedorModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
 
@@ -224,25 +163,6 @@ impl PagoProveedorRepositoryPort for PostgresPagoProveedorRepository {
         let mut conn = self.pool.get_connection().await?;
         diesel::update(pagos_proveedores::table.find(id)).set(&data)
             .get_result::<PagoProveedorModel>(&mut conn).await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
-
-    #[instrument(skip(self))]
-    async fn sum_pendiente_pagar(&self) -> Result<BigDecimal, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        use diesel::dsl::sum;
-        let result: Option<BigDecimal> = pagos_proveedores::table
-            .filter(pagos_proveedores::estado.eq("pendiente"))
-            .select(sum(pagos_proveedores::monto)).first(&mut conn).await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(result.unwrap_or_else(|| BigDecimal::from_str("0").unwrap()))
-    }
-
-    #[instrument(skip(self))]
-    async fn count_pendientes(&self) -> Result<i64, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        pagos_proveedores::table.filter(pagos_proveedores::estado.eq("pendiente"))
-            .count().get_result::<i64>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
 

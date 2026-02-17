@@ -211,6 +211,7 @@ impl FileTourStatusService {
     }
 
     /// Obtiene la lista de statuses que disparan cascada
+    #[allow(dead_code)]
     pub fn cascade_statuses() -> &'static [&'static str] {
         CASCADE_CANCELING_STATUSES
     }

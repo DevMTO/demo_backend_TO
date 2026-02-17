@@ -116,16 +116,11 @@ pub trait FileVehiculoRepositoryPort: Send + Sync {
 /// Repositorio para file_tours
 #[async_trait]
 pub trait FileTourRepositoryPort: Send + Sync {
-    async fn add(&self, id_file: i32, data: FileTourInputData, created_by: Option<i32>) -> Result<FileTourModel, ApplicationError>;
     async fn add_many(&self, id_file: i32, tours: Vec<FileTourInputData>, created_by: Option<i32>) -> Result<Vec<FileTourModel>, ApplicationError>;
-    async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn remove_by_file(&self, id_file: i32) -> Result<usize, ApplicationError>;
-    async fn find_by_file(&self, id_file: i32) -> Result<Vec<FileTourModel>, ApplicationError>;
     /// Busca tours de un file con información del tour (INNER JOIN)
     async fn find_by_file_with_tour(&self, id_file: i32) -> Result<Vec<FileTourWithTourModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileTourModel>, ApplicationError>;
-    async fn find_by_tour(&self, id_tour: i32) -> Result<Vec<FileTourModel>, ApplicationError>;
-    async fn get_next_orden(&self, id_file: i32) -> Result<i32, ApplicationError>;
     /// Actualiza el status de un file_tour
     async fn update_status(&self, id: i32, status: &str) -> Result<FileTourModel, ApplicationError>;
     /// Actualiza la hora de recojo de un file_tour

@@ -13,6 +13,7 @@ use crate::infrastructure::sse::SseEvent;
 use crate::domain::errors::ApplicationError;
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct AppState {
     pub container: Arc<DependencyContainer>,
     pub broadcaster: Arc<NotificationBroadcaster>,

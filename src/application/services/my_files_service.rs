@@ -239,6 +239,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
         .bind::<Integer, _>(id_persona);
         
         #[derive(QueryableByName)]
+        #[allow(dead_code)]
         struct RawRow {
             #[diesel(sql_type = Integer)]
             file_tour_id: i32,

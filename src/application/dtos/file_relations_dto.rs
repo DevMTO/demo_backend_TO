@@ -763,32 +763,6 @@ pub struct MyFileAsRestauranteDto {
     pub asignado_at: DateTime<Utc>,
 }
 
-// ==================== CONFIRMACIÓN DE ASIGNACIONES ====================
-
-/// Request para que un guía confirme/rechace su asignación a un file
-#[derive(Debug, Clone, Deserialize, Validate, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct ConfirmFileGuiaAssignmentRequest {
-    /// true para aceptar, false para rechazar
-    pub aceptar: bool,
-    /// Motivo del rechazo (obligatorio si aceptar=false)
-    #[validate(length(max = 500, message = "El motivo no puede exceder 500 caracteres"))]
-    pub motivo_rechazo: Option<String>,
-}
-
-/// Request para que un conductor confirme/rechace su asignación a un file
-#[derive(Debug, Clone, Deserialize, Validate, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct ConfirmFileVehiculoAssignmentRequest {
-    /// true para aceptar, false para rechazar
-    pub aceptar: bool,
-    /// Motivo del rechazo (obligatorio si aceptar=false)
-    #[validate(length(max = 500, message = "El motivo no puede exceder 500 caracteres"))]
-    pub motivo_rechazo: Option<String>,
-}
-
 /// Response estándar para operaciones de confirmación
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]

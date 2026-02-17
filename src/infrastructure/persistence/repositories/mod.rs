@@ -48,7 +48,3 @@ pub use file_relations_repository::*;
 // Re-exports - Contabilidad
 pub use contabilidad_repository::*;
 
-// Saldo a favor
-pub mod saldo_favor_repository;
-pub use saldo_favor_repository::*;
-

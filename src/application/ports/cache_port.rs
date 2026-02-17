@@ -1,8 +1,3 @@
-//! # Cache Port
-//! 
-//! Puerto (trait) para el sistema de caché de la aplicación.
-//! Define la interface que debe implementar cualquier sistema de caché.
-
 use async_trait::async_trait;
 
 /// Puerto para operaciones de caché genérico por entidad
@@ -22,12 +17,6 @@ pub trait CachePort: Send + Sync {
     
     /// Invalidar todos los cachés de un tipo de entidad
     async fn invalidate_entity(&self, entity_type: &str);
-    
-    /// Invalidar un item específico del caché de detalle
-    async fn invalidate_detail(&self, entity_type: &str, id: i32);
-    
-    /// Invalidar todo el caché de listas de un tipo de entidad
-    async fn invalidate_lists(&self, entity_type: &str);
 }
 
 /// Nombres de entidades para el caché (constantes)

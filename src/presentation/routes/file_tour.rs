@@ -2,7 +2,7 @@
 
 use axum::{
     Router,
-    routing::{get, post, patch, put},
+    routing::{get, post, patch},
 };
 
 use crate::presentation::handlers::{file_relations, relation_status};

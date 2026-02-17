@@ -34,6 +34,13 @@ pub struct PagoFileModel {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
+    // Nuevos campos — simplificación contabilidad
+    pub id_file_tour: Option<i32>,
+    pub tipo_registro: String,
+    pub monto_saldo_favor: Option<BigDecimal>,
+    pub saldo_autorizado: bool,
+    pub saldo_autorizado_por: Option<i32>,
+    pub saldo_autorizado_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Insertable)]
@@ -47,6 +54,13 @@ pub struct NewPagoFileModel<'a> {
     pub fecha_vencimiento: Option<NaiveDate>,
     pub notas: Option<&'a str>,
     pub created_by: Option<i32>,
+    // Nuevos campos
+    pub id_file_tour: Option<i32>,
+    pub tipo_registro: &'a str,
+    pub monto_saldo_favor: Option<BigDecimal>,
+    pub saldo_autorizado: bool,
+    pub saldo_autorizado_por: Option<i32>,
+    pub saldo_autorizado_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, AsChangeset, Default)]
@@ -59,6 +73,11 @@ pub struct UpdatePagoFileModel<'a> {
     pub verificado_por: Option<i32>,
     pub verificado_at: Option<DateTime<Utc>>,
     pub notas: Option<&'a str>,
+    // Nuevos campos
+    pub monto_saldo_favor: Option<BigDecimal>,
+    pub saldo_autorizado: Option<bool>,
+    pub saldo_autorizado_por: Option<i32>,
+    pub saldo_autorizado_at: Option<DateTime<Utc>>,
 }
 
 // ============================================================================

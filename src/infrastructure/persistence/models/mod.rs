@@ -61,7 +61,3 @@ pub use file_tour_model::*;
 
 // Re-exports - Contabilidad
 pub use contabilidad_model::*;
-
-// Saldo a favor models
-pub mod saldo_favor_model;
-pub use saldo_favor_model::*;
