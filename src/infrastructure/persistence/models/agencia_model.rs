@@ -24,6 +24,8 @@ pub struct AgenciaModel {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub pago_anticipado: bool,
+    pub dias_pago_anticipado: Option<i32>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -38,6 +40,8 @@ pub struct NewAgenciaModel<'a> {
     pub media: Option<JsonValue>,
     pub encargado: Option<i32>,
     pub is_active: bool,
+    pub pago_anticipado: bool,
+    pub dias_pago_anticipado: Option<i32>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
 }
@@ -54,6 +58,8 @@ pub struct UpdateAgenciaModel<'a> {
     pub media: Option<Option<JsonValue>>,
     pub encargado: Option<Option<i32>>,
     pub is_active: Option<bool>,
+    pub pago_anticipado: Option<bool>,
+    pub dias_pago_anticipado: Option<Option<i32>>,
     pub updated_by: Option<i32>,
 }
 
@@ -70,6 +76,8 @@ impl From<AgenciaModel> for Agencia {
             media: model.media,
             encargado: model.encargado,
             is_active: model.is_active,
+            pago_anticipado: model.pago_anticipado,
+            dias_pago_anticipado: model.dias_pago_anticipado,
             created_at: model.created_at,
             updated_at: model.updated_at,
             created_by: model.created_by,
@@ -90,6 +98,8 @@ impl<'a> From<&'a Agencia> for NewAgenciaModel<'a> {
             media: agencia.media.clone(),
             encargado: agencia.encargado,
             is_active: agencia.is_active,
+            pago_anticipado: agencia.pago_anticipado,
+            dias_pago_anticipado: agencia.dias_pago_anticipado,
             created_by: agencia.created_by,
             updated_by: agencia.updated_by,
         }

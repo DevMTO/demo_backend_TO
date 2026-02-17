@@ -86,3 +86,11 @@ pub struct UpdateFileGuiaConfirmacionModel<'a> {
     pub motivo_rechazo: Option<&'a str>,
 }
 
+/// Modelo para actualizar file_guias (PATCH parcial: id_guia, id_file_tour)
+#[derive(Debug, Clone, AsChangeset)]
+#[diesel(table_name = file_guias)]
+pub struct UpdateFileGuiaModel {
+    pub id_guia: Option<i32>,
+    pub id_file_tour: Option<i32>,
+}
+

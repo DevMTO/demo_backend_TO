@@ -1,15 +1,16 @@
 //! Handlers para FileGuias (guías vinculados a file_tours)
 
 use axum::{extract::{Path, State}, response::IntoResponse, Json};
-use tracing::instrument;
+use tracing::{instrument, info};
 use validator::Validate;
 
-use crate::application::dtos::{AssignGuiaToFileTourRequest, FileGuiaResponse};
+use crate::application::dtos::{AssignGuiaToFileTourRequest, FileGuiaResponse, UpdateFileGuiaRequest};
 use crate::domain::entities::StatusGuia;
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use crate::presentation::handlers::common::{json_ok, json_created, json_deleted};
+use crate::infrastructure::persistence::models::file_guia_model::UpdateFileGuiaModel;
 
 /// Lista los guías asignados a un file_tour con info completa de persona
 #[instrument(skip(state, _auth))]
@@ -146,4 +147,63 @@ pub async fn remove_file_guia(
     // TODO: Verificar si el guía tiene otras asignaciones activas antes de cambiar su status
     
     Ok(json_deleted())
+}
+
+/// Actualiza un file_guia (cambiar guía, file_tour o ambos)
+#[instrument(skip(state, auth, request))]
+pub async fn update_file_guia(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<i32>,
+    Json(request): Json<UpdateFileGuiaRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    
+    // Verificar que la asignación existe
+    let existing = state.container.file_guia_repository
+        .find_by_id(id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Asignación file_guia {} no encontrada", id)))?;
+    
+    // Si se cambia el guía, verificar que existe
+    if let Some(new_guia_id) = request.id_guia {
+        state.container.guia_repository
+            .find_by_id(new_guia_id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Guía {} no encontrado", new_guia_id)))?;
+        
+        // Verificar duplicado si cambia el file_tour también
+        let target_ft = request.id_file_tour.unwrap_or(existing.id_file_tour);
+        if state.container.file_guia_repository.is_guia_assigned(new_guia_id, target_ft).await? {
+            return Err(ApplicationError::Validation("El guía ya está asignado a este file_tour".to_string()));
+        }
+    }
+    
+    // Si se cambia el file_tour, verificar que existe
+    if let Some(new_ft_id) = request.id_file_tour {
+        state.container.file_tour_repository
+            .find_by_id(new_ft_id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", new_ft_id)))?;
+        
+        // Verificar duplicado si no cambia el guía
+        if request.id_guia.is_none() {
+            if state.container.file_guia_repository.is_guia_assigned(existing.id_guia, new_ft_id).await? {
+                return Err(ApplicationError::Validation("El guía ya está asignado a este file_tour".to_string()));
+            }
+        }
+    }
+    
+    let update_data = UpdateFileGuiaModel {
+        id_guia: request.id_guia,
+        id_file_tour: request.id_file_tour,
+    };
+    
+    let result = state.container.file_guia_repository
+        .update(id, update_data)
+        .await?;
+    
+    info!("FileGuia {} actualizado por usuario {}", id, auth.user.id);
+    
+    Ok(json_ok(FileGuiaResponse::from(result)))
 }

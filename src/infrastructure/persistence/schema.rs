@@ -47,6 +47,8 @@ diesel::table! {
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+        pago_anticipado -> Bool,
+        dias_pago_anticipado -> Nullable<Int4>,
     }
 }
 

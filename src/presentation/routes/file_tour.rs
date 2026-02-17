@@ -2,7 +2,7 @@
 
 use axum::{
     Router,
-    routing::{get, post, patch},
+    routing::{get, post, patch, put},
 };
 
 use crate::presentation::handlers::{file_relations, relation_status};
@@ -24,7 +24,7 @@ pub fn file_tour_routes() -> Router<AppState> {
         // Guías
         .route("/{file_tour_id}/guias", get(file_relations::list_file_tour_guias))
         .route("/guias", post(file_relations::assign_guia_to_file_tour))
-        .route("/guias/{guia_asig_id}", axum::routing::delete(file_relations::remove_file_guia))
+        .route("/guias/{guia_asig_id}", axum::routing::delete(file_relations::remove_file_guia).put(file_relations::update_file_guia))
         .route("/guias/{id}/status", patch(relation_status::update_file_guia_status))
         // Vehículos
         .route("/{file_tour_id}/vehiculos", get(file_relations::list_file_tour_vehiculos))

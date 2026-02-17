@@ -63,6 +63,8 @@ pub async fn update_mi_agencia(
         paleta_colores: request.paleta_colores,
         media: request.media,
         is_active: None,
+        pago_anticipado: None,
+        dias_pago_anticipado: None,
     };
     
     let response = state.container.agencia_service

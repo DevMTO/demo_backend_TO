@@ -543,6 +543,17 @@ pub struct UpdateFileVehiculoRequest {
     pub status: Option<String>,
 }
 
+/// Request para actualizar un file_guia (cambiar guía, file_tour o ambos)
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateFileGuiaRequest {
+    /// Nuevo guía asignado
+    pub id_guia: Option<i32>,
+    /// Nuevo file_tour (mover la asignación a otro tour)
+    pub id_file_tour: Option<i32>,
+}
+
 // ==================== FILE DETALLE COMPLETO ====================
 
 /// Respuesta completa de un File con todos sus datos relacionados

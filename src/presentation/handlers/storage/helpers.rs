@@ -38,6 +38,8 @@ pub async fn update_agencia_media(
         media: Some(serde_json::to_value(&media).unwrap_or(json!({}))),
         encargado: None,
         is_active: None,
+        pago_anticipado: None,
+        dias_pago_anticipado: None,
     };
     
     state.container.agencia_service
@@ -76,6 +78,8 @@ pub async fn clear_agencia_media(
         media: Some(serde_json::to_value(&media).unwrap_or(json!({}))),
         encargado: None,
         is_active: None,
+        pago_anticipado: None,
+        dias_pago_anticipado: None,
     };
     
     state.container.agencia_service

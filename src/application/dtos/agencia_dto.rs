@@ -22,6 +22,8 @@ pub struct AgenciaResponse {
     pub media: Option<JsonValue>,
     pub encargado: Option<i32>,
     pub is_active: bool,
+    pub pago_anticipado: bool,
+    pub dias_pago_anticipado: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -39,6 +41,8 @@ impl From<Agencia> for AgenciaResponse {
             media: a.media,
             encargado: a.encargado,
             is_active: a.is_active,
+            pago_anticipado: a.pago_anticipado,
+            dias_pago_anticipado: a.dias_pago_anticipado,
             created_at: a.created_at,
             updated_at: a.updated_at,
         }
@@ -62,6 +66,8 @@ pub struct AgenciaListItemDto {
     pub encargado: Option<i32>,
     pub encargado_nombre: Option<String>,
     pub is_active: bool,
+    pub pago_anticipado: bool,
+    pub dias_pago_anticipado: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -91,6 +97,10 @@ pub struct CreateAgenciaRequest {
     pub media: Option<JsonValue>,
     
     pub encargado: Option<i32>,
+    
+    pub pago_anticipado: Option<bool>,
+    
+    pub dias_pago_anticipado: Option<i32>,
 }
 
 impl CreateAgenciaRequest {
@@ -107,6 +117,8 @@ impl CreateAgenciaRequest {
             media: self.media,
             encargado: self.encargado,
             is_active: true,
+            pago_anticipado: self.pago_anticipado.unwrap_or(false),
+            dias_pago_anticipado: if self.pago_anticipado.unwrap_or(false) { None } else { Some(self.dias_pago_anticipado.unwrap_or(30)) },
             created_at: now,
             updated_at: now,
             created_by,
@@ -142,6 +154,10 @@ pub struct UpdateAgenciaRequest {
     pub encargado: Option<i32>,
     
     pub is_active: Option<bool>,
+    
+    pub pago_anticipado: Option<bool>,
+    
+    pub dias_pago_anticipado: Option<i32>,
 }
 
 impl UpdateAgenciaRequest {
@@ -172,6 +188,19 @@ impl UpdateAgenciaRequest {
         
         if let Some(is_active) = self.is_active {
             agencia.is_active = is_active;
+        }
+        if let Some(pago_anticipado) = self.pago_anticipado {
+            agencia.pago_anticipado = pago_anticipado;
+            if pago_anticipado {
+                agencia.dias_pago_anticipado = None;
+            } else if agencia.dias_pago_anticipado.is_none() {
+                agencia.dias_pago_anticipado = Some(self.dias_pago_anticipado.unwrap_or(30));
+            }
+        }
+        if let Some(dias) = self.dias_pago_anticipado {
+            if !agencia.pago_anticipado {
+                agencia.dias_pago_anticipado = Some(dias);
+            }
         }
         agencia.updated_by = updated_by;
         agencia.updated_at = Utc::now();

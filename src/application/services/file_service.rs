@@ -10,7 +10,7 @@
 //! - **Confirmación de reservas con creación de pagos pendientes**
 
 use std::sync::Arc;
-use chrono::{NaiveDate, Duration, Utc};
+use chrono::{NaiveDate, Datelike, Duration, Utc};
 use bigdecimal::BigDecimal;
 use tracing::{info, warn, instrument};
 
@@ -661,9 +661,34 @@ impl FileService {
             .map(|m| BigDecimal::try_from(m).unwrap_or_default())
             .unwrap_or_else(|| file.monto_total.clone());
         
-        let dias_vencimiento = request.dias_vencimiento.unwrap_or(7);
-        let fecha_vencimiento = (Utc::now() + Duration::days(dias_vencimiento as i64))
-            .date_naive();
+        // Calcular fecha_vencimiento según política de pago de la agencia
+        let fecha_vencimiento = if agencia.pago_anticipado {
+            // Pago anticipado: vence 1 día antes de la fecha del primer tour del file
+            let tours = self.file_tour_repository.find_by_file_with_tour(request.file_id).await?;
+            let earliest_tour_date = tours.iter()
+                .filter_map(|t| t.fecha_tour)
+                .min();
+            
+            match earliest_tour_date {
+                Some(fecha) => {
+                    // 1 día antes de la fecha del tour más temprano
+                    fecha - chrono::Duration::days(1)
+                },
+                None => {
+                    // Sin tours, usar 7 días desde ahora como fallback
+                    warn!("⚠️ Agencia con pago_anticipado pero file {} sin tours con fecha", request.file_id);
+                    (Utc::now() + Duration::days(7)).date_naive()
+                }
+            }
+        } else {
+            // No es pago anticipado: vence el dia (1ro del mes + dias_pago_anticipado)
+            let dias = agencia.dias_pago_anticipado.unwrap_or(30);
+            let now = Utc::now().date_naive();
+            // Primer día del mes actual
+            let primer_dia_mes = chrono::NaiveDate::from_ymd_opt(now.year(), now.month(), 1)
+                .unwrap_or(now);
+            primer_dia_mes + chrono::Duration::days(dias as i64)
+        };
         
         // 5. Actualizar el file a status "confirmado"
         let mut updated_file = file.clone();

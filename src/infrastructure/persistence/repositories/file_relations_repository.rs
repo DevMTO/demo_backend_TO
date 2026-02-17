@@ -106,7 +106,7 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
             cantidad,
             created_by,
             id_entrada_precio,
-            status: None, // Usa el default de la DB: 'reservado'
+            status: Some("asignado"), // Auto-asignado al crear
         };
         
         let result = diesel::insert_into(file_entradas::table)
@@ -257,6 +257,21 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error actualizando status de file_guia: {}", e)))?;
         
         info!("Status de file_guia {} actualizado a '{}'", id, status);
+        Ok(result)
+    }
+    
+    #[instrument(skip(self, data))]
+    async fn update(&self, id: i32, data: crate::infrastructure::persistence::models::file_guia_model::UpdateFileGuiaModel) -> Result<FileGuiaModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(file_guias::table.filter(file_guias::id.eq(id)))
+            .set(&data)
+            .returning(FileGuiaModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando file_guia: {}", e)))?;
+        
+        info!("FileGuia {} actualizado", id);
         Ok(result)
     }
     
@@ -462,7 +477,7 @@ impl FileRestauranteRepositoryPort for PostgresFileRestauranteRepository {
             tipo_servicio,
             created_by,
             precio,
-            status: None, // Usa el default de la DB: 'reservado'
+            status: Some("asignado"), // Auto-asignado al crear
         };
         
         let result = diesel::insert_into(file_restaurantes::table)

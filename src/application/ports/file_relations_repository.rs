@@ -64,6 +64,8 @@ pub trait FileGuiaRepositoryPort: Send + Sync {
     async fn is_guia_assigned(&self, id_guia: i32, id_file_tour: i32) -> Result<bool, ApplicationError>;
     /// Actualiza el status de una file_guia (permite 'pendiente')
     async fn update_status(&self, id: i32, status: &str) -> Result<FileGuiaModel, ApplicationError>;
+    /// Actualiza id_guia y/o id_file_tour de una file_guia (PATCH parcial)
+    async fn update(&self, id: i32, data: crate::infrastructure::persistence::models::file_guia_model::UpdateFileGuiaModel) -> Result<FileGuiaModel, ApplicationError>;
 }
 
 #[async_trait]
