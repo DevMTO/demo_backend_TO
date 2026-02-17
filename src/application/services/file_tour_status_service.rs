@@ -204,17 +204,6 @@ impl FileTourStatusService {
 
         Ok(result)
     }
-
-    /// Verifica si un estado debe disparar cascada
-    pub fn should_cascade(status: &str) -> bool {
-        CASCADE_CANCELING_STATUSES.contains(&status)
-    }
-
-    /// Obtiene la lista de statuses que disparan cascada
-    #[allow(dead_code)]
-    pub fn cascade_statuses() -> &'static [&'static str] {
-        CASCADE_CANCELING_STATUSES
-    }
 }
 
 #[cfg(test)]
@@ -223,10 +212,10 @@ mod tests {
 
     #[test]
     fn test_should_cascade() {
-        assert!(FileTourStatusService::should_cascade("cancelado"));
-        assert!(!FileTourStatusService::should_cascade("confirmado"));
-        assert!(!FileTourStatusService::should_cascade("asignado"));
-        assert!(!FileTourStatusService::should_cascade("pendiente"));
+        assert!(CASCADE_CANCELING_STATUSES.contains(&"cancelado"));
+        assert!(!CASCADE_CANCELING_STATUSES.contains(&"confirmado"));
+        assert!(!CASCADE_CANCELING_STATUSES.contains(&"asignado"));
+        assert!(!CASCADE_CANCELING_STATUSES.contains(&"pendiente"));
     }
 
     #[test]

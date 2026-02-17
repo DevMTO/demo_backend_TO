@@ -104,6 +104,20 @@ impl PagoFileRepositoryPort for PostgresPagoFileRepository {
             .get_result::<PagoFileModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
+
+    #[instrument(skip(self))]
+    async fn find_by_agencia_tipos(&self, id_agencia: i32, tipos: &[&str], limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let tipos_owned: Vec<String> = tipos.iter().map(|t| t.to_string()).collect();
+        pagos_files::table
+            .filter(pagos_files::id_agencia.eq(id_agencia))
+            .filter(pagos_files::tipo_registro.eq_any(&tipos_owned))
+            .order(pagos_files::created_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .load::<PagoFileModel>(&mut conn).await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))
+    }
 }
 
 pub struct PostgresPagoProveedorRepository {

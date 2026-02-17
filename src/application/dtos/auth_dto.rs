@@ -107,14 +107,7 @@ pub struct SuccessResponse {
     pub message: String,
 }
 
-impl SuccessResponse {
-    pub fn new(message: impl Into<String>) -> Self {
-        Self {
-            success: true,
-            message: message.into(),
-        }
-    }
-}
+
 
 /// Información de persona asociada al usuario (para perfil)
 #[derive(Debug, Clone, Serialize, TS)]

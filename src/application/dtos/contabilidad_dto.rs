@@ -254,3 +254,155 @@ pub struct PagosProveedoresFilter {
     pub fecha_desde: Option<String>,
     pub fecha_hasta: Option<String>,
 }
+
+// ============================================================================
+// SALDO A FAVOR - CANCELACIONES Y NO-SHOWS
+// ============================================================================
+
+/// Respuesta de cancelación (registro en pagos_files con tipo_registro='cancelacion'/'cancelacion_tour')
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct CancelacionResponse {
+    pub id: i32,
+    pub id_file: i32,
+    pub file_code: Option<String>,
+    pub id_agencia: i32,
+    pub agencia_nombre: Option<String>,
+    pub id_file_tour: Option<i32>,
+    pub tour_nombre: Option<String>,
+    #[ts(type = "number")]
+    pub monto_total: f64,
+    #[ts(type = "number")]
+    pub monto_saldo_favor: f64,
+    pub tipo_cancelacion: String,
+    pub notas: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Request para cancelar un file completo
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct CancelarFileRequest {
+    pub id_file: i32,
+    pub notas: Option<String>,
+}
+
+/// Request para cancelar un file_tour específico
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct CancelarFileTourRequest {
+    pub id_file_tour: i32,
+    pub notas: Option<String>,
+}
+
+/// Respuesta de No-Show (registro en pagos_files con tipo_registro='no_show'/'no_show_tour')
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct NoShowResponse {
+    pub id: i32,
+    pub id_file: i32,
+    pub file_code: Option<String>,
+    pub id_agencia: i32,
+    pub agencia_nombre: Option<String>,
+    pub id_file_tour: Option<i32>,
+    pub tour_nombre: Option<String>,
+    #[ts(type = "number")]
+    pub monto_total: f64,
+    #[ts(type = "number")]
+    pub monto_saldo_favor: f64,
+    pub saldo_autorizado: bool,
+    pub saldo_autorizado_por: Option<i32>,
+    pub saldo_autorizado_at: Option<DateTime<Utc>>,
+    pub notas: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Request para registrar no-show de un file completo
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct RegistrarNoShowRequest {
+    pub id_file: i32,
+    pub notas: Option<String>,
+}
+
+/// Request para registrar no-show de un file_tour específico
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct NoShowFileTourRequest {
+    pub id_file_tour: i32,
+    pub notas: Option<String>,
+}
+
+/// Request para autorizar saldo a favor de un no-show
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct AutorizarNoShowSaldoRequest {
+    pub id_pago_file: i32,
+    #[ts(type = "number")]
+    pub monto_saldo_favor: f64,
+}
+
+/// Resumen de saldo a favor de una agencia
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct SaldoFavorResumen {
+    pub id_agencia: i32,
+    pub nombre_agencia: String,
+    #[ts(type = "number")]
+    pub saldo_generado: f64,
+    #[ts(type = "number")]
+    pub saldo_usado: f64,
+    #[ts(type = "number")]
+    pub saldo_disponible: f64,
+    pub total_cancelaciones: i32,
+    pub total_no_shows: i32,
+}
+
+/// Respuesta de movimiento de saldo a favor
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct MovimientoSaldoResponse {
+    pub id: i32,
+    pub id_file: i32,
+    pub file_code: Option<String>,
+    pub id_agencia: i32,
+    pub id_file_tour: Option<i32>,
+    pub tipo: String,
+    pub concepto: String,
+    #[ts(type = "number")]
+    pub monto: f64,
+    pub notas: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Dashboard de saldo a favor para una agencia
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct SaldoFavorDashboard {
+    pub resumen: SaldoFavorResumen,
+    pub cancelaciones_recientes: Vec<CancelacionResponse>,
+    pub no_shows_recientes: Vec<NoShowResponse>,
+    pub movimientos_recientes: Vec<MovimientoSaldoResponse>,
+}
+
+/// Request para usar saldo a favor en un pago
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UsarSaldoFavorRequest {
+    pub id_agencia: i32,
+    pub id_file: i32,
+    #[ts(type = "number")]
+    pub monto: f64,
+    pub concepto: Option<String>,
+}

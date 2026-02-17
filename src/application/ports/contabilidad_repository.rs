@@ -21,6 +21,8 @@ pub trait PagoFileRepositoryPort: Send + Sync {
     async fn create(&self, data: NewPagoFileModel<'_>) -> Result<PagoFileModel, ApplicationError>;
     async fn update(&self, id: i32, data: UpdatePagoFileModel<'_>) -> Result<PagoFileModel, ApplicationError>;
     async fn find_all_by_file(&self, id_file: i32) -> Result<Vec<PagoFileModel>, ApplicationError>;
+    /// Buscar registros por agencia y tipos de registro (cancelacion, no_show, etc.)
+    async fn find_by_agencia_tipos(&self, id_agencia: i32, tipos: &[&str], limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError>;
 }
 
 // ============================================================================

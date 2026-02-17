@@ -6,6 +6,7 @@ use axum::{
 };
 
 use crate::presentation::handlers::contabilidad;
+use crate::presentation::handlers::saldo_favor;
 
 use super::state::AppState;
 
@@ -20,4 +21,18 @@ pub fn contabilidad_routes() -> Router<AppState> {
         // Pagos a proveedores (operador -> transportes/restaurantes/guias)
         .route("/pagos-proveedores", get(contabilidad::list_pagos_proveedores).post(contabilidad::create_pago_proveedor))
         .route("/pagos-proveedores/{id}/pagar", post(contabilidad::marcar_pago_proveedor_pagado))
+        // Saldo a Favor - Consultas
+        .route("/saldos-favor/resumen/{id_agencia}", get(saldo_favor::get_saldo_resumen))
+        .route("/saldos-favor/dashboard/{id_agencia}", get(saldo_favor::get_saldo_dashboard))
+        .route("/saldos-favor/todos", get(saldo_favor::list_all_saldos))
+        .route("/saldos-favor/cancelaciones", get(saldo_favor::list_cancelaciones))
+        .route("/saldos-favor/no-shows", get(saldo_favor::list_no_shows))
+        .route("/saldos-favor/movimientos", get(saldo_favor::list_movimientos))
+        // Saldo a Favor - Acciones
+        .route("/saldos-favor/cancelar-file", post(saldo_favor::cancelar_file))
+        .route("/saldos-favor/cancelar-tour", post(saldo_favor::cancelar_file_tour))
+        .route("/saldos-favor/registrar-no-show", post(saldo_favor::registrar_no_show))
+        .route("/saldos-favor/registrar-no-show-tour", post(saldo_favor::registrar_no_show_file_tour))
+        .route("/saldos-favor/autorizar-saldo", post(saldo_favor::autorizar_no_show_saldo))
+        .route("/saldos-favor/usar-saldo", post(saldo_favor::usar_saldo))
 }

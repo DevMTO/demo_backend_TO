@@ -128,12 +128,11 @@ impl UpdateEntradaPrecioRequest {
 }
 
 /// Request para crear múltiples precios de entrada en batch
+/// El id_entrada se toma del path parameter, no del body
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct BatchCreateEntradaPreciosRequest {
-    pub id_entrada: i32,
-    
     #[validate(length(min = 1, message = "Debe incluir al menos un precio"))]
     pub precios: Vec<PrecioRangoInput>,
 }
