@@ -106,7 +106,7 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
             cantidad,
             created_by,
             id_entrada_precio,
-            status: Some("asignado"), // Auto-asignado al crear
+            status: Some("reservado"),
         };
         
         let result = diesel::insert_into(file_entradas::table)
@@ -193,8 +193,8 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
             id_guia,
             rol,
             created_by,
-            estado_confirmacion: Some("aceptado"), // Auto-aceptado al asignar (igual que conductor)
-            status: Some("reservado"), // Auto-reservado
+            estado_confirmacion: Some("aceptado"),
+            status: Some("asignado"),
         };
         
         let result = diesel::insert_into(file_guias::table)
@@ -477,7 +477,7 @@ impl FileRestauranteRepositoryPort for PostgresFileRestauranteRepository {
             tipo_servicio,
             created_by,
             precio,
-            status: Some("asignado"), // Auto-asignado al crear
+            status: Some("reservado"),
         };
         
         let result = diesel::insert_into(file_restaurantes::table)
@@ -565,7 +565,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
             id_conductor,
             capacidad_asignada,
             created_by,
-            status: None, // Usa el default de la DB: 'reservado'
+            status: Some("asignado"),
         };
         
         let result = diesel::insert_into(file_vehiculos::table)
