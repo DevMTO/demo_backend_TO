@@ -1,48 +1,52 @@
 -- =============================================================================
 -- SIMPLIFICACIÓN: Todo en pagos_files
--- DROP: cancelaciones, no_shows, saldos_favor, movimientos_saldo_favor
 -- ADD: columnas a pagos_files para cancel/no_show/saldo
 -- =============================================================================
 
--- 1. Agregar nuevas columnas a pagos_files
+-- 1. Agregar nuevas columnas a pagos_files (solo si no existen)
 ALTER TABLE pagos_files
-    ADD COLUMN id_file_tour INTEGER REFERENCES file_tours(id) ON DELETE SET NULL,
-    ADD COLUMN tipo_registro VARCHAR(30) NOT NULL DEFAULT 'deuda',
-    ADD COLUMN monto_saldo_favor NUMERIC(12,2) NOT NULL DEFAULT 0,
-    ADD COLUMN motivo TEXT,
-    ADD COLUMN saldo_autorizado BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN saldo_autorizado_por INTEGER REFERENCES users(id),
-    ADD COLUMN saldo_autorizado_at TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS id_file_tour INTEGER REFERENCES file_tours(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS tipo_registro VARCHAR(30) NOT NULL DEFAULT 'deuda',
+    ADD COLUMN IF NOT EXISTS monto_saldo_favor NUMERIC(12,2) NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS motivo TEXT,
+    ADD COLUMN IF NOT EXISTS saldo_autorizado BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS saldo_autorizado_por INTEGER REFERENCES users(id),
+    ADD COLUMN IF NOT EXISTS saldo_autorizado_at TIMESTAMPTZ;
 
--- 2. Migrar datos existentes de cancelaciones → pagos_files
-INSERT INTO pagos_files (
-    id_file, id_agencia, monto_total, monto_pagado, estado, notas, created_at, updated_at, created_by,
-    id_file_tour, tipo_registro, monto_saldo_favor, motivo
-)
-SELECT
-    c.id_file,
-    c.id_agencia,
-    c.monto_total_file,
-    c.monto_pagado,
-    CASE
-        WHEN c.tipo_cancelacion IN ('no_show', 'no_show_tour') THEN 'no_show'
-        ELSE 'cancelado'
-    END as estado,
-    c.notas,
-    c.created_at,
-    c.created_at,
-    c.created_by,
-    c.id_file_tour,
-    c.tipo_cancelacion as tipo_registro,
-    c.monto_saldo_favor,
-    c.motivo
-FROM cancelaciones c;
+-- 2. Migrar datos existentes de cancelaciones → pagos_files (si la tabla existe)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cancelaciones') THEN
+        INSERT INTO pagos_files (
+            id_file, id_agencia, monto_total, monto_pagado, estado, notas, created_at, updated_at, created_by,
+            id_file_tour, tipo_registro, monto_saldo_favor, motivo
+        )
+        SELECT
+            c.id_file,
+            c.id_agencia,
+            c.monto_total_file,
+            c.monto_pagado,
+            CASE
+                WHEN c.tipo_cancelacion IN ('no_show', 'no_show_tour') THEN 'no_show'
+                ELSE 'cancelado'
+            END as estado,
+            c.notas,
+            c.created_at,
+            c.created_at,
+            c.created_by,
+            c.id_file_tour,
+            c.tipo_cancelacion as tipo_registro,
+            c.monto_saldo_favor,
+            c.motivo
+        FROM cancelaciones c;
 
--- 3. Para cancelaciones con saldo > 0, auto-autorizar
-UPDATE pagos_files
-SET saldo_autorizado = TRUE
-WHERE tipo_registro IN ('cancelacion', 'cancelacion_tour')
-  AND monto_saldo_favor > 0;
+        -- 3. Para cancelaciones con saldo > 0, auto-autorizar
+        UPDATE pagos_files
+        SET saldo_autorizado = TRUE
+        WHERE tipo_registro IN ('cancelacion', 'cancelacion_tour')
+          AND monto_saldo_favor > 0;
+    END IF;
+END $$;
 
 -- 4. Drop tablas (en orden por dependencias FK)
 DROP TABLE IF EXISTS movimientos_saldo_favor CASCADE;
