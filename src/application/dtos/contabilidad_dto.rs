@@ -275,6 +275,9 @@ pub struct CancelacionResponse {
     pub monto_total: f64,
     #[ts(type = "number")]
     pub monto_saldo_favor: f64,
+    /// Monto total de entradas asociadas (calculado desde file_entradas × entrada_precios)
+    #[ts(type = "number")]
+    pub monto_entradas: f64,
     pub tipo_cancelacion: String,
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -314,6 +317,9 @@ pub struct NoShowResponse {
     pub monto_total: f64,
     #[ts(type = "number")]
     pub monto_saldo_favor: f64,
+    /// Monto total de entradas asociadas (calculado desde file_entradas × entrada_precios)
+    #[ts(type = "number")]
+    pub monto_entradas: f64,
     pub saldo_autorizado: bool,
     pub saldo_autorizado_por: Option<i32>,
     pub saldo_autorizado_at: Option<DateTime<Utc>>,

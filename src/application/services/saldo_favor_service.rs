@@ -23,6 +23,7 @@ use crate::application::dtos::contabilidad_dto::{
 use crate::application::ports::{
     PagoFileRepositoryPort, FileRepositoryPort, FileTourRepositoryPort,
     AgenciaRepositoryPort, TourRepositoryPort, NotificationServicePort,
+    FileEntradaRepositoryPort, EntradaPrecioRepositoryPort,
 };
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::{
@@ -41,6 +42,8 @@ pub struct SaldoFavorService {
     agencia_repo: Arc<dyn AgenciaRepositoryPort>,
     tour_repo: Arc<dyn TourRepositoryPort>,
     notification_service: Arc<dyn NotificationServicePort>,
+    file_entrada_repo: Arc<dyn FileEntradaRepositoryPort>,
+    entrada_precio_repo: Arc<dyn EntradaPrecioRepositoryPort>,
 }
 
 impl SaldoFavorService {
@@ -51,6 +54,8 @@ impl SaldoFavorService {
         agencia_repo: Arc<dyn AgenciaRepositoryPort>,
         tour_repo: Arc<dyn TourRepositoryPort>,
         notification_service: Arc<dyn NotificationServicePort>,
+        file_entrada_repo: Arc<dyn FileEntradaRepositoryPort>,
+        entrada_precio_repo: Arc<dyn EntradaPrecioRepositoryPort>,
     ) -> Self {
         Self {
             pago_file_repo,
@@ -59,6 +64,8 @@ impl SaldoFavorService {
             agencia_repo,
             tour_repo,
             notification_service,
+            file_entrada_repo,
+            entrada_precio_repo,
         }
     }
 
@@ -541,6 +548,13 @@ impl SaldoFavorService {
             self.get_tour_nombre_by_file_tour(ft_id).await
         } else { None };
 
+        // Calcular monto de entradas según el tipo de cancelación
+        let monto_entradas = if let Some(ft_id) = p.id_file_tour {
+            self.calcular_monto_entradas_tour(ft_id).await
+        } else {
+            self.calcular_monto_entradas_file(p.id_file).await
+        };
+
         Ok(CancelacionResponse {
             id: p.id,
             id_file: p.id_file,
@@ -551,6 +565,7 @@ impl SaldoFavorService {
             tour_nombre,
             monto_total: p.monto_total.to_f64().unwrap_or(0.0),
             monto_saldo_favor: p.monto_saldo_favor.as_ref().and_then(|v| v.to_f64()).unwrap_or(0.0),
+            monto_entradas: monto_entradas.to_f64().unwrap_or(0.0),
             tipo_cancelacion: p.tipo_registro,
             notas: p.notas,
             created_at: p.created_at,
@@ -564,6 +579,13 @@ impl SaldoFavorService {
             self.get_tour_nombre_by_file_tour(ft_id).await
         } else { None };
 
+        // Calcular monto de entradas según el tipo de no-show
+        let monto_entradas = if let Some(ft_id) = p.id_file_tour {
+            self.calcular_monto_entradas_tour(ft_id).await
+        } else {
+            self.calcular_monto_entradas_file(p.id_file).await
+        };
+
         Ok(NoShowResponse {
             id: p.id,
             id_file: p.id_file,
@@ -574,6 +596,7 @@ impl SaldoFavorService {
             tour_nombre,
             monto_total: p.monto_total.to_f64().unwrap_or(0.0),
             monto_saldo_favor: p.monto_saldo_favor.as_ref().and_then(|v| v.to_f64()).unwrap_or(0.0),
+            monto_entradas: monto_entradas.to_f64().unwrap_or(0.0),
             saldo_autorizado: p.saldo_autorizado,
             saldo_autorizado_por: p.saldo_autorizado_por,
             saldo_autorizado_at: p.saldo_autorizado_at,
@@ -629,5 +652,40 @@ impl SaldoFavorService {
             }
         }
         None
+    }
+
+    /// Calcular el monto total de entradas para un file_tour específico.
+    /// Suma: entrada_precios.precio × file_entrada.cantidad para cada file_entrada.
+    async fn calcular_monto_entradas_tour(&self, id_file_tour: i32) -> BigDecimal {
+        let zero = BigDecimal::from(0);
+        let entradas = match self.file_entrada_repo.find_by_file_tour(id_file_tour).await {
+            Ok(es) => es,
+            Err(_) => return zero,
+        };
+
+        let mut total = zero;
+        for fe in &entradas {
+            if let Some(precio_id) = fe.id_entrada_precio {
+                if let Ok(Some(precio)) = self.entrada_precio_repo.find_by_id(precio_id).await {
+                    total += &precio.precio * BigDecimal::from(fe.cantidad);
+                }
+            }
+        }
+        total
+    }
+
+    /// Calcular el monto total de entradas para un file completo (todos sus file_tours).
+    async fn calcular_monto_entradas_file(&self, id_file: i32) -> BigDecimal {
+        let zero = BigDecimal::from(0);
+        let tours = match self.file_tour_repo.find_by_file_with_tour(id_file).await {
+            Ok(ts) => ts,
+            Err(_) => return zero,
+        };
+
+        let mut total = zero;
+        for ft in &tours {
+            total += self.calcular_monto_entradas_tour(ft.id).await;
+        }
+        total
     }
 }

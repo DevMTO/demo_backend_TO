@@ -180,6 +180,8 @@ impl Services {
             repos.agencia.clone(),
             repos.tour.clone(),
             notify.clone(),
+            repos.file_entrada.clone(),
+            repos.entrada_precio.clone(),
         ));
 
         Self {
