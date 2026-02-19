@@ -25,7 +25,7 @@ fn is_admin(role: &UserRole) -> bool {
 
 /// Helper: ¿puede gestionar contabilidad?
 fn can_manage_contabilidad(role: &UserRole) -> bool {
-    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
+    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador | UserRole::Agencias )
 }
 
 // ============================================================================
