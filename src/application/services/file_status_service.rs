@@ -6,7 +6,7 @@
 //! - Definir reglas de cascada para estados específicos
 
 use std::sync::Arc;
-use tracing::{info, instrument};
+use tracing::{info, instrument, warn};
 
 use crate::application::ports::{
     FileTourRepositoryPort, FileGuiaRepositoryPort, FileVehiculoRepositoryPort, FileRestauranteRepositoryPort, FileEntradaRepositoryPort, FileRepositoryPort,
@@ -121,6 +121,8 @@ impl FileStatusService {
         );
 
         if CASCADE_STATUSES.contains(&new_status) {
+            warn!("CASCADE_STATUSES contains '{}', starting cascade for File {}", new_status, file_id);
+            
             let mut result = UpdateFileStatusResult {
                 old_status,
                 new_status: new_status.to_string(),
@@ -130,9 +132,44 @@ impl FileStatusService {
                 entradas_actualizadas: 0,
             };
 
-            result = self
-                .propagate_status_to_relations(file_id, new_status, result)
+            // Obtener todos los file_tours relacionados y actualizar file_tours
+            let file_tours = self.file_tour_repository
+                .find_by_file_with_tour(file_id)
                 .await?;
+
+            warn!("Found {} file_tours for File {}", file_tours.len(), file_id);
+
+            for file_tour in file_tours {
+                warn!("Processing FileTour {} with status '{}'", file_tour.id, file_tour.status);
+                
+                if !FINAL_STATUSES.contains(&file_tour.status.as_str()) {
+                    warn!("FileTour {} status '{}' is not final, updating to '{}'", file_tour.id, file_tour.status, new_status);
+                    
+                    self.file_tour_repository
+                        .update_status(file_tour.id, new_status)
+                        .await?;
+                    
+                    info!(
+                        "FileTour {} actualizado a '{}' por cascada de File {}",
+                        file_tour.id, new_status, file_id
+                    );
+
+                    warn!("Calling propagate_status_to_relations for FileTour {}", file_tour.id);
+                    
+                    // Aplicar cascada a las entidades relacionadas de este file_tour
+                    result = self
+                        .propagate_status_to_relations(file_tour.id, new_status, result)
+                        .await?;
+                    
+                    warn!("After propagate: guias={}, vehiculos={}, restaurantes={}, entradas={}", 
+                        result.guias_actualizados, result.vehiculos_actualizados, result.restaurantes_actualizados, result.entradas_actualizadas);
+                } else {
+                    warn!("FileTour {} status '{}' is final, skipping", file_tour.id, file_tour.status);
+                }
+            }
+
+            warn!("Cascade complete for File {}: guias={}, vehiculos={}, restaurantes={}, entradas={}", 
+                file_id, result.guias_actualizados, result.vehiculos_actualizados, result.restaurantes_actualizados, result.entradas_actualizadas);
 
             Ok(result)
         } else {
@@ -147,13 +184,13 @@ impl FileStatusService {
         }
     }
 
-    /// Propaga el estado a entidades relacionadas (file_tours, file_guias, file_vehiculos, file_restaurantes, file_entradas)
+    /// Propaga el estado a entidades relacionadas a un FileTour (guías, vehículos, restaurantes, entradas)
     ///
     /// Solo actualiza entidades que no estén en estados finales (cancelado, completado)
     #[instrument(skip(self))]
     async fn propagate_status_to_relations(
         &self,
-        file_id: i32,
+        file_tour_id: i32,
         new_status: &str,
         mut result: UpdateFileStatusResult,
     ) -> Result<UpdateFileStatusResult, ApplicationError> {
@@ -161,30 +198,9 @@ impl FileStatusService {
             return Ok(result);
         }
 
-        // Actualizar file_tours
-        let file_tours = self.file_tour_repository
-            .find_by_file_with_tour(file_id)
-            .await?;
-
-        for file_tour in file_tours {
-            if !FINAL_STATUSES.contains(&file_tour.status.as_str()) {
-                self.file_tour_repository
-                    .update_status(file_tour.id, new_status)
-                    .await?;
-                result.guias_actualizados += 1;
-                result.vehiculos_actualizados += 1;
-                result.restaurantes_actualizados += 1;
-                result.entradas_actualizadas += 1;
-                info!(
-                    "FileTour {} actualizado a '{}' por cascada de File {}",
-                    file_tour.id, new_status, file_id
-                );
-            }
-        }
-
         // Actualizar file_guias
         let guias = self.file_guia_repository
-            .find_by_file_tour_with_persona(file_id)
+            .find_by_file_tour_with_persona(file_tour_id)
             .await?;
 
         for guia in guias {
@@ -194,15 +210,15 @@ impl FileStatusService {
                     .await?;
                 result.guias_actualizados += 1;
                 info!(
-                    "FileGuia {} actualizado a '{}' por cascada de File {}",
-                    guia.id, new_status, file_id
+                    "FileGuia {} actualizado a '{}' por cascada de FileTour {}",
+                    guia.id, new_status, file_tour_id
                 );
             }
         }
 
         // Actualizar file_vehiculos
         let vehiculos = self.file_vehiculo_repository
-            .find_by_file_tour(file_id)
+            .find_by_file_tour(file_tour_id)
             .await?;
 
         for vehiculo in vehiculos {
@@ -212,15 +228,15 @@ impl FileStatusService {
                     .await?;
                 result.vehiculos_actualizados += 1;
                 info!(
-                    "FileVehiculo {} actualizado a '{}' por cascada de File {}",
-                    vehiculo.id, new_status, file_id
+                    "FileVehiculo {} actualizado a '{}' por cascada de FileTour {}",
+                    vehiculo.id, new_status, file_tour_id
                 );
             }
         }
 
         // Actualizar file_restaurantes
         let restaurantes = self.file_restaurante_repository
-            .find_by_file_tour(file_id)
+            .find_by_file_tour(file_tour_id)
             .await?;
 
         for restaurante in restaurantes {
@@ -230,15 +246,15 @@ impl FileStatusService {
                     .await?;
                 result.restaurantes_actualizados += 1;
                 info!(
-                    "FileRestaurante {} actualizado a '{}' por cascada de File {}",
-                    restaurante.id, new_status, file_id
+                    "FileRestaurante {} actualizado a '{}' por cascada de FileTour {}",
+                    restaurante.id, new_status, file_tour_id
                 );
             }
         }
 
         // Actualizar file_entradas
         let entradas = self.file_entrada_repository
-            .find_by_file_tour(file_id)
+            .find_by_file_tour(file_tour_id)
             .await?;
 
         for entrada in entradas {
@@ -248,15 +264,15 @@ impl FileStatusService {
                     .await?;
                 result.entradas_actualizadas += 1;
                 info!(
-                    "FileEntrada {} actualizado a '{}' por cascada de File {}",
-                    entrada.id, new_status, file_id
+                    "FileEntrada {} actualizado a '{}' por cascada de FileTour {}",
+                    entrada.id, new_status, file_tour_id
                 );
             }
         }
 
         info!(
-            "Cascada completada para File {}: {} entidades actualizadas",
-            file_id,
+            "Cascada completada para FileTour {}: {} entidades actualizadas",
+            file_tour_id,
             result.guias_actualizados + result.vehiculos_actualizados + result.restaurantes_actualizados + result.entradas_actualizadas
         );
 
