@@ -291,7 +291,7 @@ diesel::table! {
         id_agencia -> Int4,
         monto_total -> Numeric,
         monto_pagado -> Numeric,
-        #[max_length = 20]
+        #[max_length = 30]
         estado -> Varchar,
         fecha_vencimiento -> Nullable<Date>,
         comprobante_url -> Nullable<Text>,
@@ -309,6 +309,8 @@ diesel::table! {
         saldo_autorizado -> Bool,
         saldo_autorizado_por -> Nullable<Int4>,
         saldo_autorizado_at -> Nullable<Timestamptz>,
+        entradas -> Bool,
+        entrada_precio -> Nullable<Numeric>,
     }
 }
 

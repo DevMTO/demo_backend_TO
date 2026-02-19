@@ -109,9 +109,11 @@ impl SaldoFavorService {
             id_file_tour: None,
             tipo_registro: "cancelacion",
             monto_saldo_favor: monto_saldo,
-            saldo_autorizado: true, // Cancelaciones siempre generan saldo
+            saldo_autorizado: true,
             saldo_autorizado_por: created_by,
             saldo_autorizado_at: Some(chrono::Utc::now()),
+            entradas: false,
+            entrada_precio: None,
         };
 
         let record = self.pago_file_repo.create(new_record).await?;
@@ -185,6 +187,8 @@ impl SaldoFavorService {
             saldo_autorizado: true,
             saldo_autorizado_por: created_by,
             saldo_autorizado_at: Some(chrono::Utc::now()),
+            entradas: false,
+            entrada_precio: None,
         };
 
         let record = self.pago_file_repo.create(new_record).await?;
@@ -247,10 +251,12 @@ impl SaldoFavorService {
             created_by,
             id_file_tour: None,
             tipo_registro: "no_show",
-            monto_saldo_favor: None, // No genera saldo hasta autorización
+            monto_saldo_favor: None,
             saldo_autorizado: false,
             saldo_autorizado_por: None,
             saldo_autorizado_at: None,
+            entradas: false,
+            entrada_precio: None,
         };
 
         let record = self.pago_file_repo.create(new_record).await?;
@@ -307,6 +313,8 @@ impl SaldoFavorService {
             saldo_autorizado: false,
             saldo_autorizado_por: None,
             saldo_autorizado_at: None,
+            entradas: false,
+            entrada_precio: None,
         };
 
         let record = self.pago_file_repo.create(new_record).await?;
@@ -529,6 +537,8 @@ impl SaldoFavorService {
             saldo_autorizado: false,
             saldo_autorizado_por: None,
             saldo_autorizado_at: None,
+            entradas: false,
+            entrada_precio: None,
         };
 
         let record = self.pago_file_repo.create(new_record).await?;

@@ -72,6 +72,17 @@ pub struct PagoFileResponse {
     pub verificado_at: Option<DateTime<Utc>>,
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
+    /// ID del file_tour asociado (para deudas por tour)
+    pub id_file_tour: Option<i32>,
+    /// Nombre del tour (para deudas por tour)
+    pub tour_nombre: Option<String>,
+    /// Tipo de registro: deuda, pago, cancelacion, etc.
+    pub tipo_registro: String,
+    /// Si este registro cubre entradas
+    pub entradas: bool,
+    /// Costo de las entradas del file_tour (solo si entradas = true)
+    #[ts(type = "number | null")]
+    pub entrada_precio: Option<f64>,
 }
 
 /// Request para registrar pago de file (agencia sube comprobante)

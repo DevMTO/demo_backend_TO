@@ -408,8 +408,8 @@ pub struct ConfirmReservaResponse {
     /// File actualizado
     pub file: FileResponse,
     
-    /// ID del pago pendiente generado
-    pub pago_file_id: i32,
+    /// IDs de los pagos pendientes generados (uno por file_tour)
+    pub pago_file_ids: Vec<i32>,
     
     /// Monto total a pagar
     #[ts(type = "string")]

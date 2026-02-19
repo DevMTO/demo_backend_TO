@@ -20,6 +20,7 @@ use crate::application::dtos::{
 };
 use crate::application::ports::{FileRepositoryPort, PaginationOptions, NotificationServicePort};
 use crate::application::ports::{FileTourRepositoryPort, FileTourInputData, PagoFileRepositoryPort, AgenciaRepositoryPort};
+use crate::application::ports::{FileEntradaRepositoryPort, EntradaPrecioRepositoryPort};
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
     File, EntityType, UserRole,
@@ -36,6 +37,8 @@ pub struct FileService {
     notification_service: Arc<dyn NotificationServicePort>,
     pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
     agencia_repository: Arc<dyn AgenciaRepositoryPort>,
+    file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
+    entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
 }
 
 impl FileService {
@@ -46,6 +49,8 @@ impl FileService {
         notification_service: Arc<dyn NotificationServicePort>,
         pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
         agencia_repository: Arc<dyn AgenciaRepositoryPort>,
+        file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
+        entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
     ) -> Self {
         Self {
             file_repository,
@@ -54,6 +59,8 @@ impl FileService {
             notification_service,
             pago_file_repository,
             agencia_repository,
+            file_entrada_repository,
+            entrada_precio_repository,
         }
     }
 
@@ -641,10 +648,11 @@ impl FileService {
             )));
         }
         
-        // Verificar que no exista ya un pago_file para este file
-        if let Some(_existing) = self.pago_file_repository.find_by_file(request.file_id).await? {
+        // Verificar que no existan ya pagos_file para este file
+        let existing_pagos = self.pago_file_repository.find_all_by_file(request.file_id).await?;
+        if !existing_pagos.is_empty() {
             return Err(ApplicationError::Validation(
-                "Este file ya tiene un registro de pago asociado".to_string()
+                "Este file ya tiene registros de pago asociados".to_string()
             ));
         }
         
@@ -700,26 +708,61 @@ impl FileService {
         let updated_file = self.file_repository.update(&updated_file).await?;
         info!("✅ File {} confirmado", request.file_id);
         
-        // 6. Crear el pago_file pendiente
-        let new_pago = NewPagoFileModel {
-            id_file: request.file_id,
-            id_agencia: file.id_agencia,
-            monto_total: monto_total.clone(),
-            monto_pagado: BigDecimal::from(0),
-            estado: "pendiente",
-            fecha_vencimiento: Some(fecha_vencimiento),
-            notas: request.notas.as_deref(),
-            created_by: Some(confirmed_by),
-            id_file_tour: None,
-            tipo_registro: "deuda",
-            monto_saldo_favor: None,
-            saldo_autorizado: false,
-            saldo_autorizado_por: None,
-            saldo_autorizado_at: None,
-        };
+        // 6. Crear un pago_file (deuda) POR CADA file_tour del file
+        let tours = self.file_tour_repository.find_by_file_with_tour(request.file_id).await?;
         
-        let pago_file = self.pago_file_repository.create(new_pago).await?;
-        info!("💰 Pago pendiente creado: ID {} para file {}", pago_file.id, request.file_id);
+        if tours.is_empty() {
+            return Err(ApplicationError::Validation(
+                "El file no tiene tours asociados. No se puede confirmar sin file_tours.".to_string()
+            ));
+        }
+        
+        let mut pago_file_ids: Vec<i32> = Vec::new();
+        
+        for ft in &tours {
+            // Calcular monto del tour: precio_aplicado o tour_precio_base * nro_pasajeros
+            let monto_tour = ft.precio_aplicado.clone()
+                .unwrap_or_else(|| ft.tour_precio_base.clone());
+            
+            // Calcular monto de entradas para este file_tour
+            let entradas_ft = self.file_entrada_repository.find_by_file_tour(ft.id).await.unwrap_or_default();
+            let zero = BigDecimal::from(0);
+            let mut monto_entradas = zero.clone();
+            let tiene_entradas = !entradas_ft.is_empty();
+            
+            for fe in &entradas_ft {
+                if let Some(precio_id) = fe.id_entrada_precio {
+                    if let Ok(Some(precio)) = self.entrada_precio_repository.find_by_id(precio_id).await {
+                        monto_entradas += &precio.precio * BigDecimal::from(fe.cantidad);
+                    }
+                }
+            }
+            
+            let new_pago = NewPagoFileModel {
+                id_file: request.file_id,
+                id_agencia: file.id_agencia,
+                monto_total: monto_tour,
+                monto_pagado: zero.clone(),
+                estado: "pendiente",
+                fecha_vencimiento: Some(fecha_vencimiento),
+                notas: request.notas.as_deref(),
+                created_by: Some(confirmed_by),
+                id_file_tour: Some(ft.id),
+                tipo_registro: "deuda",
+                monto_saldo_favor: None,
+                saldo_autorizado: false,
+                saldo_autorizado_por: None,
+                saldo_autorizado_at: None,
+                entradas: tiene_entradas,
+                entrada_precio: if tiene_entradas { Some(monto_entradas) } else { None },
+            };
+            
+            let pago = self.pago_file_repository.create(new_pago).await?;
+            info!("💰 Deuda por tour creada: pago_file ID {} para file_tour {} (file {})", pago.id, ft.id, request.file_id);
+            pago_file_ids.push(pago.id);
+        }
+        
+        info!("💰 {} deudas creadas para file {}", pago_file_ids.len(), request.file_id);
         
         // 7. Registrar en el log de actividad
         let username = confirmed_by_username.clone().unwrap_or_else(|| "Sistema".to_string());
@@ -780,15 +823,18 @@ impl FileService {
         // 10. Cargar tours para el response
         let tours_dto = self.load_file_tours(request.file_id).await?;
         
+        let num_deudas = pago_file_ids.len();
+        let mensaje = format!(
+            "Reserva confirmada exitosamente. Se han generado {} deudas pendientes (una por tour) con monto total S/ {} y vencimiento el {}",
+            num_deudas, &monto_total, fecha_vencimiento
+        );
+        
         Ok(ConfirmReservaResponse {
             file: FileResponse::from_file_with_tours(updated_file, tours_dto),
-            pago_file_id: pago_file.id,
+            pago_file_ids,
             monto_total,
             fecha_vencimiento: fecha_vencimiento.to_string(),
-            mensaje: format!(
-                "Reserva confirmada exitosamente. Se ha generado un pago pendiente de S/ {} con vencimiento el {}",
-                pago_file.monto_total, fecha_vencimiento
-            ),
+            mensaje,
         })
     }
 }

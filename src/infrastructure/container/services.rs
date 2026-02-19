@@ -90,6 +90,8 @@ impl Services {
             notify.clone(),
             repos.pago_file.clone(),
             repos.agencia.clone(),
+            repos.file_entrada.clone(),
+            repos.entrada_precio.clone(),
         ));
 
         let restaurante = Arc::new(RestauranteService::new(

@@ -265,7 +265,12 @@ impl ContabilidadService {
     }
 
     /// Registrar pago de file (agencia sube comprobante)
-
+    ///
+    /// Lógica de distribución:
+    /// - Primer pago: prioriza cubrir entradas de todos los file_tours con entradas=true,
+    ///   luego distribuye el sobrante a las deudas restantes.
+    /// - Segundo+ pagos: llena deudas con monto_pagado=0 primero (prioridad entradas),
+    ///   luego para deudas parcialmente pagadas crea nuevos registros tipo "pago".
     pub async fn registrar_pago_file(
         &self,
         request: RegistrarPagoFileRequest,
@@ -273,7 +278,7 @@ impl ContabilidadService {
         comprobante_url: Option<String>,
         comprobante_key: Option<String>,
     ) -> Result<PagoFileResponse, ApplicationError> {
-        // 1. Obtener el registro de deuda original para saber cuál es el file
+        // 1. Obtener el registro original para conocer el file
         let pago_original = self.pago_file_repository
             .find_by_id(request.id_pago_file)
             .await?
@@ -282,71 +287,251 @@ impl ContabilidadService {
         let id_file = pago_original.id_file;
         let id_agencia = pago_original.id_agencia;
 
-        // 2. Obtener TODOS los pagos asociados a este file para calcular saldos reales
-        let all_pagos = self.pago_file_repository.find_all_by_file(id_file).await?;
-        
-        let monto_total = all_pagos.iter()
-            .find(|p| p.monto_pagado == BigDecimal::from_str("0").unwrap())
-            .map(|p| p.monto_total.clone())
-            .unwrap_or_else(|| all_pagos.first().map(|p| p.monto_total.clone()).unwrap_or_else(|| BigDecimal::from_str("0").unwrap()));
-            
-        let monto_pagado_actual = all_pagos.iter()
-            .map(|p| &p.monto_pagado)
-            .fold(BigDecimal::from_str("0").unwrap(), |acc, m| acc + m);
-
-        // 3. Validar que hay monto pendiente (tolerancia de 0.01 por redondeos)
-        let monto_pendiente = &monto_total - &monto_pagado_actual;
+        // 2. Obtener TODAS las deudas (tipo_registro=deuda) y pagos del file
+        let all_records = self.pago_file_repository.find_all_by_file(id_file).await?;
+        let zero = BigDecimal::from_str("0").unwrap();
         let tolerancia = BigDecimal::from_str("0.01").unwrap();
         
-        if request.monto > &monto_pendiente + &tolerancia {
+        // Calcular monto total del file (suma de todas las deudas por tour)
+        let monto_total_file: BigDecimal = all_records.iter()
+            .filter(|p| p.tipo_registro == "deuda")
+            .map(|p| &p.monto_total)
+            .fold(zero.clone(), |acc, m| acc + m);
+        
+        // Calcular cuánto se ha pagado en total (deudas con monto_pagado>0 + registros tipo pago)
+        let monto_pagado_global: BigDecimal = all_records.iter()
+            .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago")
+            .map(|p| &p.monto_pagado)
+            .fold(zero.clone(), |acc, m| acc + m);
+        
+        // 3. Validar que hay monto pendiente
+        let monto_pendiente_global = &monto_total_file - &monto_pagado_global;
+        
+        if request.monto > &monto_pendiente_global + &tolerancia {
             return Err(ApplicationError::Validation(
-                format!("El monto {} excede el pendiente {}", request.monto, monto_pendiente)
+                format!("El monto S/ {} excede el pendiente S/ {}", request.monto, monto_pendiente_global)
             ));
         }
-        let nuevo_total_pagado = &monto_pagado_actual + &request.monto;
-        let deuda_saldada = nuevo_total_pagado >= monto_total.clone() - &tolerancia;
         
-        // 4. Crear NUEVO registro de pago
-        let nuevo_estado = if deuda_saldada { "pagado" } else { "parcial" };
-        let new_pago = NewPagoFileModel {
-            id_file,
-            id_agencia,
-            monto_total: monto_total.clone(),
-            monto_pagado: request.monto.clone(),
-            estado: nuevo_estado,
-            fecha_vencimiento: None,
-            notas: request.notas.as_deref(),
-            created_by,
-            id_file_tour: None,
-            tipo_registro: "pago",
-            monto_saldo_favor: None,
-            saldo_autorizado: false,
-            saldo_autorizado_por: None,
-            saldo_autorizado_at: None,
-        };
+        // 4. Distribuir el pago entre las deudas por tour
+        let mut monto_restante = request.monto.clone();
+        let mut ultimo_pago_id: Option<i32> = None;
         
-        // Crear el registro del pago
-        let pago_creado_model = self.pago_file_repository.create(new_pago).await?;
+        // Recopilar deudas pendientes y parciales
+        let deudas: Vec<_> = all_records.iter()
+            .filter(|p| p.tipo_registro == "deuda")
+            .cloned()
+            .collect();
         
-        // Actualizar comprobante en el pago recién creado
-        let update_pago = UpdatePagoFileModel {
-            comprobante_url: comprobante_url.as_deref(),
-            comprobante_key: comprobante_key.as_deref(),
-            ..Default::default()
-        };
-        let pago_registrado = self.pago_file_repository.update(pago_creado_model.id, update_pago).await?;
+        // Calcular cuánto se ha acumulado en pagos por cada deuda (por file_tour)
+        let pagos_por_tour: Vec<_> = all_records.iter()
+            .filter(|p| p.tipo_registro == "pago")
+            .cloned()
+            .collect();
         
-        info!("Nuevo pago registrado para file {}: S/ {}", id_file, request.monto);
+        // Para cada deuda, calcular su monto_pagado real (monto de la deuda + pagos asociados a ese tour)
+        struct DeudaInfo {
+            deuda_id: i32,
+            id_file_tour: Option<i32>,
+            monto_total: BigDecimal,
+            monto_pagado_acum: BigDecimal,
+            monto_pendiente: BigDecimal,
+            entradas: bool,
+            entrada_precio: Option<BigDecimal>,
+        }
+        
+        let mut deuda_infos: Vec<DeudaInfo> = Vec::new();
+        for d in &deudas {
+            // Suma del monto_pagado de la deuda + pagos tipo "pago" asociados al mismo file_tour
+            let pagado_en_deuda = d.monto_pagado.clone();
+            let pagado_en_pagos: BigDecimal = pagos_por_tour.iter()
+                .filter(|p| p.id_file_tour == d.id_file_tour)
+                .map(|p| &p.monto_pagado)
+                .fold(zero.clone(), |acc, m| acc + m);
+            let acumulado = &pagado_en_deuda + &pagado_en_pagos;
+            let pendiente = &d.monto_total - &acumulado;
+            
+            deuda_infos.push(DeudaInfo {
+                deuda_id: d.id,
+                id_file_tour: d.id_file_tour,
+                monto_total: d.monto_total.clone(),
+                monto_pagado_acum: acumulado,
+                monto_pendiente: if pendiente > zero { pendiente } else { zero.clone() },
+                entradas: d.entradas,
+                entrada_precio: d.entrada_precio.clone(),
+            });
+        }
+        
+        // FASE 1: Priorizar deudas con entradas=true y monto_pagado_acum=0
+        // Cubrir primero el costo de entradas, luego el resto
+        let mut deudas_con_entradas_pendientes: Vec<&mut DeudaInfo> = deuda_infos.iter_mut()
+            .filter(|d| d.entradas && d.monto_pendiente > zero)
+            .collect();
+        // Ordenar: primero las que tienen monto_pagado_acum=0
+        deudas_con_entradas_pendientes.sort_by(|a, b| a.monto_pagado_acum.cmp(&b.monto_pagado_acum));
+        
+        for d in &mut deudas_con_entradas_pendientes {
+            if monto_restante <= zero {
+                break;
+            }
+            
+            let a_pagar = monto_restante.clone().min(d.monto_pendiente.clone());
+            if a_pagar <= zero {
+                continue;
+            }
+            
+            // Determinar si actualizar la deuda directamente o crear nuevo registro
+            if d.monto_pagado_acum == zero {
+                // Deuda sin pagos: actualizar monto_pagado directamente en la deuda
+                let nuevo_pagado = &d.monto_pagado_acum + &a_pagar;
+                let pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
+                let estado = if pendiente_tras_pago <= tolerancia { "pagado" } else { "parcial" };
+                
+                let update = UpdatePagoFileModel {
+                    monto_pagado: Some(nuevo_pagado.clone()),
+                    estado: Some(estado),
+                    comprobante_url: comprobante_url.as_deref(),
+                    comprobante_key: comprobante_key.as_deref(),
+                    ..Default::default()
+                };
+                let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
+                ultimo_pago_id = Some(updated.id);
+            } else {
+                // Deuda con pagos previos: crear nuevo registro tipo "pago"
+                let pending_after = &d.monto_pendiente - &a_pagar;
+                let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
+                let new_pago = NewPagoFileModel {
+                    id_file,
+                    id_agencia,
+                    monto_total: d.monto_total.clone(),
+                    monto_pagado: a_pagar.clone(),
+                    estado,
+                    fecha_vencimiento: None,
+                    notas: request.notas.as_deref(),
+                    created_by,
+                    id_file_tour: d.id_file_tour,
+                    tipo_registro: "pago",
+                    monto_saldo_favor: None,
+                    saldo_autorizado: false,
+                    saldo_autorizado_por: None,
+                    saldo_autorizado_at: None,
+                    entradas: false,
+                    entrada_precio: None,
+                };
+                let pago = self.pago_file_repository.create(new_pago).await?;
+                // Adjuntar comprobante
+                if comprobante_url.is_some() || comprobante_key.is_some() {
+                    let upd = UpdatePagoFileModel {
+                        comprobante_url: comprobante_url.as_deref(),
+                        comprobante_key: comprobante_key.as_deref(),
+                        ..Default::default()
+                    };
+                    let _ = self.pago_file_repository.update(pago.id, upd).await?;
+                }
+                ultimo_pago_id = Some(pago.id);
+            }
+            
+            monto_restante -= &a_pagar;
+            d.monto_pagado_acum += &a_pagar;
+            d.monto_pendiente -= &a_pagar;
+        }
+        
+        // FASE 2: Distribuir sobrante en deudas sin entradas (primero las de monto_pagado=0)
+        let mut deudas_sin_entradas: Vec<&mut DeudaInfo> = deuda_infos.iter_mut()
+            .filter(|d| !d.entradas && d.monto_pendiente > zero)
+            .collect();
+        deudas_sin_entradas.sort_by(|a, b| a.monto_pagado_acum.cmp(&b.monto_pagado_acum));
+        
+        // También incluir deudas con entradas que aún tengan pendiente (entradas ya cubiertas, falta el resto)
+        // Re-iterar over all deudas con pendiente
+        drop(deudas_sin_entradas);
+        let mut deudas_restantes: Vec<&mut DeudaInfo> = deuda_infos.iter_mut()
+            .filter(|d| d.monto_pendiente > zero)
+            .collect();
+        deudas_restantes.sort_by(|a, b| a.monto_pagado_acum.cmp(&b.monto_pagado_acum));
+        
+        for d in &mut deudas_restantes {
+            if monto_restante <= zero {
+                break;
+            }
+            
+            let a_pagar = monto_restante.clone().min(d.monto_pendiente.clone());
+            if a_pagar <= zero {
+                continue;
+            }
+            
+            if d.monto_pagado_acum == zero {
+                // Actualizar la deuda directamente
+                let nuevo_pagado = a_pagar.clone();
+                let pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
+                let estado = if pendiente_tras_pago <= tolerancia { "pagado" } else { "parcial" };
+                
+                let update = UpdatePagoFileModel {
+                    monto_pagado: Some(nuevo_pagado),
+                    estado: Some(estado),
+                    comprobante_url: comprobante_url.as_deref(),
+                    comprobante_key: comprobante_key.as_deref(),
+                    ..Default::default()
+                };
+                let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
+                ultimo_pago_id = Some(updated.id);
+            } else {
+                // Crear nuevo registro de pago
+                let pending_after = &d.monto_pendiente - &a_pagar;
+                let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
+                let new_pago = NewPagoFileModel {
+                    id_file,
+                    id_agencia,
+                    monto_total: d.monto_total.clone(),
+                    monto_pagado: a_pagar.clone(),
+                    estado,
+                    fecha_vencimiento: None,
+                    notas: request.notas.as_deref(),
+                    created_by,
+                    id_file_tour: d.id_file_tour,
+                    tipo_registro: "pago",
+                    monto_saldo_favor: None,
+                    saldo_autorizado: false,
+                    saldo_autorizado_por: None,
+                    saldo_autorizado_at: None,
+                    entradas: false,
+                    entrada_precio: None,
+                };
+                let pago = self.pago_file_repository.create(new_pago).await?;
+                if comprobante_url.is_some() || comprobante_key.is_some() {
+                    let upd = UpdatePagoFileModel {
+                        comprobante_url: comprobante_url.as_deref(),
+                        comprobante_key: comprobante_key.as_deref(),
+                        ..Default::default()
+                    };
+                    let _ = self.pago_file_repository.update(pago.id, upd).await?;
+                }
+                ultimo_pago_id = Some(pago.id);
+            }
+            
+            monto_restante -= &a_pagar;
+            d.monto_pagado_acum += &a_pagar;
+            d.monto_pendiente -= &a_pagar;
+        }
+        
+        // 5. Obtener el último registro afectado para respuesta
+        let pago_id = ultimo_pago_id.unwrap_or(pago_original.id);
+        let pago_registrado = self.pago_file_repository.find_by_id(pago_id).await?
+            .ok_or_else(|| ApplicationError::NotFound("Pago no encontrado después de registrar".into()))?;
+        
+        let nuevo_total_pagado = &monto_pagado_global + &request.monto;
+        let deuda_saldada = &nuevo_total_pagado >= &(&monto_total_file - &tolerancia);
+        
+        info!("Pago distribuido para file {}: S/ {} (total pagado: S/ {}, total deuda: S/ {})", 
+            id_file, request.monto, nuevo_total_pagado, monto_total_file);
 
-        // 5. Preparar respuesta y notificaciones
-        // Obtener nombre de agencia
+        // 6. Preparar respuesta y notificaciones
         let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(id_agencia).await {
             Some(agencia.nombre.clone())
         } else {
             None
         };
         
-        // Notificar a los admins del pago registrado
         let estado_texto = if deuda_saldada { "completo" } else { "parcial" };
         let titulo_notif = if deuda_saldada {
             "Pago Completo Registrado"
@@ -363,8 +548,8 @@ impl ContabilidadService {
                 id_file,
                 agencia_nombre.clone().unwrap_or_else(|| "Desconocida".to_string()),
                 request.monto,
-                monto_total,
-                &monto_total - &nuevo_total_pagado
+                monto_total_file,
+                &monto_total_file - &nuevo_total_pagado
             ),
             if deuda_saldada { NotificationType::Success } else { NotificationType::Info },
             NotificationCategory::Financial,
@@ -594,6 +779,17 @@ impl ContabilidadService {
 
         let monto_pendiente = calculated_monto_pendiente.unwrap_or_else(|| &p.monto_total - &p.monto_pagado);
 
+        // Obtener tour_nombre si hay file_tour asociado
+        let tour_nombre = if let Some(ft_id) = p.id_file_tour {
+            if let Ok(Some(ft)) = self.file_tour_repository.find_by_id(ft_id).await {
+                if let Ok(Some(tour)) = self.tour_repository.find_by_id(ft.id_tour).await {
+                    Some(tour.nombre)
+                } else { None }
+            } else { None }
+        } else { None };
+
+        use bigdecimal::ToPrimitive;
+
         PagoFileResponse {
             id: p.id,
             id_file: p.id_file,
@@ -611,6 +807,11 @@ impl ContabilidadService {
             verificado_at: p.verificado_at,
             notas: p.notas,
             created_at: p.created_at,
+            id_file_tour: p.id_file_tour,
+            tour_nombre,
+            tipo_registro: p.tipo_registro,
+            entradas: p.entradas,
+            entrada_precio: p.entrada_precio.as_ref().and_then(|v| v.to_f64()),
         }
     }
 

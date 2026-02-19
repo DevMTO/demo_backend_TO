@@ -41,6 +41,10 @@ pub struct PagoFileModel {
     pub saldo_autorizado: bool,
     pub saldo_autorizado_por: Option<i32>,
     pub saldo_autorizado_at: Option<DateTime<Utc>>,
+    /// Indica si este registro cubre pago de entradas
+    pub entradas: bool,
+    /// Costo de entradas del file_tour (solo cuando entradas = true)
+    pub entrada_precio: Option<BigDecimal>,
 }
 
 #[derive(Debug, Insertable)]
@@ -61,6 +65,8 @@ pub struct NewPagoFileModel<'a> {
     pub saldo_autorizado: bool,
     pub saldo_autorizado_por: Option<i32>,
     pub saldo_autorizado_at: Option<DateTime<Utc>>,
+    pub entradas: bool,
+    pub entrada_precio: Option<BigDecimal>,
 }
 
 #[derive(Debug, AsChangeset, Default)]
@@ -78,6 +84,8 @@ pub struct UpdatePagoFileModel<'a> {
     pub saldo_autorizado: Option<bool>,
     pub saldo_autorizado_por: Option<i32>,
     pub saldo_autorizado_at: Option<DateTime<Utc>>,
+    pub entradas: Option<bool>,
+    pub entrada_precio: Option<Option<BigDecimal>>,
 }
 
 // ============================================================================
