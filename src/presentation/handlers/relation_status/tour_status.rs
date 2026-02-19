@@ -26,7 +26,7 @@ pub async fn update_file_tour_status(
 
     // Usar el servicio para actualizar el status con cascada
     let result = state.container.file_tour_status_service
-        .update_status(id, status.as_str())
+        .update_file_tour_status(id, status.as_str())
         .await?;
 
     Ok(json_ok(UpdateStatusResponse {

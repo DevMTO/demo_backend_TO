@@ -24,7 +24,7 @@ use crate::application::services::{
     PersonaService, TourService, FileService, RestauranteService,
     TransporteService, VehiculoService, ConductorService, EntradaService,
     EntradaPrecioService, GuiaService, MyFilesService, ContabilidadService,
-    FileAssignmentService, MisPagosService, FileTourStatusService, SaldoFavorService,
+    FileAssignmentService, MisPagosService, FileStatusService, SaldoFavorService,
 };
 use crate::application::use_cases::auth::{LoginUseCase, LogoutUseCase, VerifySessionUseCase};
 use crate::config::AppConfig;
@@ -67,7 +67,7 @@ pub struct DependencyContainer {
     pub contabilidad_service: Arc<ContabilidadService>,
     pub file_assignment_service: Arc<FileAssignmentService>,
     pub mis_pagos_service: Arc<MisPagosService>,
-    pub file_tour_status_service: Arc<FileTourStatusService>,
+    pub file_tour_status_service: Arc<FileStatusService>,
     pub saldo_favor_service: Arc<SaldoFavorService>,
 
     // Object Storage (Tigris) - Opcional

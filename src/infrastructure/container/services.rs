@@ -5,10 +5,10 @@ use std::sync::Arc;
 use crate::application::ports::NotificationServicePort;
 use crate::application::services::{
     AgenciaService, ConductorService, ContabilidadService, EntradaPrecioService, EntradaService,
-    FileAssignmentService, FileService, FileTourStatusService, GuiaService, LoggingService,
+    FileAssignmentService, FileService, FileStatusService, GuiaService, LoggingService,
     MisPagosService, MyFilesService, NotificationService, PersonaService,
-    PostgresMisPagosRepository, PostgresMyFilesRepository, RestauranteService,
-    SaldoFavorService, TourService, TransporteService, UserService, VehiculoService,
+    PostgresMisPagosRepository, PostgresMyFilesRepository, RestauranteService, SaldoFavorService,
+    TourService, TransporteService, UserService, VehiculoService,
 };
 use crate::infrastructure::persistence::DatabasePool;
 use crate::infrastructure::sse::NotificationBroadcaster;
@@ -38,7 +38,7 @@ pub(super) struct Services {
     pub contabilidad: Arc<ContabilidadService>,
     pub file_assignment: Arc<FileAssignmentService>,
     pub mis_pagos: Arc<MisPagosService>,
-    pub file_tour_status: Arc<FileTourStatusService>,
+    pub file_tour_status: Arc<FileStatusService>,
     pub saldo_favor: Arc<SaldoFavorService>,
 }
 
@@ -166,11 +166,12 @@ impl Services {
         let mis_pagos_repo = Arc::new(PostgresMisPagosRepository::new(db_pool.clone()));
         let mis_pagos = Arc::new(MisPagosService::new(mis_pagos_repo));
 
-        let file_tour_status = Arc::new(FileTourStatusService::new(
+        let file_tour_status = Arc::new(FileStatusService::new(
             repos.file_tour.clone(),
             repos.file_guia.clone(),
             repos.file_vehiculo.clone(),
             repos.file_restaurante.clone(),
+            repos.file_entrada.clone(),
         ));
 
         let saldo_favor = Arc::new(SaldoFavorService::new(
