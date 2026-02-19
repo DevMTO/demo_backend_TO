@@ -39,6 +39,7 @@ pub(super) struct Services {
     pub file_assignment: Arc<FileAssignmentService>,
     pub mis_pagos: Arc<MisPagosService>,
     pub file_tour_status: Arc<FileStatusService>,
+    pub file_status: Arc<FileStatusService>,
     pub saldo_favor: Arc<SaldoFavorService>,
 }
 
@@ -167,6 +168,16 @@ impl Services {
         let mis_pagos = Arc::new(MisPagosService::new(mis_pagos_repo));
 
         let file_tour_status = Arc::new(FileStatusService::new(
+            repos.file.clone(),
+            repos.file_tour.clone(),
+            repos.file_guia.clone(),
+            repos.file_vehiculo.clone(),
+            repos.file_restaurante.clone(),
+            repos.file_entrada.clone(),
+        ));
+
+        let file_status = Arc::new(FileStatusService::new(
+            repos.file.clone(),
             repos.file_tour.clone(),
             repos.file_guia.clone(),
             repos.file_vehiculo.clone(),
@@ -205,6 +216,7 @@ impl Services {
             file_assignment,
             mis_pagos,
             file_tour_status,
+            file_status,
             saldo_favor,
         }
     }
