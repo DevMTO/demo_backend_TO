@@ -2,6 +2,7 @@
 //! Estados válidos: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado
 
 pub mod entrada_status;
+pub mod file_status;
 pub mod guia_status;
 pub mod pasajero_status;
 pub mod restaurante_status;
@@ -9,6 +10,7 @@ pub mod vehiculo_status;
 pub mod tour_status;
 
 pub use entrada_status::*;
+pub use file_status::*;
 pub use guia_status::*;
 pub use pasajero_status::*;
 pub use restaurante_status::*;

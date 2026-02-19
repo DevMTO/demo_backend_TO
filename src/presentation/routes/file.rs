@@ -1,8 +1,8 @@
 //! Rutas de files
 
 use axum::{
+    routing::{delete, get, patch, post},
     Router,
-    routing::{get, post, patch, delete},
 };
 
 use crate::presentation::handlers::{file, file_relations, relation_status};
@@ -29,4 +29,6 @@ pub fn file_routes() -> Router<AppState> {
         .route("/pasajeros/{id}/status", patch(relation_status::update_file_pasajero_status))
         // File Relations - Tours (lista los tours asignados al file)
         .route("/{id}/tours", get(file_relations::list_file_tours))
+        // File Status Update
+        .route("/{id}/status", patch(relation_status::update_file_status))
 }

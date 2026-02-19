@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::File;
+use crate::domain::entities::file_tour::FileTour;
 use super::{PaginationOptions, PaginatedResult};
 
 #[async_trait]
@@ -27,4 +28,10 @@ pub trait FileRepositoryPort: Send + Sync {
     async fn find_by_date_range(&self, from: NaiveDate, to: NaiveDate) -> Result<Vec<File>, ApplicationError>;
     async fn find_upcoming(&self) -> Result<Vec<File>, ApplicationError>;
     async fn find_pending_payment(&self) -> Result<Vec<File>, ApplicationError>;
+    
+    /// Actualiza solo el estado de un File
+    async fn update_status(&self, id: i32, status: &str) -> Result<bool, ApplicationError>;
+    
+    /// Encuentra todos los FileTours asociados a un File
+    async fn find_by_file(&self, file_id: i32) -> Result<Vec<FileTour>, ApplicationError>;
 }

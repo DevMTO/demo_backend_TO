@@ -1,6 +1,8 @@
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use bigdecimal::BigDecimal;
+
+use crate::infrastructure::persistence::models::file_tour_model::FileTourModel;
 
 /// Entidad FileTour - Representa la relación N:M entre Files y Tours
 /// Permite que un File tenga múltiples tours asignados con orden y precios específicos
@@ -19,4 +21,20 @@ pub struct FileTour {
     pub created_by: Option<i32>,
     /// Estado del file_tour: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado
     pub status: String,
+}
+
+impl From<FileTourModel> for FileTour {
+    fn from(model: FileTourModel) -> Self {
+        Self {
+            id: model.id,
+            id_file: model.id_file,
+            id_tour: model.id_tour,
+            orden: model.orden,
+            precio_aplicado: model.precio_aplicado,
+            notas: model.notas,
+            created_at: model.created_at,
+            created_by: model.created_by,
+            status: model.status,
+        }
+    }
 }

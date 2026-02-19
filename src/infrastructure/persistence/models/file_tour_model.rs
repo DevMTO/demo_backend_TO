@@ -1,8 +1,9 @@
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use diesel::prelude::*;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use bigdecimal::BigDecimal;
 
 use crate::infrastructure::persistence::schema::file_tours;
 
@@ -104,4 +105,3 @@ pub struct FileTourWithTourModel {
     pub tour_geo_fin: Option<JsonValue>,
     pub tour_geo_ruta: Option<JsonValue>,
 }
-
