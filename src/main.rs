@@ -27,10 +27,11 @@ async fn main() -> anyhow::Result<()> {
         .with_ansi(true)        // Colores habilitados
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("secure_auth_api=info".parse().unwrap())
+                .add_directive("secure_auth_api=debug".parse().unwrap())
                 .add_directive("tower_http=warn".parse().unwrap())
-                .add_directive("tokio_postgres=error".parse().unwrap())
-                .add_directive("deadpool=error".parse().unwrap())
+                .add_directive("tokio_postgres=warn".parse().unwrap())
+                .add_directive("deadpool=warn".parse().unwrap())
+                .add_directive("diesel=warn".parse().unwrap())
                 .add_directive("axum=warn".parse().unwrap())
                 .add_directive("hyper=warn".parse().unwrap())
         )

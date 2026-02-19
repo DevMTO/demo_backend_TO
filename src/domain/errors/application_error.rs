@@ -199,14 +199,28 @@ impl IntoResponse for ApplicationError {
                     details: None,
                 },
             ),
-            _ => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorResponse {
-                    error: "INTERNAL_ERROR".to_string(),
-                    message: "Error interno del servidor".to_string(),
-                    details: None,
-                },
-            ),
+            ApplicationError::Repository(ref msg) => {
+                tracing::error!("Repository error: {}", msg);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ErrorResponse {
+                        error: "REPOSITORY_ERROR".to_string(),
+                        message: format!("Error de repositorio: {}", msg),
+                        details: None,
+                    },
+                )
+            },
+            _ => {
+                tracing::error!("Unhandled error: {:?}", &self);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ErrorResponse {
+                        error: "INTERNAL_ERROR".to_string(),
+                        message: "Error interno del servidor".to_string(),
+                        details: None,
+                    },
+                )
+            },
         };
         
         (status, Json(error_response)).into_response()

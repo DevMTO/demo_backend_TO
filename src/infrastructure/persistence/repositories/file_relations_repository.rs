@@ -100,6 +100,38 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
     async fn add(&self, id_file_tour: i32, id_entrada: i32, cantidad: i32, id_entrada_precio: Option<i32>, created_by: Option<i32>) -> Result<FileEntradaModel, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
+        // Verificar si ya existe la misma combinación (file_tour, entrada, precio)
+        let existing: Option<FileEntradaModel> = {
+            let mut query = file_entradas::table
+                .filter(file_entradas::id_file_tour.eq(id_file_tour))
+                .filter(file_entradas::id_entrada.eq(id_entrada))
+                .into_boxed();
+            
+            if let Some(pid) = id_entrada_precio {
+                query = query.filter(file_entradas::id_entrada_precio.eq(pid));
+            } else {
+                query = query.filter(file_entradas::id_entrada_precio.is_null());
+            }
+            
+            query.select(FileEntradaModel::as_select())
+                .first(&mut conn)
+                .await
+                .optional()
+                .map_err(|e| ApplicationError::Repository(e.to_string()))?
+        };
+        
+        if let Some(existing_record) = existing {
+            // Actualizar cantidad del registro existente
+            let result = diesel::update(file_entradas::table.filter(file_entradas::id.eq(existing_record.id)))
+                .set(file_entradas::cantidad.eq(cantidad))
+                .returning(FileEntradaModel::as_returning())
+                .get_result(&mut conn)
+                .await
+                .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+            info!("Entrada actualizada en file_tour: file_tour={}, entrada={}, nueva_cantidad={}", id_file_tour, id_entrada, cantidad);
+            return Ok(result);
+        }
+        
         let new_record = NewFileEntradaModel {
             id_file_tour,
             id_entrada,
@@ -114,7 +146,15 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
             .returning(FileEntradaModel::as_returning())
             .get_result(&mut conn)
             .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+            .map_err(|e| {
+                if e.to_string().contains("uq_file_entradas") || e.to_string().contains("llave duplicada") {
+                    ApplicationError::Conflict(format!(
+                        "Esta entrada ya está asignada al file_tour {} con el mismo precio", id_file_tour
+                    ))
+                } else {
+                    ApplicationError::Repository(e.to_string())
+                }
+            })?;
         
         info!("Entrada asignada a file_tour: file_tour={}, entrada={}, cantidad={}", id_file_tour, id_entrada, cantidad);
         Ok(result)

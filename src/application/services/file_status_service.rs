@@ -151,7 +151,10 @@ impl FileStatusService {
                         .propagate_status_to_relations(file_tour.id, new_status, result)
                         .await?;
                     
-                        result.guias_actualizados, result.vehiculos_actualizados, result.restaurantes_actualizados, result.entradas_actualizadas);
+                    info!(
+                        "Relaciones de FileTour {} actualizadas: guias={}, vehiculos={}, restaurantes={}, entradas={}",
+                        file_tour.id, result.guias_actualizados, result.vehiculos_actualizados, result.restaurantes_actualizados, result.entradas_actualizadas
+                    );
                 }
             }
 
