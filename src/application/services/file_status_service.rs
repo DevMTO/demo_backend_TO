@@ -6,7 +6,7 @@
 //! - Definir reglas de cascada para estados específicos
 
 use std::sync::Arc;
-use tracing::{info, instrument, warn};
+use tracing::{info, instrument};
 
 use crate::application::ports::{
     FileTourRepositoryPort, FileGuiaRepositoryPort, FileVehiculoRepositoryPort, FileRestauranteRepositoryPort, FileEntradaRepositoryPort, FileRepositoryPort,
@@ -121,8 +121,6 @@ impl FileStatusService {
         );
 
         if CASCADE_STATUSES.contains(&new_status) {
-            warn!("CASCADE_STATUSES contains '{}', starting cascade for File {}", new_status, file_id);
-            
             let mut result = UpdateFileStatusResult {
                 old_status,
                 new_status: new_status.to_string(),
@@ -137,14 +135,8 @@ impl FileStatusService {
                 .find_by_file_with_tour(file_id)
                 .await?;
 
-            warn!("Found {} file_tours for File {}", file_tours.len(), file_id);
-
             for file_tour in file_tours {
-                warn!("Processing FileTour {} with status '{}'", file_tour.id, file_tour.status);
-                
                 if !FINAL_STATUSES.contains(&file_tour.status.as_str()) {
-                    warn!("FileTour {} status '{}' is not final, updating to '{}'", file_tour.id, file_tour.status, new_status);
-                    
                     self.file_tour_repository
                         .update_status(file_tour.id, new_status)
                         .await?;
@@ -154,22 +146,14 @@ impl FileStatusService {
                         file_tour.id, new_status, file_id
                     );
 
-                    warn!("Calling propagate_status_to_relations for FileTour {}", file_tour.id);
-                    
                     // Aplicar cascada a las entidades relacionadas de este file_tour
                     result = self
                         .propagate_status_to_relations(file_tour.id, new_status, result)
                         .await?;
                     
-                    warn!("After propagate: guias={}, vehiculos={}, restaurantes={}, entradas={}", 
                         result.guias_actualizados, result.vehiculos_actualizados, result.restaurantes_actualizados, result.entradas_actualizadas);
-                } else {
-                    warn!("FileTour {} status '{}' is final, skipping", file_tour.id, file_tour.status);
                 }
             }
-
-            warn!("Cascade complete for File {}: guias={}, vehiculos={}, restaurantes={}, entradas={}", 
-                file_id, result.guias_actualizados, result.vehiculos_actualizados, result.restaurantes_actualizados, result.entradas_actualizadas);
 
             Ok(result)
         } else {
