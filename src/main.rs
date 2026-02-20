@@ -69,9 +69,18 @@ async fn main() -> anyhow::Result<()> {
     let container = Arc::new(container);
     tracing::info!("Dependency container initialized");
     
-    // Iniciar tarea diaria de automatización de estados a las 00:00
+    // Automatización de estados: ejecutar al arrancar + cada medianoche
     {
         let db_pool_clone = db_pool_for_automation;
+
+        // Ejecutar inmediatamente al arrancar para recuperar transiciones pendientes
+        tracing::info!("Running startup status automation (catching up pending transitions)...");
+        match db_pool_clone.run_daily_automation().await {
+            Ok(()) => tracing::info!("Startup status automation completed successfully"),
+            Err(e) => tracing::error!("Startup status automation failed: {}", e),
+        }
+
+        // Programar ejecución diaria a medianoche
         tokio::spawn(async move {
             loop {
                 let now = chrono::Local::now();
