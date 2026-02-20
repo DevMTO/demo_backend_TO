@@ -231,19 +231,7 @@ impl FileService {
             warn!("Error al registrar log de creación de file: {}", e);
         }
         
-        // Notificación a admins
-        let username = created_by_username.unwrap_or_else(|| "Sistema".to_string());
-        if let Err(e) = self.notification_service.notify_roles(
-            vec![UserRole::SuperAdmin, UserRole::Admin],
-            "Nuevo file creado",
-            &format!("{} ha creado el file #{} con {} tours", username, created.id, tours_dto.len()),
-            NotificationType::Info,
-            NotificationCategory::Crud,
-            NotificationPriority::Normal,
-            Some(created_by),
-        ).await {
-            warn!("Error al enviar notificación de file creado: {}", e);
-        }
+        // NOTE: Deliberadamente se omitido 'Notificación a admins'
         
         Ok(FileResponse::from_file_with_tours(created, tours_dto))
     }
