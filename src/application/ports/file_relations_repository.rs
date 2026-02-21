@@ -51,6 +51,8 @@ pub trait FileEntradaRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<FileEntradaModel>, ApplicationError>;
     /// Actualiza el status de una file_entrada
     async fn update_status(&self, id: i32, status: &str) -> Result<FileEntradaModel, ApplicationError>;
+    /// Transfiere una file_entrada a otro file_tour
+    async fn transfer_to_file_tour(&self, id: i32, new_id_file_tour: i32) -> Result<FileEntradaModel, ApplicationError>;
 }
 
 /// Repositorio para file_guias (vinculado a file_tours)

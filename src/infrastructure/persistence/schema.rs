@@ -100,6 +100,7 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
         tours_asociados -> Nullable<Jsonb>,
+        boleto_turistico -> Bool,
     }
 }
 

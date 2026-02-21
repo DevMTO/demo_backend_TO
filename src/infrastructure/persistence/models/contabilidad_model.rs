@@ -72,6 +72,7 @@ pub struct NewPagoFileModel<'a> {
 #[derive(Debug, AsChangeset, Default)]
 #[diesel(table_name = pagos_files)]
 pub struct UpdatePagoFileModel<'a> {
+    pub monto_total: Option<BigDecimal>,
     pub monto_pagado: Option<BigDecimal>,
     pub estado: Option<&'a str>,
     pub comprobante_url: Option<&'a str>,
@@ -86,6 +87,7 @@ pub struct UpdatePagoFileModel<'a> {
     pub saldo_autorizado_at: Option<DateTime<Utc>>,
     pub entradas: Option<bool>,
     pub entrada_precio: Option<Option<BigDecimal>>,
+    pub tipo_registro: Option<&'a str>,
 }
 
 // ============================================================================

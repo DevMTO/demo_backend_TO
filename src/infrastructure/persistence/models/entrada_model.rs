@@ -19,6 +19,7 @@ pub struct EntradaModel {
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
     pub tours_asociados: Option<JsonValue>,
+    pub boleto_turistico: bool,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -30,6 +31,7 @@ pub struct NewEntradaModel<'a> {
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
     pub tours_asociados: Option<JsonValue>,
+    pub boleto_turistico: bool,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -40,6 +42,7 @@ pub struct UpdateEntradaModel<'a> {
     pub is_active: Option<bool>,
     pub updated_by: Option<i32>,
     pub tours_asociados: Option<Option<JsonValue>>,
+    pub boleto_turistico: Option<bool>,
 }
 
 impl From<EntradaModel> for Entrada {
@@ -54,6 +57,7 @@ impl From<EntradaModel> for Entrada {
             created_by: model.created_by,
             updated_by: model.updated_by,
             tours_asociados: model.tours_asociados,
+            boleto_turistico: model.boleto_turistico,
         }
     }
 }
@@ -67,6 +71,7 @@ impl<'a> From<&'a Entrada> for NewEntradaModel<'a> {
             created_by: e.created_by,
             updated_by: e.updated_by,
             tours_asociados: e.tours_asociados.clone(),
+            boleto_turistico: e.boleto_turistico,
         }
     }
 }

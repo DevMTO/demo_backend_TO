@@ -208,6 +208,21 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
         info!("Status de file_entrada {} actualizado a '{}'", id, status);
         Ok(result)
     }
+
+    #[instrument(skip(self))]
+    async fn transfer_to_file_tour(&self, id: i32, new_id_file_tour: i32) -> Result<FileEntradaModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+
+        let result = diesel::update(file_entradas::table.filter(file_entradas::id.eq(id)))
+            .set(file_entradas::id_file_tour.eq(new_id_file_tour))
+            .returning(FileEntradaModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error transfiriendo file_entrada {} a file_tour {}: {}", id, new_id_file_tour, e)))?;
+
+        info!("FileEntrada {} transferida a file_tour {}", id, new_id_file_tour);
+        Ok(result)
+    }
 }
 
 // ==================== FILE GUIA REPOSITORY ====================

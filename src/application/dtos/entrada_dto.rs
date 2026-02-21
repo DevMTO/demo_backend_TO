@@ -19,6 +19,8 @@ pub struct EntradaResponse {
     /// Array de IDs de tours asociados. null = disponible para todos los tours.
     #[ts(type = "number[] | null")]
     pub tours_asociados: Option<Vec<i32>>,
+    /// Indica si es un boleto turístico (BT)
+    pub boleto_turistico: bool,
 }
 
 impl From<Entrada> for EntradaResponse {
@@ -40,6 +42,7 @@ impl From<Entrada> for EntradaResponse {
             created_at: e.created_at,
             updated_at: e.updated_at,
             tours_asociados,
+            boleto_turistico: e.boleto_turistico,
         }
     }
 }
@@ -56,6 +59,8 @@ pub struct CreateEntradaRequest {
     /// Array de IDs de tours asociados. null = disponible para todos los tours.
     #[ts(type = "number[] | null")]
     pub tours_asociados: Option<Vec<i32>>,
+    /// Indica si es un boleto turístico (BT). Default: false
+    pub boleto_turistico: Option<bool>,
 }
 
 impl CreateEntradaRequest {
@@ -75,6 +80,7 @@ impl CreateEntradaRequest {
             created_by,
             updated_by: created_by,
             tours_asociados: tours_json,
+            boleto_turistico: self.boleto_turistico.unwrap_or(false),
         }
     }
 }
@@ -93,6 +99,8 @@ pub struct UpdateEntradaRequest {
     /// Array de IDs de tours asociados. null = disponible para todos los tours.
     #[ts(type = "number[] | null")]
     pub tours_asociados: Option<Vec<i32>>,
+    /// Indica si es un boleto turístico (BT)
+    pub boleto_turistico: Option<bool>,
 }
 
 impl UpdateEntradaRequest {
@@ -110,6 +118,9 @@ impl UpdateEntradaRequest {
             entrada.tours_asociados = Some(
                 JsonValue::Array(tours.into_iter().map(|id| JsonValue::Number(id.into())).collect())
             );
+        }
+        if let Some(bt) = self.boleto_turistico {
+            entrada.boleto_turistico = bt;
         }
         entrada.updated_by = updated_by;
         entrada.updated_at = Utc::now();

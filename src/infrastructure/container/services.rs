@@ -196,6 +196,7 @@ impl Services {
             notify.clone(),
             repos.file_entrada.clone(),
             repos.entrada_precio.clone(),
+            repos.entrada.clone(),
         ));
 
         Self {

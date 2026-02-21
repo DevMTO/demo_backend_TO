@@ -292,6 +292,11 @@ pub struct CancelacionResponse {
     pub tipo_cancelacion: String,
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
+    /// Monto de entradas BTG/BTP transferidas al siguiente tour
+    #[ts(type = "number")]
+    pub monto_entradas_transferidas: f64,
+    /// ID del file_tour al que se transfirieron las entradas BTG/BTP
+    pub id_file_tour_destino: Option<i32>,
 }
 
 /// Request para cancelar un file completo

@@ -367,6 +367,9 @@ impl EntradaService {
         if old.is_active != new.is_active {
             changed.push("is_active".to_string());
         }
+        if old.boleto_turistico != new.boleto_turistico {
+            changed.push("boleto_turistico".to_string());
+        }
 
         changed
     }

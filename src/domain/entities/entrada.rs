@@ -15,6 +15,8 @@ pub struct Entrada {
     pub updated_by: Option<i32>,
     /// Array JSON con IDs de tours asociados. NULL = disponible para todos los tours.
     pub tours_asociados: Option<JsonValue>,
+    /// Indica si es un boleto turístico (BT)
+    pub boleto_turistico: bool,
 }
 
 impl Entrada {
@@ -30,6 +32,7 @@ impl Entrada {
             created_by: None,
             updated_by: None,
             tours_asociados: None,
+            boleto_turistico: false,
         }
     }
 }

@@ -79,6 +79,7 @@ impl EntradaRepositoryPort for PostgresEntradaRepository {
             descripcion: Some(entrada.descripcion.as_deref()),
             is_active: Some(entrada.is_active),
             updated_by: entrada.updated_by,
+            boleto_turistico: Some(entrada.boleto_turistico),
         };
         let result = diesel::update(entradas::table.filter(entradas::id.eq(entrada.id)))
             .set(&changes).get_result::<EntradaModel>(&mut conn).await
