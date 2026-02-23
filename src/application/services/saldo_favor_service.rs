@@ -387,28 +387,33 @@ impl SaldoFavorService {
             return Err(ApplicationError::Validation(format!("File {} ya está marcado como no-show", request.id_file)));
         }
 
-        let zero = BigDecimal::from(0);
+        // Obtener todas las deudas del file
+        let all_pagos = self.pago_file_repo.find_all_by_file(request.id_file).await?;
+        let deudas: Vec<_> = all_pagos.iter()
+            .filter(|p| p.tipo_registro == "deuda" && p.estado == "pendiente")
+            .collect();
 
-        let new_record = NewPagoFileModel {
-            id_file: request.id_file,
-            id_agencia: file.id_agencia,
-            monto_total: file.monto_total.clone(),
-            monto_pagado: zero,
-            estado: "no_show",
-            fecha_vencimiento: None,
-            notas: request.notas.as_deref(),
-            created_by,
-            id_file_tour: None,
-            tipo_registro: "no_show",
-            monto_saldo_favor: None,
-            saldo_autorizado: false,
-            saldo_autorizado_por: None,
-            saldo_autorizado_at: None,
-            entradas: false,
-            entrada_precio: None,
-        };
+        if deudas.is_empty() {
+            return Err(ApplicationError::Validation(format!("No se encontraron deudas pendientes para el file {}", request.id_file)));
+        }
 
-        let record = self.pago_file_repo.create(new_record).await?;
+        // Actualizar todas las deudas existentes a no_show
+        let mut updated_record = None;
+        for deuda in &deudas {
+            let update = UpdatePagoFileModel {
+                estado: Some("no_show"),
+                tipo_registro: Some("no_show"),
+                notas: request.notas.as_deref(),
+                ..Default::default()
+            };
+            let updated = self.pago_file_repo.update(deuda.id, update).await?;
+            info!("Deuda {} actualizada a no_show para file {}", deuda.id, request.id_file);
+            if updated_record.is_none() {
+                updated_record = Some(updated);
+            }
+        }
+
+        let record = updated_record.unwrap();
         info!("No-show registrado para file {}", request.id_file);
 
         // Actualizar file status + cascada a file_tours, guias, vehiculos, restaurantes, entradas
@@ -446,51 +451,28 @@ impl SaldoFavorService {
             return Err(ApplicationError::Validation(format!("FileTour {} ya está marcado como no-show", request.id_file_tour)));
         }
 
-        let file = self.file_repo.find_by_id(ft.id_file).await?
-            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
-
         // Obtener todos los pagos del file para encontrar la deuda de este tour
         let all_pagos = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
         
-        // Usar monto real de la deuda del tour (no proporcional)
+        // Buscar la deuda del tour específico
         let deuda_tour = all_pagos.iter()
-            .find(|p| p.id_file_tour == Some(request.id_file_tour) && p.tipo_registro == "deuda");
-        
-        let monto_tour = if let Some(deuda) = deuda_tour {
-            deuda.monto_total.clone()
-        } else {
-            // Fallback: proporcional
-            let all_tours = self.file_tour_repo.find_by_file_with_tour(ft.id_file).await?;
-            let total_tours = all_tours.len() as i32;
-            if total_tours > 0 {
-                &file.monto_total / BigDecimal::from(total_tours)
-            } else {
-                file.monto_total.clone()
-            }
-        };
-        let zero = BigDecimal::from(0);
+            .find(|p| p.id_file_tour == Some(request.id_file_tour) && p.tipo_registro == "deuda" && p.estado == "pendiente");
 
-        let new_record = NewPagoFileModel {
-            id_file: ft.id_file,
-            id_agencia: file.id_agencia,
-            monto_total: monto_tour,
-            monto_pagado: zero,
-            estado: "no_show",
-            fecha_vencimiento: None,
+        if deuda_tour.is_none() {
+            return Err(ApplicationError::Validation(format!("No se encontró deuda pendiente para el file_tour {}", request.id_file_tour)));
+        }
+
+        let deuda = deuda_tour.unwrap();
+
+        // Actualizar la deuda existente → convertirla en no_show_tour
+        let update = UpdatePagoFileModel {
+            estado: Some("no_show"),
+            tipo_registro: Some("no_show_tour"),
             notas: request.notas.as_deref(),
-            created_by,
-            id_file_tour: Some(request.id_file_tour),
-            tipo_registro: "no_show_tour",
-            monto_saldo_favor: None,
-            saldo_autorizado: false,
-            saldo_autorizado_por: None,
-            saldo_autorizado_at: None,
-            entradas: false,
-            entrada_precio: None,
+            ..Default::default()
         };
-
-        let record = self.pago_file_repo.create(new_record).await?;
-        info!("No-show registrado para file_tour {}", request.id_file_tour);
+        let record = self.pago_file_repo.update(deuda.id, update).await?;
+        info!("Deuda {} actualizada a no_show_tour para file_tour {}", deuda.id, request.id_file_tour);
 
         // Actualizar file_tour status a "no_show" + cascada a guias, vehiculos, restaurantes, entradas
         let _ = self.file_status_service.update_file_tour_status(request.id_file_tour, "no_show").await?;
