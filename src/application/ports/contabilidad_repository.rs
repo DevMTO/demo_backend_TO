@@ -14,7 +14,6 @@ use crate::infrastructure::persistence::models::{
 #[async_trait]
 pub trait PagoFileRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<PagoFileModel>, ApplicationError>;
-    async fn find_by_file(&self, id_file: i32) -> Result<Option<PagoFileModel>, ApplicationError>;
     async fn find_by_agencia(&self, id_agencia: i32, limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError>;
     async fn find_filtered(&self, id_agencia: Option<i32>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>, limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError>;
     async fn count_filtered(&self, id_agencia: Option<i32>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>) -> Result<i64, ApplicationError>;

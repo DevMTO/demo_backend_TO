@@ -32,8 +32,8 @@ pub async fn update_file_status(
     
     let old_status = current.status.clone();
     
-    // Actualizar status
-    let result = state.container.file_status_service
+    // Actualizar status + cascada
+    let _result = state.container.file_status_service
         .update_file_status(id, status.as_str())
         .await?;
     

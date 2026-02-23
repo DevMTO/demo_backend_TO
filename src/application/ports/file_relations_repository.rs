@@ -62,8 +62,6 @@ pub trait FileGuiaRepositoryPort: Send + Sync {
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
     /// Busca guías de un file_tour con información completa del guía y persona (JOIN)
     async fn find_by_file_tour_with_persona(&self, id_file_tour: i32) -> Result<Vec<FileGuiaWithPersonaModel>, ApplicationError>;
-    /// Busca guías de un file_tour sin información de persona
-    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileGuiaModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileGuiaModel>, ApplicationError>;
     async fn is_guia_assigned(&self, id_guia: i32, id_file_tour: i32) -> Result<bool, ApplicationError>;
     /// Actualiza el status de una file_guia (permite 'pendiente')

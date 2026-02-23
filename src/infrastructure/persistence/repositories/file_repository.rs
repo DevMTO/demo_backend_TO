@@ -11,8 +11,6 @@ use crate::infrastructure::persistence::{
     models::{FileModel, NewFileModel, UpdateFileModel},
     schema::files,
 };
-use crate::domain::entities::file_tour::FileTour;
-use crate::infrastructure::persistence::models::FileTourModel;
 
 pub struct PostgresFileRepository {
     pool: DatabasePool,
@@ -231,19 +229,4 @@ impl FileRepositoryPort for PostgresFileRepository {
         Ok(affected > 0)
     }
 
-    /// Encuentra todos los FileTours asociados a un File
-    async fn find_by_file(&self, file_id: i32) -> Result<Vec<FileTour>, ApplicationError> {
-        use crate::infrastructure::persistence::schema::file_tours;
-        
-        let mut conn = self.pool.get_connection().await?;
-        
-        let results = file_tours::table
-            .filter(file_tours::id_file.eq(file_id))
-            .select(FileTourModel::as_select())
-            .load(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        
-        Ok(results.into_iter().map(Into::into).collect())
-    }
 }

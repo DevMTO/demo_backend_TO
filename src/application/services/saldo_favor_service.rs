@@ -32,6 +32,7 @@ use crate::domain::entities::{
 use crate::infrastructure::persistence::models::{
     NewPagoFileModel, UpdatePagoFileModel, PagoFileModel,
 };
+use crate::application::services::file_status_service::FileStatusService;
 
 use bigdecimal::ToPrimitive;
 
@@ -45,6 +46,7 @@ pub struct SaldoFavorService {
     file_entrada_repo: Arc<dyn FileEntradaRepositoryPort>,
     entrada_precio_repo: Arc<dyn EntradaPrecioRepositoryPort>,
     entrada_repo: Arc<dyn EntradaRepositoryPort>,
+    file_status_service: Arc<FileStatusService>,
 }
 
 impl SaldoFavorService {
@@ -58,6 +60,7 @@ impl SaldoFavorService {
         file_entrada_repo: Arc<dyn FileEntradaRepositoryPort>,
         entrada_precio_repo: Arc<dyn EntradaPrecioRepositoryPort>,
         entrada_repo: Arc<dyn EntradaRepositoryPort>,
+        file_status_service: Arc<FileStatusService>,
     ) -> Self {
         Self {
             pago_file_repo,
@@ -69,6 +72,7 @@ impl SaldoFavorService {
             file_entrada_repo,
             entrada_precio_repo,
             entrada_repo,
+            file_status_service,
         }
     }
 
@@ -85,6 +89,14 @@ impl SaldoFavorService {
     ) -> Result<CancelacionResponse, ApplicationError> {
         let file = self.file_repo.find_by_id(request.id_file).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", request.id_file)))?;
+
+        // Guard: no permitir cancelar un file ya cancelado o no_show
+        if file.status == "cancelado" {
+            return Err(ApplicationError::Validation(format!("File {} ya está cancelado", request.id_file)));
+        }
+        if file.status == "no_show" {
+            return Err(ApplicationError::Validation(format!("File {} ya está marcado como no-show", request.id_file)));
+        }
 
         // Obtener todos los pagos del file (deuda + pagos)
         let all_pagos = self.pago_file_repo.find_all_by_file(request.id_file).await?;
@@ -123,6 +135,17 @@ impl SaldoFavorService {
 
         info!("File {} cancelado. Saldo a favor generado: {:?}", request.id_file, record.monto_saldo_favor);
 
+        // Actualizar file status + cascada a file_tours, guias, vehiculos, restaurantes, entradas
+        let _ = self.file_status_service.update_file_status(request.id_file, "cancelado").await?;
+        info!("File {} y sus relaciones actualizados a status 'cancelado'", request.id_file);
+
+        // Actualizar monto_total del file a 0 (todo cancelado)
+        let mut updated_file = file.clone();
+        updated_file.monto_total = zero.clone();
+        updated_file.monto_pagado = zero.clone();
+        updated_file.updated_at = chrono::Utc::now();
+        self.file_repo.update(&updated_file).await?;
+
         // Notificar
         let _ = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
@@ -149,6 +172,14 @@ impl SaldoFavorService {
     ) -> Result<CancelacionResponse, ApplicationError> {
         let ft = self.file_tour_repo.find_by_id(request.id_file_tour).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
+
+        // Guard: no permitir cancelar un file_tour ya cancelado o no_show
+        if ft.status == "cancelado" {
+            return Err(ApplicationError::Validation(format!("FileTour {} ya está cancelado", request.id_file_tour)));
+        }
+        if ft.status == "no_show" {
+            return Err(ApplicationError::Validation(format!("FileTour {} ya está marcado como no-show", request.id_file_tour)));
+        }
 
         let file = self.file_repo.find_by_id(ft.id_file).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
@@ -281,20 +312,21 @@ impl SaldoFavorService {
 
         info!("FileTour {} cancelado. Saldo a favor: {:?}", request.id_file_tour, record.monto_saldo_favor);
 
-        // Recalcular monto_total y monto_pagado del file desde las deudas activas
+        // Actualizar file_tour status a "cancelado" + cascada a guias, vehiculos, restaurantes, entradas
+        let _ = self.file_status_service.update_file_tour_status(request.id_file_tour, "cancelado").await?;
+        info!("FileTour {} y sus relaciones actualizados a status 'cancelado'", request.id_file_tour);
+
+        // Recalcular monto_total del file desde las deudas activas (no canceladas)
         let all_pagos_updated = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
         let file_monto_total = all_pagos_updated.iter()
             .filter(|p| p.tipo_registro == "deuda")
             .map(|p| &p.monto_total)
             .fold(zero.clone(), |acc, m| acc + m);
-        let file_monto_pagado = all_pagos_updated.iter()
-            .filter(|p| p.tipo_registro == "deuda")
-            .map(|p| &p.monto_pagado)
-            .fold(zero.clone(), |acc, m| acc + m);
 
         let mut updated_file = file.clone();
         updated_file.monto_total = file_monto_total;
-        updated_file.monto_pagado = file_monto_pagado;
+        // No actualizamos monto_pagado en files, se gestiona en pagos_files
+        updated_file.monto_pagado = zero.clone();
         updated_file.updated_at = chrono::Utc::now();
         self.file_repo.update(&updated_file).await?;
 
@@ -347,6 +379,14 @@ impl SaldoFavorService {
         let file = self.file_repo.find_by_id(request.id_file).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", request.id_file)))?;
 
+        // Guard: no permitir no-show en un file ya cancelado o no_show
+        if file.status == "cancelado" {
+            return Err(ApplicationError::Validation(format!("File {} ya está cancelado", request.id_file)));
+        }
+        if file.status == "no_show" {
+            return Err(ApplicationError::Validation(format!("File {} ya está marcado como no-show", request.id_file)));
+        }
+
         let zero = BigDecimal::from(0);
 
         let new_record = NewPagoFileModel {
@@ -371,6 +411,10 @@ impl SaldoFavorService {
         let record = self.pago_file_repo.create(new_record).await?;
         info!("No-show registrado para file {}", request.id_file);
 
+        // Actualizar file status + cascada a file_tours, guias, vehiculos, restaurantes, entradas
+        let _ = self.file_status_service.update_file_status(request.id_file, "no_show").await?;
+        info!("File {} y sus relaciones actualizados a status 'no_show'", request.id_file);
+
         let _ = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
             "No-Show Registrado",
@@ -394,16 +438,35 @@ impl SaldoFavorService {
         let ft = self.file_tour_repo.find_by_id(request.id_file_tour).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
 
+        // Guard: no permitir no-show en un file_tour ya cancelado o no_show
+        if ft.status == "cancelado" {
+            return Err(ApplicationError::Validation(format!("FileTour {} ya está cancelado", request.id_file_tour)));
+        }
+        if ft.status == "no_show" {
+            return Err(ApplicationError::Validation(format!("FileTour {} ya está marcado como no-show", request.id_file_tour)));
+        }
+
         let file = self.file_repo.find_by_id(ft.id_file).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
 
-        // Monto proporcional
-        let all_tours = self.file_tour_repo.find_by_file_with_tour(ft.id_file).await?;
-        let total_tours = all_tours.len() as i32;
-        let monto_tour = if total_tours > 0 {
-            &file.monto_total / BigDecimal::from(total_tours)
+        // Obtener todos los pagos del file para encontrar la deuda de este tour
+        let all_pagos = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
+        
+        // Usar monto real de la deuda del tour (no proporcional)
+        let deuda_tour = all_pagos.iter()
+            .find(|p| p.id_file_tour == Some(request.id_file_tour) && p.tipo_registro == "deuda");
+        
+        let monto_tour = if let Some(deuda) = deuda_tour {
+            deuda.monto_total.clone()
         } else {
-            file.monto_total.clone()
+            // Fallback: proporcional
+            let all_tours = self.file_tour_repo.find_by_file_with_tour(ft.id_file).await?;
+            let total_tours = all_tours.len() as i32;
+            if total_tours > 0 {
+                &file.monto_total / BigDecimal::from(total_tours)
+            } else {
+                file.monto_total.clone()
+            }
         };
         let zero = BigDecimal::from(0);
 
@@ -428,6 +491,10 @@ impl SaldoFavorService {
 
         let record = self.pago_file_repo.create(new_record).await?;
         info!("No-show registrado para file_tour {}", request.id_file_tour);
+
+        // Actualizar file_tour status a "no_show" + cascada a guias, vehiculos, restaurantes, entradas
+        let _ = self.file_status_service.update_file_tour_status(request.id_file_tour, "no_show").await?;
+        info!("FileTour {} y sus relaciones actualizados a status 'no_show'", request.id_file_tour);
 
         self.pago_to_no_show_response(record).await
     }

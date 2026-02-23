@@ -20,15 +20,15 @@ pub async fn delete_entrada(
     Ok(json_message("Entrada desactivada"))
 }
 
-/// Eliminación permanente de entrada (hard delete) - Solo SuperAdmin
+/// Eliminación permanente de entrada (hard delete) - SuperAdmin y Admin
 #[instrument(skip(state, auth))]
 pub async fn hard_delete_entrada(
     State(state): State<AppState>, 
     auth: AuthUser, 
     Path(id): Path<i32>
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if auth.user.role != UserRole::SuperAdmin {
-        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede eliminar permanentemente entradas".to_string()));
+    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin) {
+        return Err(ApplicationError::Forbidden("Solo SuperAdmin y Admin pueden eliminar permanentemente entradas".to_string()));
     }
     state.container.entrada_service.hard_delete_entrada(id, auth.user.id, &auth.user.username).await?;
     

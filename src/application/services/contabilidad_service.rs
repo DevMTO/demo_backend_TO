@@ -327,6 +327,13 @@ impl ContabilidadService {
         let id_file = pago_original.id_file;
         let id_agencia = pago_original.id_agencia;
 
+        // Guard: no permitir pagos en registros cancelados o no_show
+        if pago_original.estado == "cancelado" || pago_original.estado == "no_show" {
+            return Err(ApplicationError::Validation(
+                format!("No se puede registrar pago en un registro con estado '{}'", pago_original.estado)
+            ));
+        }
+
         // 2. Obtener TODAS las deudas (tipo_registro=deuda) y pagos del file
         let all_records = self.pago_file_repository.find_all_by_file(id_file).await?;
         let zero = BigDecimal::from_str("0").unwrap();

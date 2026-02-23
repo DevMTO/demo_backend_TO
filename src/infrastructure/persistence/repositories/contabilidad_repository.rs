@@ -36,15 +36,6 @@ impl PagoFileRepositoryPort for PostgresPagoFileRepository {
     }
 
     #[instrument(skip(self))]
-    async fn find_by_file(&self, id_file: i32) -> Result<Option<PagoFileModel>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        pagos_files::table.filter(pagos_files::id_file.eq(id_file))
-            .first::<PagoFileModel>(&mut conn).await.optional()
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
-
-
-    #[instrument(skip(self))]
     async fn find_all_by_file(&self, id_file: i32) -> Result<Vec<PagoFileModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         pagos_files::table.filter(pagos_files::id_file.eq(id_file))

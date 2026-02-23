@@ -330,17 +330,6 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
         Ok(result)
     }
     
-    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<FileGuiaModel>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        
-        file_guias::table
-            .filter(file_guias::id_file_tour.eq(id_file_tour))
-            .select(FileGuiaModel::as_select())
-            .load(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
-
     #[instrument(skip(self))]
     async fn find_by_file_tour_with_persona(&self, id_file_tour: i32) -> Result<Vec<FileGuiaWithPersonaModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
