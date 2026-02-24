@@ -27,6 +27,8 @@ pub struct FileEntradaResponse {
     pub created_by: Option<i32>,
     /// Estado: reservado, confirmado, cancelado
     pub status: String,
+    /// Historial de file_tours anteriores (transferencias BT)
+    pub cancelaciones: Vec<i32>,
     // Datos de la entrada relacionada (se pueden poblar en el handler)
     pub entrada_nombre: Option<String>,
     pub entrada_precio: Option<String>,
@@ -43,6 +45,7 @@ impl From<FileEntradaModel> for FileEntradaResponse {
             created_at: m.created_at,
             created_by: m.created_by,
             status: m.status,
+            cancelaciones: m.cancelaciones.into_iter().flatten().collect(),
             entrada_nombre: None,
             entrada_precio: None,
         }

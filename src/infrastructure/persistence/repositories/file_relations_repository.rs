@@ -213,14 +213,30 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
     async fn transfer_to_file_tour(&self, id: i32, new_id_file_tour: i32) -> Result<FileEntradaModel, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
 
+        // Leer file_entrada actual para obtener id_file_tour anterior y cancelaciones
+        let current = file_entradas::table
+            .filter(file_entradas::id.eq(id))
+            .select(FileEntradaModel::as_select())
+            .first(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error leyendo file_entrada {}: {}", id, e)))?;
+
+        // Append old id_file_tour al array cancelaciones
+        let mut nuevas_cancelaciones = current.cancelaciones.clone();
+        nuevas_cancelaciones.push(Some(current.id_file_tour));
+
         let result = diesel::update(file_entradas::table.filter(file_entradas::id.eq(id)))
-            .set(file_entradas::id_file_tour.eq(new_id_file_tour))
+            .set((
+                file_entradas::id_file_tour.eq(new_id_file_tour),
+                file_entradas::cancelaciones.eq(&nuevas_cancelaciones),
+                file_entradas::status.eq("asignado"),
+            ))
             .returning(FileEntradaModel::as_returning())
             .get_result(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(format!("Error transfiriendo file_entrada {} a file_tour {}: {}", id, new_id_file_tour, e)))?;
 
-        info!("FileEntrada {} transferida a file_tour {}", id, new_id_file_tour);
+        info!("FileEntrada {} transferida a file_tour {} (cancelaciones: {:?})", id, new_id_file_tour, nuevas_cancelaciones);
         Ok(result)
     }
 }

@@ -10,6 +10,7 @@ use tracing::{info, instrument};
 
 use crate::application::ports::{
     FileTourRepositoryPort, FileGuiaRepositoryPort, FileVehiculoRepositoryPort, FileRestauranteRepositoryPort, FileEntradaRepositoryPort, FileRepositoryPort,
+    EntradaRepositoryPort,
 };
 use crate::domain::errors::ApplicationError;
 
@@ -69,6 +70,7 @@ pub struct FileStatusService {
     file_vehiculo_repository: Arc<dyn FileVehiculoRepositoryPort>,
     file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
     file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
+    entrada_repository: Arc<dyn EntradaRepositoryPort>,
 }
 
 impl FileStatusService {
@@ -79,6 +81,7 @@ impl FileStatusService {
         file_vehiculo_repository: Arc<dyn FileVehiculoRepositoryPort>,
         file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
         file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
+        entrada_repository: Arc<dyn EntradaRepositoryPort>,
     ) -> Self {
         Self {
             file_repository,
@@ -87,6 +90,7 @@ impl FileStatusService {
             file_vehiculo_repository,
             file_restaurante_repository,
             file_entrada_repository,
+            entrada_repository,
         }
     }
 
@@ -246,6 +250,18 @@ impl FileStatusService {
 
         for entrada in entradas {
             if !FINAL_STATUSES.contains(&entrada.status.as_str()) {
+                // Si es cancelación, verificar si la entrada es BT — no cancelar BT
+                if new_status == "cancelado" {
+                    if let Ok(Some(ent)) = self.entrada_repository.find_by_id(entrada.id_entrada).await {
+                        if ent.boleto_turistico {
+                            info!(
+                                "FileEntrada {} es BT, se omite cancelación (se transfiere)",
+                                entrada.id
+                            );
+                            continue;
+                        }
+                    }
+                }
                 self.file_entrada_repository
                     .update_status(entrada.id, new_status)
                     .await?;

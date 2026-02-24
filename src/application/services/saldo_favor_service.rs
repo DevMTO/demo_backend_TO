@@ -254,6 +254,21 @@ impl SaldoFavorService {
                     info!("Deuda del tour destino {} actualizada con +{}", next_tour.id, monto_transferido);
                 }
 
+                // Copiar comprobante del tour cancelado al tour destino
+                if let Some(ref deuda) = deuda_tour {
+                    if deuda.comprobante_url.is_some() || deuda.comprobante_key.is_some() {
+                        if let Some(deuda_dest) = deuda_destino {
+                            let update_comprobante = UpdatePagoFileModel {
+                                comprobante_url: deuda.comprobante_url.as_deref(),
+                                comprobante_key: deuda.comprobante_key.as_deref(),
+                                ..Default::default()
+                            };
+                            let _ = self.pago_file_repo.update(deuda_dest.id, update_comprobante).await?;
+                            info!("Comprobante copiado de deuda tour {} a deuda tour {}", request.id_file_tour, next_tour.id);
+                        }
+                    }
+                }
+
                 info!(
                     "Entradas BTG/BTP transferidas de file_tour {} a file_tour {}. Monto: {}",
                     request.id_file_tour, next_tour.id, monto_transferido
@@ -316,17 +331,33 @@ impl SaldoFavorService {
         let _ = self.file_status_service.update_file_tour_status(request.id_file_tour, "cancelado").await?;
         info!("FileTour {} y sus relaciones actualizados a status 'cancelado'", request.id_file_tour);
 
-        // Recalcular monto_total del file desde las deudas activas (no canceladas)
+        // Recalcular monto_total y monto_pagado del file desde las deudas activas
         let all_pagos_updated = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
+
+        // monto_total = suma de deudas activas (incluye BT transferido al tour destino)
         let file_monto_total = all_pagos_updated.iter()
             .filter(|p| p.tipo_registro == "deuda")
             .map(|p| &p.monto_total)
             .fold(zero.clone(), |acc, m| acc + m);
 
+        // IDs de tours activos (los que aún tienen deuda)
+        let active_tour_ids: Vec<Option<i32>> = all_pagos_updated.iter()
+            .filter(|p| p.tipo_registro == "deuda")
+            .map(|p| p.id_file_tour)
+            .collect();
+
+        // monto_pagado = pagado en deudas activas + pagos asociados a tours activos
+        let file_monto_pagado = all_pagos_updated.iter()
+            .filter(|p| {
+                (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "uso_saldo")
+                    && active_tour_ids.contains(&p.id_file_tour)
+            })
+            .map(|p| &p.monto_pagado)
+            .fold(zero.clone(), |acc, m| acc + m);
+
         let mut updated_file = file.clone();
         updated_file.monto_total = file_monto_total;
-        // No actualizamos monto_pagado en files, se gestiona en pagos_files
-        updated_file.monto_pagado = zero.clone();
+        updated_file.monto_pagado = file_monto_pagado;
         updated_file.updated_at = chrono::Utc::now();
         self.file_repo.update(&updated_file).await?;
 

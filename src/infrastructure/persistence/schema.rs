@@ -115,6 +115,7 @@ diesel::table! {
         id_entrada_precio -> Nullable<Int4>,
         #[max_length = 20]
         status -> Varchar,
+        cancelaciones -> Array<Nullable<Int4>>,
     }
 }
 

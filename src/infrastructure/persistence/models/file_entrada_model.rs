@@ -18,6 +18,8 @@ pub struct FileEntradaModel {
     pub id_entrada_precio: Option<i32>,
     /// Estado: reservado, confirmado, cancelado
     pub status: String,
+    /// Historial de file_tours anteriores (transferencias BT)
+    pub cancelaciones: Vec<Option<i32>>,
 }
 
 /// Modelo insertable para crear file_entradas

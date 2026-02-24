@@ -80,8 +80,17 @@ impl FileAssignmentService {
         if file_tours.is_empty() {
             return Ok(false);
         }
-        
-        for ft in &file_tours {
+
+        // Solo verificar tours activos (no cancelados ni no_show)
+        let active_tours: Vec<_> = file_tours.iter()
+            .filter(|ft| ft.status != "cancelado" && ft.status != "no_show")
+            .collect();
+
+        if active_tours.is_empty() {
+            return Ok(false);
+        }
+
+        for ft in &active_tours {
             // Verificar vehículos asignados
             let vehiculos = self.file_vehiculo_repository
                 .find_by_file_tour(ft.id)
