@@ -383,6 +383,8 @@ impl ContabilidadService {
             monto_total: BigDecimal,
             monto_pagado_acum: BigDecimal,
             monto_pendiente: BigDecimal,
+            entradas: bool,
+            entrada_precio: Option<BigDecimal>,
         }
         
         let mut deuda_infos: Vec<DeudaInfo> = Vec::new();
@@ -402,39 +404,116 @@ impl ContabilidadService {
                 monto_total: d.monto_total.clone(),
                 monto_pagado_acum: acumulado,
                 monto_pendiente: if pendiente > zero { pendiente } else { zero.clone() },
+                entradas: d.entradas,
+                entrada_precio: d.entrada_precio.clone(),
             });
         }
         
-        // ID de la deuda objetivo (la que el usuario seleccionó para pagar)
-        let deuda_objetivo_id = pago_original.id;
-
-        // Distribuir el pago: deuda objetivo primero, luego el resto
-        let mut deudas_pendientes: Vec<&mut DeudaInfo> = deuda_infos.iter_mut()
-            .filter(|d| d.monto_pendiente > zero)
+        // FASE 1: Priorizar deudas con entradas=true y monto_pagado_acum=0
+        // Cubrir primero el costo de entradas, luego el resto
+        let mut deudas_con_entradas_pendientes: Vec<&mut DeudaInfo> = deuda_infos.iter_mut()
+            .filter(|d| d.entradas && d.monto_pendiente > zero)
             .collect();
-        deudas_pendientes.sort_by(|a, b| {
-            let a_es_objetivo = a.deuda_id == deuda_objetivo_id;
-            let b_es_objetivo = b.deuda_id == deuda_objetivo_id;
-            b_es_objetivo.cmp(&a_es_objetivo)
-                .then_with(|| a.monto_pagado_acum.cmp(&b.monto_pagado_acum))
-        });
-
-        for d in &mut deudas_pendientes {
+        deudas_con_entradas_pendientes.sort_by(|a, b| a.monto_pagado_acum.cmp(&b.monto_pagado_acum));
+        
+        for d in &mut deudas_con_entradas_pendientes {
             if monto_restante <= zero {
                 break;
             }
-
+            
+            let entrada_precio = d.entrada_precio.clone().unwrap_or_else(|| BigDecimal::from_str("0").unwrap());
+            let entrada_pendiente = if d.monto_pagado_acum < entrada_precio {
+                &entrada_precio - &d.monto_pagado_acum
+            } else {
+                zero.clone()
+            };
+            
+            if entrada_pendiente > zero {
+                let a_pagar = monto_restante.clone().min(entrada_pendiente);
+                if a_pagar <= zero {
+                    continue;
+                }
+                
+                if d.monto_pagado_acum == zero {
+                    let nuevo_pagado = &d.monto_pagado_acum + &a_pagar;
+                    let pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
+                    let estado = if pendiente_tras_pago <= tolerancia { "pagado" } else { "parcial" };
+                    
+                    let update = UpdatePagoFileModel {
+                        monto_pagado: Some(nuevo_pagado.clone()),
+                        estado: Some(estado),
+                        comprobante_url: comprobante_url.as_deref(),
+                        comprobante_key: comprobante_key.as_deref(),
+                        ..Default::default()
+                    };
+                    let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
+                    ultimo_pago_id = Some(updated.id);
+                } else {
+                    let pending_after = &d.monto_pendiente - &a_pagar;
+                    let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
+                    let new_pago = NewPagoFileModel {
+                        id_file,
+                        id_agencia,
+                        monto_total: d.monto_total.clone(),
+                        monto_pagado: a_pagar.clone(),
+                        estado,
+                        fecha_vencimiento: None,
+                        notas: request.notas.as_deref(),
+                        created_by,
+                        id_file_tour: d.id_file_tour,
+                        tipo_registro: "pago",
+                        monto_saldo_favor: None,
+                        saldo_autorizado: false,
+                        saldo_autorizado_por: None,
+                        saldo_autorizado_at: None,
+                        entradas: false,
+                        entrada_precio: None,
+                    };
+                    let pago = self.pago_file_repository.create(new_pago).await?;
+                    if comprobante_url.is_some() || comprobante_key.is_some() {
+                        let upd = UpdatePagoFileModel {
+                            comprobante_url: comprobante_url.as_deref(),
+                            comprobante_key: comprobante_key.as_deref(),
+                            ..Default::default()
+                        };
+                        let _ = self.pago_file_repository.update(pago.id, upd).await?;
+                    }
+                    ultimo_pago_id = Some(pago.id);
+                }
+                
+                monto_restante -= &a_pagar;
+                d.monto_pagado_acum += &a_pagar;
+                d.monto_pendiente -= &a_pagar;
+            }
+        }
+        
+        // FASE 2: Distribuir sobrante en deudas sin entradas (primero las de monto_pagado=0)
+        let mut deudas_sin_entradas: Vec<&mut DeudaInfo> = deuda_infos.iter_mut()
+            .filter(|d| !d.entradas && d.monto_pendiente > zero)
+            .collect();
+        deudas_sin_entradas.sort_by(|a, b| a.monto_pagado_acum.cmp(&b.monto_pagado_acum));
+        
+        drop(deudas_sin_entradas);
+        let mut deudas_restantes: Vec<&mut DeudaInfo> = deuda_infos.iter_mut()
+            .filter(|d| d.monto_pendiente > zero)
+            .collect();
+        deudas_restantes.sort_by(|a, b| a.monto_pagado_acum.cmp(&b.monto_pagado_acum));
+        
+        for d in &mut deudas_restantes {
+            if monto_restante <= zero {
+                break;
+            }
+            
             let a_pagar = monto_restante.clone().min(d.monto_pendiente.clone());
             if a_pagar <= zero {
                 continue;
             }
-
+            
             if d.monto_pagado_acum == zero {
-                // Deuda sin pagos previos: actualizar monto_pagado directamente
                 let nuevo_pagado = a_pagar.clone();
                 let pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
                 let estado = if pendiente_tras_pago <= tolerancia { "pagado" } else { "parcial" };
-
+                
                 let update = UpdatePagoFileModel {
                     monto_pagado: Some(nuevo_pagado),
                     estado: Some(estado),
@@ -445,7 +524,6 @@ impl ContabilidadService {
                 let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
                 ultimo_pago_id = Some(updated.id);
             } else {
-                // Deuda con pagos previos: crear nuevo registro tipo "pago"
                 let pending_after = &d.monto_pendiente - &a_pagar;
                 let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
                 let new_pago = NewPagoFileModel {
