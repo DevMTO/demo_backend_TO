@@ -1015,4 +1015,18 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
         info!("Recojo de file_tour {} actualizado: hora={:?}, lugar={:?}, geo={}", id, hora_recojo, lugar_recojo, geo_recojo.is_some());
         Ok(result)
     }
+
+    async fn update_precio_aplicado(&self, id: i32, precio_aplicado: Option<BigDecimal>) -> Result<FileTourModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+
+        let result = diesel::update(file_tours::table.filter(file_tours::id.eq(id)))
+            .set(file_tours::precio_aplicado.eq(precio_aplicado.as_ref()))
+            .returning(FileTourModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando precio_aplicado de file_tour {}: {}", id, e)))?;
+
+        info!("FileTour {} precio_aplicado actualizado a {:?}", id, precio_aplicado);
+        Ok(result)
+    }
 }

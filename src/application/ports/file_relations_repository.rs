@@ -129,4 +129,6 @@ pub trait FileTourRepositoryPort: Send + Sync {
     async fn update_hora_recojo(&self, id: i32, hora_recojo: Option<chrono::NaiveTime>) -> Result<FileTourModel, ApplicationError>;
     /// Actualiza la información de recojo de un file_tour (hora, lugar y/o geo)
     async fn update_recojo(&self, id: i32, hora_recojo: Option<chrono::NaiveTime>, lugar_recojo: Option<String>, geo_recojo: Option<serde_json::Value>) -> Result<FileTourModel, ApplicationError>;
+    /// Actualiza el precio_aplicado de un file_tour
+    async fn update_precio_aplicado(&self, id: i32, precio_aplicado: Option<BigDecimal>) -> Result<FileTourModel, ApplicationError>;
 }

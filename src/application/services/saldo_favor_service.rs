@@ -269,6 +269,18 @@ impl SaldoFavorService {
                     }
                 }
 
+                // Ajustar precio_aplicado: restar BT del tour cancelado, sumar al destino
+                let precio_cancelado = ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
+                let nuevo_precio_cancelado = &precio_cancelado - &monto_transferido;
+                let nuevo_precio_cancelado = if nuevo_precio_cancelado > zero { Some(nuevo_precio_cancelado) } else { Some(zero.clone()) };
+                self.file_tour_repo.update_precio_aplicado(request.id_file_tour, nuevo_precio_cancelado.clone()).await?;
+                info!("FileTour {} precio_aplicado ajustado a {:?} (-{})", request.id_file_tour, nuevo_precio_cancelado, monto_transferido);
+
+                let precio_destino = next_tour.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
+                let nuevo_precio_destino = &precio_destino + &monto_transferido;
+                self.file_tour_repo.update_precio_aplicado(next_tour.id, Some(nuevo_precio_destino.clone())).await?;
+                info!("FileTour {} precio_aplicado ajustado a {} (+{})", next_tour.id, nuevo_precio_destino, monto_transferido);
+
                 info!(
                     "Entradas BTG/BTP transferidas de file_tour {} a file_tour {}. Monto: {}",
                     request.id_file_tour, next_tour.id, monto_transferido
