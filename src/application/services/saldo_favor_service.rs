@@ -430,27 +430,27 @@ impl SaldoFavorService {
             return Err(ApplicationError::Validation(format!("File {} ya está marcado como no-show", request.id_file)));
         }
 
-        // Obtener todas las deudas del file
+        // Obtener todas las deudas y pagos del file
         let all_pagos = self.pago_file_repo.find_all_by_file(request.id_file).await?;
-        let deudas: Vec<_> = all_pagos.iter()
-            .filter(|p| p.tipo_registro == "deuda" && p.estado == "pendiente")
+        let pagos_a_actualizar: Vec<_> = all_pagos.iter()
+            .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago")
             .collect();
 
-        if deudas.is_empty() {
-            return Err(ApplicationError::Validation(format!("No se encontraron deudas pendientes para el file {}", request.id_file)));
+        if pagos_a_actualizar.is_empty() {
+            return Err(ApplicationError::Validation(format!("No se encontró deuda/pago para el file {}", request.id_file)));
         }
 
-        // Actualizar todas las deudas existentes a no_show
+        // Actualizar todas las deudas y pagos existentes a no_show
         let mut updated_record = None;
-        for deuda in &deudas {
+        for pago in &pagos_a_actualizar {
             let update = UpdatePagoFileModel {
                 estado: Some("no_show"),
                 tipo_registro: Some("no_show"),
                 notas: request.notas.as_deref(),
                 ..Default::default()
             };
-            let updated = self.pago_file_repo.update(deuda.id, update).await?;
-            info!("Deuda {} actualizada a no_show para file {}", deuda.id, request.id_file);
+            let updated = self.pago_file_repo.update(pago.id, update).await?;
+            info!("Pago {} actualizado a no_show para file {}", pago.id, request.id_file);
             if updated_record.is_none() {
                 updated_record = Some(updated);
             }
@@ -477,6 +477,7 @@ impl SaldoFavorService {
     }
 
     /// Registrar no-show de un file_tour específico
+    /// Si tiene entradas BTG/BTP, se transfieren al siguiente tour del file.
     #[instrument(skip(self))]
     pub async fn registrar_no_show_file_tour(
         &self,
@@ -494,32 +495,161 @@ impl SaldoFavorService {
             return Err(ApplicationError::Validation(format!("FileTour {} ya está marcado como no-show", request.id_file_tour)));
         }
 
-        // Obtener todos los pagos del file para encontrar la deuda de este tour
+        let all_tours = self.file_tour_repo.find_by_file_with_tour(ft.id_file).await?;
+
+        // Obtener todos los pagos del file para encontrar la deuda/pago de este tour
         let all_pagos = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
         
-        // Buscar la deuda del tour específico
+        // Buscar la deuda del tour específico (para BTG/BTP y comprobante)
         let deuda_tour = all_pagos.iter()
-            .find(|p| p.id_file_tour == Some(request.id_file_tour) && p.tipo_registro == "deuda" && p.estado == "pendiente");
+            .find(|p| p.id_file_tour == Some(request.id_file_tour) && p.tipo_registro == "deuda");
 
         if deuda_tour.is_none() {
-            return Err(ApplicationError::Validation(format!("No se encontró deuda pendiente para el file_tour {}", request.id_file_tour)));
+            return Err(ApplicationError::Validation(format!("No se encontró deuda para el file_tour {}", request.id_file_tour)));
         }
 
         let deuda = deuda_tour.unwrap();
+        let zero = BigDecimal::from(0);
 
-        // Actualizar la deuda existente → convertirla en no_show_tour
-        let update = UpdatePagoFileModel {
-            estado: Some("no_show"),
-            tipo_registro: Some("no_show_tour"),
-            notas: request.notas.as_deref(),
-            ..Default::default()
-        };
-        let record = self.pago_file_repo.update(deuda.id, update).await?;
-        info!("Deuda {} actualizada a no_show_tour para file_tour {}", deuda.id, request.id_file_tour);
+        // === LÓGICA BTG/BTP: detectar entradas transferibles ===
+        let file_entradas = self.file_entrada_repo.find_by_file_tour(request.id_file_tour).await?;
+        let mut monto_btg_btp = zero.clone();
+        let mut entradas_btg_btp: Vec<(i32, BigDecimal)> = Vec::new();
+
+        for fe in &file_entradas {
+            if let Ok(Some(entrada)) = self.entrada_repo.find_by_id(fe.id_entrada).await {
+                if entrada.boleto_turistico {
+                    let costo = if let Some(precio_id) = fe.id_entrada_precio {
+                        if let Ok(Some(precio)) = self.entrada_precio_repo.find_by_id(precio_id).await {
+                            &precio.precio * BigDecimal::from(fe.cantidad)
+                        } else {
+                            zero.clone()
+                        }
+                    } else {
+                        zero.clone()
+                    };
+                    monto_btg_btp += &costo;
+                    entradas_btg_btp.push((fe.id, costo));
+                }
+            }
+        }
+
+        // Buscar siguiente tour por orden (que no esté cancelado)
+        let siguiente_tour = all_tours.iter()
+            .find(|t| t.orden > ft.orden && t.status != "cancelado");
+
+        let mut monto_transferido = zero.clone();
+        let mut id_file_tour_destino: Option<i32> = None;
+
+        if !entradas_btg_btp.is_empty() {
+            if let Some(next_tour) = siguiente_tour {
+                // Transferir file_entradas BTG/BTP al siguiente tour
+                for (fe_id, _costo) in &entradas_btg_btp {
+                    let _ = self.file_entrada_repo.transfer_to_file_tour(*fe_id, next_tour.id).await;
+                }
+
+                monto_transferido = monto_btg_btp.clone();
+                id_file_tour_destino = Some(next_tour.id);
+
+                // Actualizar la deuda del tour destino: sumar monto BTG/BTP
+                let deuda_destino = all_pagos.iter()
+                    .find(|p| p.id_file_tour == Some(next_tour.id) && p.tipo_registro == "deuda");
+
+                if let Some(deuda) = deuda_destino {
+                    let nuevo_total = &deuda.monto_total + &monto_transferido;
+                    let nuevo_pagado = &deuda.monto_pagado + &monto_transferido;
+                    let nueva_entrada_precio = deuda.entrada_precio.as_ref()
+                        .unwrap_or(&zero).clone() + &monto_transferido;
+                    let update_deuda = UpdatePagoFileModel {
+                        monto_total: Some(nuevo_total),
+                        monto_pagado: Some(nuevo_pagado),
+                        entradas: Some(true),
+                        entrada_precio: Some(Some(nueva_entrada_precio)),
+                        ..Default::default()
+                    };
+                    let _ = self.pago_file_repo.update(deuda.id, update_deuda).await?;
+                    info!("Deuda del tour destino {} actualizada con +{}", next_tour.id, monto_transferido);
+                }
+
+                // Copiar comprobante del tour no-show al tour destino
+                if deuda.comprobante_url.is_some() || deuda.comprobante_key.is_some() {
+                    if let Some(deuda_dest) = deuda_destino {
+                        let update_comprobante = UpdatePagoFileModel {
+                            comprobante_url: deuda.comprobante_url.as_deref(),
+                            comprobante_key: deuda.comprobante_key.as_deref(),
+                            ..Default::default()
+                        };
+                        let _ = self.pago_file_repo.update(deuda_dest.id, update_comprobante).await?;
+                        info!("Comprobante copiado de deuda tour {} a deuda tour {}", request.id_file_tour, next_tour.id);
+                    }
+                }
+
+                info!(
+                    "Entradas BTG/BTP transferidas de file_tour {} a file_tour {}. Monto: {}",
+                    request.id_file_tour, next_tour.id, monto_transferido
+                );
+            }
+        }
+
+        // Actualizar TODOS los pagos (deuda y pago) del tour a no_show_tour
+        let pagos_del_tour: Vec<_> = all_pagos.iter()
+            .filter(|p| p.id_file_tour == Some(request.id_file_tour) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
+            .collect();
+
+        if pagos_del_tour.is_empty() {
+            return Err(ApplicationError::Validation(format!("No se encontró deuda/pago para el file_tour {}", request.id_file_tour)));
+        }
+
+        let mut record = None;
+        for pago in &pagos_del_tour {
+            let update = UpdatePagoFileModel {
+                estado: Some("no_show"),
+                tipo_registro: Some("no_show_tour"),
+                notas: request.notas.as_deref(),
+                ..Default::default()
+            };
+            let updated = self.pago_file_repo.update(pago.id, update).await?;
+            info!("Pago {} actualizado a no_show_tour para file_tour {}", pago.id, request.id_file_tour);
+            if record.is_none() {
+                record = Some(updated);
+            }
+        }
+
+        let record = record.unwrap();
 
         // Actualizar file_tour status a "no_show" + cascada a guias, vehiculos, restaurantes, entradas
         let _ = self.file_status_service.update_file_tour_status(request.id_file_tour, "no_show").await?;
-        info!("FileTour {} y sus relaciones actualizados a status 'no_show'", request.id_file_tour);
+        info!("FileTour {} y sus relaciones actualizadas a status 'no_show'", request.id_file_tour);
+
+        // Recalcular monto_total y monto_pagado del file desde las deudas activas
+        let all_pagos_updated = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
+
+        let file_monto_total = all_pagos_updated.iter()
+            .filter(|p| p.tipo_registro == "deuda")
+            .map(|p| &p.monto_total)
+            .fold(zero.clone(), |acc, m| acc + m);
+
+        let active_tour_ids: Vec<Option<i32>> = all_pagos_updated.iter()
+            .filter(|p| p.tipo_registro == "deuda")
+            .map(|p| p.id_file_tour)
+            .collect();
+
+        let file_monto_pagado = all_pagos_updated.iter()
+            .filter(|p| {
+                (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "uso_saldo")
+                    && active_tour_ids.contains(&p.id_file_tour)
+            })
+            .map(|p| &p.monto_pagado)
+            .fold(zero.clone(), |acc, m| acc + m);
+
+        let file = self.file_repo.find_by_id(ft.id_file).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
+        
+        let mut updated_file = file.clone();
+        updated_file.monto_total = file_monto_total;
+        updated_file.monto_pagado = file_monto_pagado;
+        updated_file.updated_at = chrono::Utc::now();
+        self.file_repo.update(&updated_file).await?;
 
         self.pago_to_no_show_response(record).await
     }
