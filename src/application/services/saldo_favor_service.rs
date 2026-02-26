@@ -239,6 +239,19 @@ impl SaldoFavorService {
 
         info!("FileTour {} cancelado. Saldo a favor: {:?}", request.id_file_tour, record.monto_saldo_favor);
 
+        // Notificar
+        let _ = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin, UserRole::Admin],
+            "FileTour Cancelado",
+            &format!("FileTour #{} cancelado. Saldo a favor: S/ {}", request.id_file_tour,
+                record.monto_saldo_favor.as_ref().map(|v| v.to_string()).unwrap_or("0".into())),
+            NotificationType::Warning,
+            NotificationCategory::Financial,
+            NotificationPriority::High,
+            created_by,
+        ).await;
+
+
         let response = self.pago_to_cancelacion_response(record).await?;
         Ok(response)
     }
@@ -329,9 +342,22 @@ impl SaldoFavorService {
             vec![UserRole::SuperAdmin, UserRole::Admin],
             "No-Show Registrado",
             &format!("File #{} marcado como no-show. Pendiente de autorización de saldo.", request.id_file),
-            NotificationType::Warning,
+            NotificationType::Error,
             NotificationCategory::Financial,
-            NotificationPriority::Normal,
+            NotificationPriority::High,
+            created_by,
+        ).await;
+
+        let file = self.file_repo.find_by_id(request.id_file).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", request.id_file)))?;
+        let _ = self.notification_service.notify_roles_for_entity(
+            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente],
+            file.id_agencia,
+            "No-Show Registrado",
+            &format!("File #{} marcado como no-show.", request.id_file),
+            NotificationType::Error,
+            NotificationCategory::Financial,
+            NotificationPriority::High,
             created_by,
         ).await;
 
@@ -385,6 +411,32 @@ impl SaldoFavorService {
         ).await?;
 
         info!("No-show registrado para file_tour {}", request.id_file_tour);
+
+        // Notificar
+        let _ = self.notification_service.notify_roles(
+            vec![UserRole::SuperAdmin, UserRole::Admin],
+            "No-Show Registrado",
+            &format!("FileTour #{} marcado como no-show. Pendiente de autorización de saldo.", request.id_file_tour),
+            NotificationType::Error,
+            NotificationCategory::Financial,
+            NotificationPriority::High,
+            created_by,
+        ).await;
+
+        let ft = self.file_tour_repo.find_by_id(request.id_file_tour).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
+        let file = self.file_repo.find_by_id(ft.id_file).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
+        let _ = self.notification_service.notify_roles_for_entity(
+            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente],
+            file.id_agencia,
+            "No-Show Registrado",
+            &format!("FileTour #{} marcado como no-show.", request.id_file_tour),
+            NotificationType::Error,
+            NotificationCategory::Financial,
+            NotificationPriority::High,
+            created_by,
+        ).await;
 
         self.pago_to_no_show_response(record).await
     }
