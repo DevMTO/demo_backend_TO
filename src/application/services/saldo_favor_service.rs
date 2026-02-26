@@ -173,7 +173,6 @@ impl SaldoFavorService {
         let ft = self.file_tour_repo.find_by_id(request.id_file_tour).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
 
-        // Guard: no permitir cancelar un file_tour ya cancelado o no_show
         if ft.status == "cancelado" {
             return Err(ApplicationError::Validation(format!("FileTour {} ya está cancelado", request.id_file_tour)));
         }
@@ -185,19 +184,19 @@ impl SaldoFavorService {
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
 
         let all_tours = self.file_tour_repo.find_by_file_with_tour(ft.id_file).await?;
-
-        // Obtener todos los pagos del file
         let all_pagos = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
         let zero = BigDecimal::from(0);
 
-        // Usar los valores REALES de la deuda del tour cancelado (no división proporcional)
-        let deuda_tour = all_pagos.iter()
-            .find(|p| p.id_file_tour == Some(request.id_file_tour) && p.tipo_registro == "deuda");
+        let pagos_del_tour: Vec<_> = all_pagos.iter()
+            .filter(|p| p.id_file_tour == Some(request.id_file_tour) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
+            .collect();
 
-        // === LÓGICA BTG/BTP: detectar entradas transferibles ===
+        let monto_pagado_tour: BigDecimal = pagos_del_tour.iter()
+            .map(|p| &p.monto_pagado)
+            .fold(zero.clone(), |acc, m| acc + m);
+
         let file_entradas = self.file_entrada_repo.find_by_file_tour(request.id_file_tour).await?;
         let mut monto_btg_btp = zero.clone();
-        let mut entradas_btg_btp: Vec<(i32, BigDecimal)> = Vec::new(); // (file_entrada_id, costo)
 
         for fe in &file_entradas {
             if let Ok(Some(entrada)) = self.entrada_repo.find_by_id(fe.id_entrada).await {
@@ -212,172 +211,35 @@ impl SaldoFavorService {
                         zero.clone()
                     };
                     monto_btg_btp += &costo;
-                    entradas_btg_btp.push((fe.id, costo));
                 }
             }
         }
 
-        // Buscar siguiente tour por orden (que no esté cancelado)
-        let siguiente_tour = all_tours.iter()
-            .find(|t| t.orden > ft.orden && t.status != "cancelado");
-
-        let mut monto_transferido = zero.clone();
-        let mut id_file_tour_destino: Option<i32> = None;
-
-        if !entradas_btg_btp.is_empty() {
-            if let Some(next_tour) = siguiente_tour {
-                // Transferir file_entradas BTG/BTP al siguiente tour
-                for (fe_id, _costo) in &entradas_btg_btp {
-                    let _ = self.file_entrada_repo.transfer_to_file_tour(*fe_id, next_tour.id).await;
-                }
-
-                monto_transferido = monto_btg_btp.clone();
-                id_file_tour_destino = Some(next_tour.id);
-
-                // Actualizar la deuda del tour destino: sumar monto BTG/BTP
-                let deuda_destino = all_pagos.iter()
-                    .find(|p| p.id_file_tour == Some(next_tour.id) && p.tipo_registro == "deuda");
-
-                if let Some(deuda) = deuda_destino {
-                    let nuevo_total = &deuda.monto_total + &monto_transferido;
-                    let nuevo_pagado = &deuda.monto_pagado + &monto_transferido;
-                    let nueva_entrada_precio = deuda.entrada_precio.as_ref()
-                        .unwrap_or(&zero).clone() + &monto_transferido;
-                    let update_deuda = UpdatePagoFileModel {
-                        monto_total: Some(nuevo_total),
-                        monto_pagado: Some(nuevo_pagado),
-                        entradas: Some(true),
-                        entrada_precio: Some(Some(nueva_entrada_precio)),
-                        ..Default::default()
-                    };
-                    let _ = self.pago_file_repo.update(deuda.id, update_deuda).await?;
-                    info!("Deuda del tour destino {} actualizada con +{}", next_tour.id, monto_transferido);
-                }
-
-                // Copiar comprobante del tour cancelado al tour destino
-                if let Some(ref deuda) = deuda_tour {
-                    if deuda.comprobante_url.is_some() || deuda.comprobante_key.is_some() {
-                        if let Some(deuda_dest) = deuda_destino {
-                            let update_comprobante = UpdatePagoFileModel {
-                                comprobante_url: deuda.comprobante_url.as_deref(),
-                                comprobante_key: deuda.comprobante_key.as_deref(),
-                                ..Default::default()
-                            };
-                            let _ = self.pago_file_repo.update(deuda_dest.id, update_comprobante).await?;
-                            info!("Comprobante copiado de deuda tour {} a deuda tour {}", request.id_file_tour, next_tour.id);
-                        }
-                    }
-                }
-
-                // Ajustar precio_aplicado: restar BT del tour cancelado, sumar al destino
-                let precio_cancelado = ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
-                let nuevo_precio_cancelado = &precio_cancelado - &monto_transferido;
-                let nuevo_precio_cancelado = if nuevo_precio_cancelado > zero { Some(nuevo_precio_cancelado) } else { Some(zero.clone()) };
-                self.file_tour_repo.update_precio_aplicado(request.id_file_tour, nuevo_precio_cancelado.clone()).await?;
-                info!("FileTour {} precio_aplicado ajustado a {:?} (-{})", request.id_file_tour, nuevo_precio_cancelado, monto_transferido);
-
-                let precio_destino = next_tour.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
-                let nuevo_precio_destino = &precio_destino + &monto_transferido;
-                self.file_tour_repo.update_precio_aplicado(next_tour.id, Some(nuevo_precio_destino.clone())).await?;
-                info!("FileTour {} precio_aplicado ajustado a {} (+{})", next_tour.id, nuevo_precio_destino, monto_transferido);
-
-                info!(
-                    "Entradas BTG/BTP transferidas de file_tour {} a file_tour {}. Monto: {}",
-                    request.id_file_tour, next_tour.id, monto_transferido
-                );
-            }
-            // Si no hay siguiente tour, el monto BTG/BTP también va a saldo a favor
-        }
-
-        // Saldo a favor = monto pagado de la deuda del tour - monto transferido (BTG/BTP)
-        let monto_saldo = if let Some(ref deuda) = deuda_tour {
-            if deuda.monto_pagado > zero {
-                let saldo_final = &deuda.monto_pagado - &monto_transferido;
-                if saldo_final > zero { Some(saldo_final) } else { None }
-            } else {
-                None
-            }
+        let monto_saldo = if monto_pagado_tour > zero {
+            let saldo_final = &monto_pagado_tour - &monto_btg_btp;
+            if saldo_final > zero { Some(saldo_final) } else { None }
         } else {
             None
         };
 
-        let record = if let Some(deuda) = deuda_tour {
-            // Actualizar la deuda existente → convertirla en cancelacion_tour
-            let update = UpdatePagoFileModel {
-                estado: Some("cancelado"),
-                tipo_registro: Some("cancelacion_tour"),
-                monto_saldo_favor: monto_saldo,
-                saldo_autorizado: Some(true),
-                saldo_autorizado_por: created_by,
-                saldo_autorizado_at: Some(chrono::Utc::now()),
-                notas: request.notas.as_deref(),
-                ..Default::default()
-            };
-            self.pago_file_repo.update(deuda.id, update).await?
-        } else {
-            // Fallback: si no existe deuda, crear registro nuevo
-            let new_record = NewPagoFileModel {
-                id_file: ft.id_file,
-                id_agencia: file.id_agencia,
-                monto_total: zero.clone(),
-                monto_pagado: zero.clone(),
-                estado: "cancelado",
-                fecha_vencimiento: None,
-                notas: request.notas.as_deref(),
-                created_by,
-                id_file_tour: Some(request.id_file_tour),
-                tipo_registro: "cancelacion_tour",
-                monto_saldo_favor: monto_saldo,
-                saldo_autorizado: true,
-                saldo_autorizado_por: created_by,
-                saldo_autorizado_at: Some(chrono::Utc::now()),
-                entradas: false,
-                entrada_precio: None,
-            };
-            self.pago_file_repo.create(new_record).await?
-        };
+        let record = self.procesar_file_tour(
+            &ft,
+            &file,
+            &all_tours,
+            &all_pagos,
+            request.id_file_tour,
+            "cancelado",
+            "cancelacion_tour",
+            "cancelado",
+            request.notas.as_deref(),
+            monto_saldo,
+            true,
+            created_by,
+        ).await?;
 
         info!("FileTour {} cancelado. Saldo a favor: {:?}", request.id_file_tour, record.monto_saldo_favor);
 
-        // Actualizar file_tour status a "cancelado" + cascada a guias, vehiculos, restaurantes, entradas
-        let _ = self.file_status_service.update_file_tour_status(request.id_file_tour, "cancelado").await?;
-        info!("FileTour {} y sus relaciones actualizados a status 'cancelado'", request.id_file_tour);
-
-        // Recalcular monto_total y monto_pagado del file desde las deudas activas
-        let all_pagos_updated = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
-
-        // monto_total = suma de deudas activas (incluye BT transferido al tour destino)
-        let file_monto_total = all_pagos_updated.iter()
-            .filter(|p| p.tipo_registro == "deuda")
-            .map(|p| &p.monto_total)
-            .fold(zero.clone(), |acc, m| acc + m);
-
-        // IDs de tours activos (los que aún tienen deuda)
-        let active_tour_ids: Vec<Option<i32>> = all_pagos_updated.iter()
-            .filter(|p| p.tipo_registro == "deuda")
-            .map(|p| p.id_file_tour)
-            .collect();
-
-        // monto_pagado = pagado en deudas activas + pagos asociados a tours activos
-        let file_monto_pagado = all_pagos_updated.iter()
-            .filter(|p| {
-                (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "uso_saldo")
-                    && active_tour_ids.contains(&p.id_file_tour)
-            })
-            .map(|p| &p.monto_pagado)
-            .fold(zero.clone(), |acc, m| acc + m);
-
-        let mut updated_file = file.clone();
-        updated_file.monto_total = file_monto_total;
-        updated_file.monto_pagado = file_monto_pagado;
-        updated_file.updated_at = chrono::Utc::now();
-        self.file_repo.update(&updated_file).await?;
-
-        // Construir respuesta con info de transferencia
-        let mut response = self.pago_to_cancelacion_response(record).await?;
-        response.monto_entradas_transferidas = monto_transferido.to_f64().unwrap_or(0.0);
-        response.id_file_tour_destino = id_file_tour_destino;
-
+        let response = self.pago_to_cancelacion_response(record).await?;
         Ok(response)
     }
 
@@ -487,7 +349,6 @@ impl SaldoFavorService {
         let ft = self.file_tour_repo.find_by_id(request.id_file_tour).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
 
-        // Guard: no permitir no-show en un file_tour ya cancelado o no_show
         if ft.status == "cancelado" {
             return Err(ApplicationError::Validation(format!("FileTour {} ya está cancelado", request.id_file_tour)));
         }
@@ -495,161 +356,35 @@ impl SaldoFavorService {
             return Err(ApplicationError::Validation(format!("FileTour {} ya está marcado como no-show", request.id_file_tour)));
         }
 
+        let file = self.file_repo.find_by_id(ft.id_file).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
+
         let all_tours = self.file_tour_repo.find_by_file_with_tour(ft.id_file).await?;
-
-        // Obtener todos los pagos del file para encontrar la deuda/pago de este tour
         let all_pagos = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
-        
-        // Buscar la deuda del tour específico (para BTG/BTP y comprobante)
-        let deuda_tour = all_pagos.iter()
-            .find(|p| p.id_file_tour == Some(request.id_file_tour) && p.tipo_registro == "deuda");
 
-        if deuda_tour.is_none() {
+        let tiene_deuda = all_pagos.iter()
+            .any(|p| p.id_file_tour == Some(request.id_file_tour) && p.tipo_registro == "deuda");
+
+        if !tiene_deuda {
             return Err(ApplicationError::Validation(format!("No se encontró deuda para el file_tour {}", request.id_file_tour)));
         }
 
-        let deuda = deuda_tour.unwrap();
-        let zero = BigDecimal::from(0);
+        let record = self.procesar_file_tour(
+            &ft,
+            &file,
+            &all_tours,
+            &all_pagos,
+            request.id_file_tour,
+            "no_show",
+            "no_show_tour",
+            "no_show",
+            request.notas.as_deref(),
+            None,
+            false,
+            created_by,
+        ).await?;
 
-        // === LÓGICA BTG/BTP: detectar entradas transferibles ===
-        let file_entradas = self.file_entrada_repo.find_by_file_tour(request.id_file_tour).await?;
-        let mut monto_btg_btp = zero.clone();
-        let mut entradas_btg_btp: Vec<(i32, BigDecimal)> = Vec::new();
-
-        for fe in &file_entradas {
-            if let Ok(Some(entrada)) = self.entrada_repo.find_by_id(fe.id_entrada).await {
-                if entrada.boleto_turistico {
-                    let costo = if let Some(precio_id) = fe.id_entrada_precio {
-                        if let Ok(Some(precio)) = self.entrada_precio_repo.find_by_id(precio_id).await {
-                            &precio.precio * BigDecimal::from(fe.cantidad)
-                        } else {
-                            zero.clone()
-                        }
-                    } else {
-                        zero.clone()
-                    };
-                    monto_btg_btp += &costo;
-                    entradas_btg_btp.push((fe.id, costo));
-                }
-            }
-        }
-
-        // Buscar siguiente tour por orden (que no esté cancelado)
-        let siguiente_tour = all_tours.iter()
-            .find(|t| t.orden > ft.orden && t.status != "cancelado");
-
-        let mut monto_transferido = zero.clone();
-        let mut id_file_tour_destino: Option<i32> = None;
-
-        if !entradas_btg_btp.is_empty() {
-            if let Some(next_tour) = siguiente_tour {
-                // Transferir file_entradas BTG/BTP al siguiente tour
-                for (fe_id, _costo) in &entradas_btg_btp {
-                    let _ = self.file_entrada_repo.transfer_to_file_tour(*fe_id, next_tour.id).await;
-                }
-
-                monto_transferido = monto_btg_btp.clone();
-                id_file_tour_destino = Some(next_tour.id);
-
-                // Actualizar la deuda del tour destino: sumar monto BTG/BTP
-                let deuda_destino = all_pagos.iter()
-                    .find(|p| p.id_file_tour == Some(next_tour.id) && p.tipo_registro == "deuda");
-
-                if let Some(deuda) = deuda_destino {
-                    let nuevo_total = &deuda.monto_total + &monto_transferido;
-                    let nuevo_pagado = &deuda.monto_pagado + &monto_transferido;
-                    let nueva_entrada_precio = deuda.entrada_precio.as_ref()
-                        .unwrap_or(&zero).clone() + &monto_transferido;
-                    let update_deuda = UpdatePagoFileModel {
-                        monto_total: Some(nuevo_total),
-                        monto_pagado: Some(nuevo_pagado),
-                        entradas: Some(true),
-                        entrada_precio: Some(Some(nueva_entrada_precio)),
-                        ..Default::default()
-                    };
-                    let _ = self.pago_file_repo.update(deuda.id, update_deuda).await?;
-                    info!("Deuda del tour destino {} actualizada con +{}", next_tour.id, monto_transferido);
-                }
-
-                // Copiar comprobante del tour no-show al tour destino
-                if deuda.comprobante_url.is_some() || deuda.comprobante_key.is_some() {
-                    if let Some(deuda_dest) = deuda_destino {
-                        let update_comprobante = UpdatePagoFileModel {
-                            comprobante_url: deuda.comprobante_url.as_deref(),
-                            comprobante_key: deuda.comprobante_key.as_deref(),
-                            ..Default::default()
-                        };
-                        let _ = self.pago_file_repo.update(deuda_dest.id, update_comprobante).await?;
-                        info!("Comprobante copiado de deuda tour {} a deuda tour {}", request.id_file_tour, next_tour.id);
-                    }
-                }
-
-                info!(
-                    "Entradas BTG/BTP transferidas de file_tour {} a file_tour {}. Monto: {}",
-                    request.id_file_tour, next_tour.id, monto_transferido
-                );
-            }
-        }
-
-        // Actualizar TODOS los pagos (deuda y pago) del tour a no_show_tour
-        let pagos_del_tour: Vec<_> = all_pagos.iter()
-            .filter(|p| p.id_file_tour == Some(request.id_file_tour) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
-            .collect();
-
-        if pagos_del_tour.is_empty() {
-            return Err(ApplicationError::Validation(format!("No se encontró deuda/pago para el file_tour {}", request.id_file_tour)));
-        }
-
-        let mut record = None;
-        for pago in &pagos_del_tour {
-            let update = UpdatePagoFileModel {
-                estado: Some("no_show"),
-                tipo_registro: Some("no_show_tour"),
-                notas: request.notas.as_deref(),
-                ..Default::default()
-            };
-            let updated = self.pago_file_repo.update(pago.id, update).await?;
-            info!("Pago {} actualizado a no_show_tour para file_tour {}", pago.id, request.id_file_tour);
-            if record.is_none() {
-                record = Some(updated);
-            }
-        }
-
-        let record = record.unwrap();
-
-        // Actualizar file_tour status a "no_show" + cascada a guias, vehiculos, restaurantes, entradas
-        let _ = self.file_status_service.update_file_tour_status(request.id_file_tour, "no_show").await?;
-        info!("FileTour {} y sus relaciones actualizadas a status 'no_show'", request.id_file_tour);
-
-        // Recalcular monto_total y monto_pagado del file desde las deudas activas
-        let all_pagos_updated = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
-
-        let file_monto_total = all_pagos_updated.iter()
-            .filter(|p| p.tipo_registro == "deuda")
-            .map(|p| &p.monto_total)
-            .fold(zero.clone(), |acc, m| acc + m);
-
-        let active_tour_ids: Vec<Option<i32>> = all_pagos_updated.iter()
-            .filter(|p| p.tipo_registro == "deuda")
-            .map(|p| p.id_file_tour)
-            .collect();
-
-        let file_monto_pagado = all_pagos_updated.iter()
-            .filter(|p| {
-                (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "uso_saldo")
-                    && active_tour_ids.contains(&p.id_file_tour)
-            })
-            .map(|p| &p.monto_pagado)
-            .fold(zero.clone(), |acc, m| acc + m);
-
-        let file = self.file_repo.find_by_id(ft.id_file).await?
-            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
-        
-        let mut updated_file = file.clone();
-        updated_file.monto_total = file_monto_total;
-        updated_file.monto_pagado = file_monto_pagado;
-        updated_file.updated_at = chrono::Utc::now();
-        self.file_repo.update(&updated_file).await?;
+        info!("No-show registrado para file_tour {}", request.id_file_tour);
 
         self.pago_to_no_show_response(record).await
     }
@@ -881,6 +616,208 @@ impl SaldoFavorService {
     // ========================================================================
     // HELPERS
     // ========================================================================
+
+    /// Helper para procesar cancelación/no-show de un file_tour
+    /// Maneja: transferencia BTG/BTP, actualización de pagos, recalculo de file
+    async fn procesar_file_tour(
+        &self,
+        ft: &crate::infrastructure::persistence::models::FileTourModel,
+        file: &crate::domain::entities::file::File,
+        all_tours: &[crate::infrastructure::persistence::models::FileTourWithTourModel],
+        all_pagos: &[PagoFileModel],
+        id_file_tour: i32,
+        estado: &str,
+        tipo_registro: &str,
+        status_file_tour: &str,
+        notas: Option<&str>,
+        monto_saldo_favor: Option<BigDecimal>,
+        update_precio_aplicado: bool,
+        created_by: Option<i32>,
+    ) -> Result<PagoFileModel, ApplicationError> {
+        let zero = BigDecimal::from(0);
+
+        let deuda_tour = all_pagos.iter()
+            .find(|p| p.id_file_tour == Some(id_file_tour) && p.tipo_registro == "deuda");
+
+        let pagos_del_tour: Vec<_> = all_pagos.iter()
+            .filter(|p| p.id_file_tour == Some(id_file_tour) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
+            .collect();
+
+        let siguiente_tour = all_tours.iter()
+            .find(|t| t.orden > ft.orden && t.status != "cancelado");
+
+        let file_entradas = self.file_entrada_repo.find_by_file_tour(id_file_tour).await?;
+        let mut monto_btg_btp = zero.clone();
+        let mut entradas_btg_btp: Vec<(i32, BigDecimal)> = Vec::new();
+
+        for fe in &file_entradas {
+            if let Ok(Some(entrada)) = self.entrada_repo.find_by_id(fe.id_entrada).await {
+                if entrada.boleto_turistico {
+                    let costo = if let Some(precio_id) = fe.id_entrada_precio {
+                        if let Ok(Some(precio)) = self.entrada_precio_repo.find_by_id(precio_id).await {
+                            &precio.precio * BigDecimal::from(fe.cantidad)
+                        } else {
+                            zero.clone()
+                        }
+                    } else {
+                        zero.clone()
+                    };
+                    monto_btg_btp += &costo;
+                    entradas_btg_btp.push((fe.id, costo));
+                }
+            }
+        }
+
+        let mut monto_transferido = zero.clone();
+
+        if !entradas_btg_btp.is_empty() {
+            if let Some(next_tour) = siguiente_tour {
+                for (fe_id, _costo) in &entradas_btg_btp {
+                    let _ = self.file_entrada_repo.transfer_to_file_tour(*fe_id, next_tour.id).await;
+                }
+
+                monto_transferido = monto_btg_btp.clone();
+
+                let deuda_destino = all_pagos.iter()
+                    .find(|p| p.id_file_tour == Some(next_tour.id) && p.tipo_registro == "deuda");
+
+                if let Some(deuda) = deuda_destino {
+                    let nuevo_total = &deuda.monto_total + &monto_transferido;
+                    let nuevo_pagado = &deuda.monto_pagado + &monto_transferido;
+                    let nueva_entrada_precio = deuda.entrada_precio.as_ref()
+                        .unwrap_or(&zero).clone() + &monto_transferido;
+                    let update_deuda = UpdatePagoFileModel {
+                        monto_total: Some(nuevo_total.clone()),
+                        monto_pagado: Some(nuevo_pagado),
+                        entradas: Some(true),
+                        entrada_precio: Some(Some(nueva_entrada_precio)),
+                        ..Default::default()
+                    };
+                    let _ = self.pago_file_repo.update(deuda.id, update_deuda).await?;
+                    info!("Deuda del tour destino {} actualizada con +{}", next_tour.id, monto_transferido);
+
+                    // Also update monto_total for all other pagos_files of the destination tour
+                    let pagos_destino: Vec<_> = all_pagos.iter()
+                        .filter(|p| p.id_file_tour == Some(next_tour.id) && p.id != deuda.id)
+                        .collect();
+                    for pago in pagos_destino {
+                        let update_pago = UpdatePagoFileModel {
+                            monto_total: Some(nuevo_total.clone()),
+                            ..Default::default()
+                        };
+                        let _ = self.pago_file_repo.update(pago.id, update_pago).await?;
+                        info!("Pago {} del tour destino {} actualizado con monto_total {}", pago.id, next_tour.id, nuevo_total);
+                    }
+                }
+
+                if let Some(ref deuda) = deuda_tour {
+                    if deuda.comprobante_url.is_some() || deuda.comprobante_key.is_some() {
+                        if let Some(deuda_dest) = deuda_destino {
+                            let update_comprobante = UpdatePagoFileModel {
+                                comprobante_url: deuda.comprobante_url.as_deref(),
+                                comprobante_key: deuda.comprobante_key.as_deref(),
+                                ..Default::default()
+                            };
+                            let _ = self.pago_file_repo.update(deuda_dest.id, update_comprobante).await?;
+                        }
+                    }
+                }
+
+                if update_precio_aplicado {
+                    let precio_cancelado = ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
+                    let nuevo_precio_cancelado = &precio_cancelado - &monto_transferido;
+                    let nuevo_precio_cancelado = if nuevo_precio_cancelado > zero { Some(nuevo_precio_cancelado) } else { Some(zero.clone()) };
+                    self.file_tour_repo.update_precio_aplicado(id_file_tour, nuevo_precio_cancelado.clone()).await?;
+
+                    let precio_destino = next_tour.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
+                    let nuevo_precio_destino = &precio_destino + &monto_transferido;
+                    self.file_tour_repo.update_precio_aplicado(next_tour.id, Some(nuevo_precio_destino.clone())).await?;
+                }
+
+                info!("Entradas BTG/BTP transferidas de file_tour {} a file_tour {}. Monto: {}", id_file_tour, next_tour.id, monto_transferido);
+            }
+        }
+
+        // Get the final precio_aplicado for this file_tour after any transfers
+        let precio_final = if update_precio_aplicado {
+            let original_precio = ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
+            let precio_after_transfer = &original_precio - &monto_btg_btp;
+            if precio_after_transfer > zero { precio_after_transfer } else { zero.clone() }
+        } else {
+            ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone())
+        };
+
+        let mut record = None;
+        for pago in &pagos_del_tour {
+            // Calculate monto_saldo_favor individually for each pago:
+            // - Debt record (with entrada_precio): monto_pagado - monto_btg_btp
+            // - Other payment records: 100% of monto_pagado
+            let saldo_favor = if monto_saldo_favor.is_some() {
+                if pago.entrada_precio.is_some() && monto_btg_btp > zero {
+                    let saldo = &pago.monto_pagado - &monto_btg_btp;
+                    if saldo > zero { Some(saldo) } else { None }
+                } else {
+                    if pago.monto_pagado > zero { Some(pago.monto_pagado.clone()) } else { None }
+                }
+            } else {
+                None
+            };
+
+            let mut update = UpdatePagoFileModel {
+                estado: Some(estado),
+                tipo_registro: Some(tipo_registro),
+                notas,
+                monto_total: Some(precio_final.clone()),
+                ..Default::default()
+            };
+
+            if let Some(ref saldo) = saldo_favor {
+                update.monto_saldo_favor = Some(saldo.clone());
+                update.saldo_autorizado = Some(true);
+                update.saldo_autorizado_por = created_by;
+                update.saldo_autorizado_at = Some(chrono::Utc::now());
+            }
+
+            let updated = self.pago_file_repo.update(pago.id, update).await?;
+            info!("Pago {} actualizado a {} para file_tour {} (saldo: {:?})", pago.id, tipo_registro, id_file_tour, saldo_favor);
+            if record.is_none() {
+                record = Some(updated);
+            }
+        }
+
+        let record = record.unwrap();
+
+        let _ = self.file_status_service.update_file_tour_status(id_file_tour, status_file_tour).await?;
+        info!("FileTour {} y sus relaciones actualizadas a status '{}'", id_file_tour, status_file_tour);
+
+        let all_pagos_updated = self.pago_file_repo.find_all_by_file(file.id).await?;
+
+        let file_monto_total = all_pagos_updated.iter()
+            .filter(|p| p.tipo_registro == "deuda")
+            .map(|p| &p.monto_total)
+            .fold(zero.clone(), |acc, m| acc + m);
+
+        let active_tour_ids: Vec<Option<i32>> = all_pagos_updated.iter()
+            .filter(|p| p.tipo_registro == "deuda")
+            .map(|p| p.id_file_tour)
+            .collect();
+
+        let file_monto_pagado = all_pagos_updated.iter()
+            .filter(|p| {
+                (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "uso_saldo")
+                    && active_tour_ids.contains(&p.id_file_tour)
+            })
+            .map(|p| &p.monto_pagado)
+            .fold(zero.clone(), |acc, m| acc + m);
+
+        let mut updated_file = file.clone();
+        updated_file.monto_total = file_monto_total;
+        updated_file.monto_pagado = file_monto_pagado;
+        updated_file.updated_at = chrono::Utc::now();
+        self.file_repo.update(&updated_file).await?;
+
+        Ok(record)
+    }
 
     async fn pago_to_cancelacion_response(&self, p: PagoFileModel) -> Result<CancelacionResponse, ApplicationError> {
         let file_code = self.get_file_code(p.id_file).await;

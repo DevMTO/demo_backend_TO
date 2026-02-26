@@ -30,6 +30,7 @@ use crate::domain::entities::{
 };
 use crate::infrastructure::persistence::models::{
     NewPagoProveedorModel,
+    NewPagoFileModel,
     UpdatePagoFileModel, UpdatePagoProveedorModel,
     PagoFileModel, PagoProveedorModel,
 };
@@ -380,6 +381,7 @@ impl ContabilidadService {
             deuda_id: i32,
             id_file_tour: Option<i32>,
             monto_total: BigDecimal,
+            monto_pagado_original: BigDecimal,
             monto_pagado_acum: BigDecimal,
             monto_pendiente: BigDecimal,
             entradas: bool,
@@ -401,6 +403,7 @@ impl ContabilidadService {
                 deuda_id: d.id,
                 id_file_tour: d.id_file_tour,
                 monto_total: d.monto_total.clone(),
+                monto_pagado_original: pagado_en_deuda,
                 monto_pagado_acum: acumulado,
                 monto_pendiente: if pendiente > zero { pendiente } else { zero.clone() },
                 entradas: d.entradas,
@@ -433,24 +436,58 @@ impl ContabilidadService {
                     continue;
                 }
                 
-                // Always update the existing debt (overflow allowed)
-                let nuevo_pagado = &d.monto_pagado_acum + &a_pagar;
-                let pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
-                let estado = if pendiente_tras_pago <= tolerancia { "pagado" } else { "parcial" };
-                
-                let update = UpdatePagoFileModel {
-                    monto_pagado: Some(nuevo_pagado.clone()),
-                    estado: Some(estado),
-                    comprobante_url: comprobante_url.as_deref(),
-                    comprobante_key: comprobante_key.as_deref(),
-                    ..Default::default()
-                };
-                let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
-                ultimo_pago_id = Some(updated.id);
+                if d.monto_pagado_original == zero {
+                    // First payment on this debt - update existing
+                    let nuevo_pagado = &d.monto_pagado_acum + &a_pagar;
+                    let pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
+                    let estado = if pendiente_tras_pago <= tolerancia { "pagado" } else { "parcial" };
+                    
+                    let update = UpdatePagoFileModel {
+                        monto_pagado: Some(nuevo_pagado.clone()),
+                        estado: Some(estado),
+                        comprobante_url: comprobante_url.as_deref(),
+                        comprobante_key: comprobante_key.as_deref(),
+                        ..Default::default()
+                    };
+                    let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
+                    ultimo_pago_id = Some(updated.id);
+                } else {
+                    // Subsequent payments - create new "pago" entry
+                    let pending_after = &d.monto_pendiente - &a_pagar;
+                    let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
+                    let new_pago = NewPagoFileModel {
+                        id_file,
+                        id_agencia,
+                        monto_total: d.monto_total.clone(),
+                        monto_pagado: a_pagar.clone(),
+                        estado,
+                        fecha_vencimiento: None,
+                        notas: request.notas.as_deref(),
+                        created_by,
+                        id_file_tour: d.id_file_tour,
+                        tipo_registro: "pago",
+                        monto_saldo_favor: None,
+                        saldo_autorizado: false,
+                        saldo_autorizado_por: None,
+                        saldo_autorizado_at: None,
+                        entradas: false,
+                        entrada_precio: None,
+                    };
+                    let pago = self.pago_file_repository.create(new_pago).await?;
+                    if comprobante_url.is_some() || comprobante_key.is_some() {
+                        let upd = UpdatePagoFileModel {
+                            comprobante_url: comprobante_url.as_deref(),
+                            comprobante_key: comprobante_key.as_deref(),
+                            ..Default::default()
+                        };
+                        let _ = self.pago_file_repository.update(pago.id, upd).await?;
+                    }
+                    ultimo_pago_id = Some(pago.id);
+                }
                 
                 monto_restante -= &a_pagar;
                 d.monto_pagado_acum += &a_pagar;
-                d.monto_pendiente = if pendiente_tras_pago > zero { pendiente_tras_pago } else { zero.clone() };
+                d.monto_pendiente -= &a_pagar;
             }
         }
         
@@ -476,24 +513,58 @@ impl ContabilidadService {
                 continue;
             }
             
-            // Always update the existing debt (overflow allowed)
-            let nuevo_pagado = &d.monto_pagado_acum + &a_pagar;
-            let pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
-            let estado = if pendiente_tras_pago <= tolerancia { "pagado" } else { "parcial" };
-            
-            let update = UpdatePagoFileModel {
-                monto_pagado: Some(nuevo_pagado),
-                estado: Some(estado),
-                comprobante_url: comprobante_url.as_deref(),
-                comprobante_key: comprobante_key.as_deref(),
-                ..Default::default()
-            };
-            let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
-            ultimo_pago_id = Some(updated.id);
+            if d.monto_pagado_original == zero {
+                // First payment on this debt - update existing (add to existing amount from this payment)
+                let nuevo_pagado = &d.monto_pagado_acum + &a_pagar;
+                let pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
+                let estado = if pendiente_tras_pago <= tolerancia { "pagado" } else { "parcial" };
+                
+                let update = UpdatePagoFileModel {
+                    monto_pagado: Some(nuevo_pagado),
+                    estado: Some(estado),
+                    comprobante_url: comprobante_url.as_deref(),
+                    comprobante_key: comprobante_key.as_deref(),
+                    ..Default::default()
+                };
+                let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
+                ultimo_pago_id = Some(updated.id);
+            } else {
+                // Subsequent payments - create new "pago" entry
+                let pending_after = &d.monto_pendiente - &a_pagar;
+                let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
+                let new_pago = NewPagoFileModel {
+                    id_file,
+                    id_agencia,
+                    monto_total: d.monto_total.clone(),
+                    monto_pagado: a_pagar.clone(),
+                    estado,
+                    fecha_vencimiento: None,
+                    notas: request.notas.as_deref(),
+                    created_by,
+                    id_file_tour: d.id_file_tour,
+                    tipo_registro: "pago",
+                    monto_saldo_favor: None,
+                    saldo_autorizado: false,
+                    saldo_autorizado_por: None,
+                    saldo_autorizado_at: None,
+                    entradas: false,
+                    entrada_precio: None,
+                };
+                let pago = self.pago_file_repository.create(new_pago).await?;
+                if comprobante_url.is_some() || comprobante_key.is_some() {
+                    let upd = UpdatePagoFileModel {
+                        comprobante_url: comprobante_url.as_deref(),
+                        comprobante_key: comprobante_key.as_deref(),
+                        ..Default::default()
+                    };
+                    let _ = self.pago_file_repository.update(pago.id, upd).await?;
+                }
+                ultimo_pago_id = Some(pago.id);
+            }
             
             monto_restante -= &a_pagar;
             d.monto_pagado_acum += &a_pagar;
-            d.monto_pendiente = if pendiente_tras_pago > zero { pendiente_tras_pago } else { zero.clone() };
+            d.monto_pendiente -= &a_pagar;
         }
         
         // 5. Actualizar monto_pagado en la tabla files
