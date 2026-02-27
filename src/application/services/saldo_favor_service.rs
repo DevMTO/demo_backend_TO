@@ -129,6 +129,7 @@ impl SaldoFavorService {
             saldo_autorizado_at: Some(chrono::Utc::now()),
             entradas: false,
             entrada_precio: None,
+            cuota: None,
         };
 
         let record = self.pago_file_repo.create(new_record).await?;
@@ -676,6 +677,7 @@ impl SaldoFavorService {
             saldo_autorizado_at: None,
             entradas: false,
             entrada_precio: None,
+            cuota: None,
         };
 
         let record = self.pago_file_repo.create(new_record).await?;

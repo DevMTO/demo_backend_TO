@@ -1,12 +1,12 @@
-﻿//! Modelos de contabilidad para Diesel
+//! Modelos de contabilidad para Diesel
 //!
 //! Incluye:
 //! - PagoFileModel: Pagos de agencias por files
 //! - PagoProveedorModel: Pagos del admin a proveedores
 
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, Utc};
 use diesel::prelude::*;
-use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
 
 use crate::infrastructure::persistence::schema::{pagos_files, pagos_proveedores};
@@ -45,6 +45,8 @@ pub struct PagoFileModel {
     pub entradas: bool,
     /// Costo de entradas del file_tour (solo cuando entradas = true)
     pub entrada_precio: Option<BigDecimal>,
+    /// Número de cuota (para indexar pagos de un file_tour)
+    pub cuota: Option<i16>,
 }
 
 #[derive(Debug, Insertable)]
@@ -67,6 +69,7 @@ pub struct NewPagoFileModel<'a> {
     pub saldo_autorizado_at: Option<DateTime<Utc>>,
     pub entradas: bool,
     pub entrada_precio: Option<BigDecimal>,
+    pub cuota: Option<i16>,
 }
 
 #[derive(Debug, AsChangeset, Default)]
@@ -88,6 +91,7 @@ pub struct UpdatePagoFileModel<'a> {
     pub entradas: Option<bool>,
     pub entrada_precio: Option<Option<BigDecimal>>,
     pub tipo_registro: Option<&'a str>,
+    pub cuota: Option<Option<i16>>,
 }
 
 // ============================================================================

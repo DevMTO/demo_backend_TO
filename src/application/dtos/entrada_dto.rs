@@ -100,6 +100,7 @@ pub struct UpdateEntradaRequest {
     #[ts(type = "number[] | null")]
     pub tours_asociados: Option<Vec<i32>>,
     /// Indica si es un boleto turístico (BT)
+    #[ts(optional)]
     pub boleto_turistico: Option<bool>,
 }
 

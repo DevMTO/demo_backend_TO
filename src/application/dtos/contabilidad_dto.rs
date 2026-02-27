@@ -83,6 +83,8 @@ pub struct PagoFileResponse {
     /// Costo de las entradas del file_tour (solo si entradas = true)
     #[ts(type = "number | null")]
     pub entrada_precio: Option<f64>,
+    /// Número de cuota (para indexar pagos de un file_tour)
+    pub cuota: Option<i16>,
 }
 
 /// Request para registrar pago de file (agencia sube comprobante)

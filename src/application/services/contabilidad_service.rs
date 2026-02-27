@@ -351,6 +351,13 @@ impl ContabilidadService {
             .map(|p| &p.monto_pagado)
             .fold(zero.clone(), |acc, m| acc + m);
         
+        // Calcular la siguiente cuota (max cuota actual + 1)
+        let max_cuota: i16 = all_records.iter()
+            .filter_map(|p| p.cuota)
+            .max()
+            .unwrap_or(0);
+        let next_cuota = max_cuota + 1;
+        
         // 3. Validar que hay monto pendiente
         let monto_pendiente_global = &monto_total_file - &monto_pagado_global;
         
@@ -447,6 +454,7 @@ impl ContabilidadService {
                         estado: Some(estado),
                         comprobante_url: comprobante_url.as_deref(),
                         comprobante_key: comprobante_key.as_deref(),
+                        cuota: Some(Some(1)),
                         ..Default::default()
                     };
                     let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
@@ -472,6 +480,7 @@ impl ContabilidadService {
                         saldo_autorizado_at: None,
                         entradas: false,
                         entrada_precio: None,
+                        cuota: Some(next_cuota),
                     };
                     let pago = self.pago_file_repository.create(new_pago).await?;
                     if comprobante_url.is_some() || comprobante_key.is_some() {
@@ -524,6 +533,7 @@ impl ContabilidadService {
                     estado: Some(estado),
                     comprobante_url: comprobante_url.as_deref(),
                     comprobante_key: comprobante_key.as_deref(),
+                    cuota: Some(Some(1)),
                     ..Default::default()
                 };
                 let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
@@ -549,6 +559,7 @@ impl ContabilidadService {
                     saldo_autorizado_at: None,
                     entradas: false,
                     entrada_precio: None,
+                    cuota: Some(next_cuota),
                 };
                 let pago = self.pago_file_repository.create(new_pago).await?;
                 if comprobante_url.is_some() || comprobante_key.is_some() {
@@ -874,6 +885,7 @@ impl ContabilidadService {
             tipo_registro: p.tipo_registro,
             entradas: p.entradas,
             entrada_precio: p.entrada_precio.as_ref().and_then(|v| v.to_f64()),
+            cuota: p.cuota,
         }
     }
 

@@ -313,6 +313,7 @@ diesel::table! {
         saldo_autorizado_at -> Nullable<Timestamptz>,
         entradas -> Bool,
         entrada_precio -> Nullable<Numeric>,
+        cuota -> Nullable<Int2>,
     }
 }
 
