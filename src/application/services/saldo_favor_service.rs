@@ -186,42 +186,6 @@ impl SaldoFavorService {
 
         let all_tours = self.file_tour_repo.find_by_file_with_tour(ft.id_file).await?;
         let all_pagos = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
-        let zero = BigDecimal::from(0);
-
-        let pagos_del_tour: Vec<_> = all_pagos.iter()
-            .filter(|p| p.id_file_tour == Some(request.id_file_tour) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
-            .collect();
-
-        let monto_pagado_tour: BigDecimal = pagos_del_tour.iter()
-            .map(|p| &p.monto_pagado)
-            .fold(zero.clone(), |acc, m| acc + m);
-
-        let file_entradas = self.file_entrada_repo.find_by_file_tour(request.id_file_tour).await?;
-        let mut monto_btg_btp = zero.clone();
-
-        for fe in &file_entradas {
-            if let Ok(Some(entrada)) = self.entrada_repo.find_by_id(fe.id_entrada).await {
-                if entrada.boleto_turistico {
-                    let costo = if let Some(precio_id) = fe.id_entrada_precio {
-                        if let Ok(Some(precio)) = self.entrada_precio_repo.find_by_id(precio_id).await {
-                            &precio.precio * BigDecimal::from(fe.cantidad)
-                        } else {
-                            zero.clone()
-                        }
-                    } else {
-                        zero.clone()
-                    };
-                    monto_btg_btp += &costo;
-                }
-            }
-        }
-
-        let monto_saldo = if monto_pagado_tour > zero {
-            let saldo_final = &monto_pagado_tour - &monto_btg_btp;
-            if saldo_final > zero { Some(saldo_final) } else { None }
-        } else {
-            None
-        };
 
         let record = self.aplicar_cancelacion_no_show_file_tour(
             &ft,
@@ -233,7 +197,7 @@ impl SaldoFavorService {
             "cancelacion_tour",
             "cancelado",
             request.notas.as_deref(),
-            monto_saldo,
+            true,
             true,
             created_by,
         ).await?;
@@ -388,42 +352,6 @@ impl SaldoFavorService {
 
         let all_tours = self.file_tour_repo.find_by_file_with_tour(ft.id_file).await?;
         let all_pagos = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
-        let zero = BigDecimal::from(0);
-
-        let pagos_del_tour: Vec<_> = all_pagos.iter()
-            .filter(|p| p.id_file_tour == Some(request.id_file_tour) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
-            .collect();
-
-        let monto_pagado_tour: BigDecimal = pagos_del_tour.iter()
-            .map(|p| &p.monto_pagado)
-            .fold(zero.clone(), |acc, m| acc + m);
-
-        let file_entradas = self.file_entrada_repo.find_by_file_tour(request.id_file_tour).await?;
-        let mut monto_btg_btp = zero.clone();
-
-        for fe in &file_entradas {
-            if let Ok(Some(entrada)) = self.entrada_repo.find_by_id(fe.id_entrada).await {
-                if entrada.boleto_turistico {
-                    let costo = if let Some(precio_id) = fe.id_entrada_precio {
-                        if let Ok(Some(precio)) = self.entrada_precio_repo.find_by_id(precio_id).await {
-                            &precio.precio * BigDecimal::from(fe.cantidad)
-                        } else {
-                            zero.clone()
-                        }
-                    } else {
-                        zero.clone()
-                    };
-                    monto_btg_btp += &costo;
-                }
-            }
-        }
-
-        let monto_saldo = if monto_pagado_tour > zero {
-            let saldo_final = &monto_pagado_tour - &monto_btg_btp;
-            if saldo_final > zero { Some(saldo_final) } else { None }
-        } else {
-            None
-        };
 
         let record = self.aplicar_cancelacion_no_show_file_tour(
             &ft,
@@ -435,7 +363,7 @@ impl SaldoFavorService {
             "no_show_tour",
             "no_show",
             request.notas.as_deref(),
-            monto_saldo,
+            false,
             true,
             created_by,
         ).await?;
@@ -719,7 +647,7 @@ impl SaldoFavorService {
         tipo_registro: &str,
         status_file_tour: &str,
         notas: Option<&str>,
-        monto_saldo_favor: Option<BigDecimal>,
+        pasar_a_saldo_favor: bool,
         update_precio_aplicado: bool,
         created_by: Option<i32>,
     ) -> Result<PagoFileModel, ApplicationError> {
@@ -847,7 +775,7 @@ impl SaldoFavorService {
         let mut record = None;
         for pago in &pagos_del_tour {
             // Calcular saldo a favor para este pago específico
-            let saldo_favor = if monto_saldo_favor.is_some() {
+            let saldo_favor = if pasar_a_saldo_favor {
                 if pago.entrada_precio.is_some() && monto_btg_btp > zero {
                     let saldo = &pago.monto_pagado - &monto_btg_btp;
                     if saldo > zero { Some(saldo) } else { None }
