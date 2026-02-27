@@ -222,7 +222,7 @@ impl SaldoFavorService {
             None
         };
 
-        let record = self.procesar_file_tour(
+        let record = self.aplicar_cancelacion_no_show_file_tour(
             &ft,
             &file,
             &all_tours,
@@ -395,7 +395,26 @@ impl SaldoFavorService {
             return Err(ApplicationError::Validation(format!("No se encontró deuda para el file_tour {}", request.id_file_tour)));
         }
 
-        let record = self.procesar_file_tour(
+        let zero = BigDecimal::from(0);
+
+        let pagos_del_tour: Vec<_> = all_pagos.iter()
+            .filter(|p| p.id_file_tour == Some(request.id_file_tour) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
+            .collect();
+
+        let monto_pagado_tour: BigDecimal = pagos_del_tour.iter()
+            .map(|p| &p.monto_pagado)
+            .fold(zero.clone(), |acc, m| acc + m);
+
+        let monto_btg_btp = self.calcular_monto_entradas_tour(request.id_file_tour).await;
+
+        let monto_saldo = if monto_pagado_tour > zero {
+            let saldo_final = &monto_pagado_tour - &monto_btg_btp;
+            if saldo_final > zero { Some(saldo_final) } else { None }
+        } else {
+            None
+        };
+
+        let record = self.aplicar_cancelacion_no_show_file_tour(
             &ft,
             &file,
             &all_tours,
@@ -405,8 +424,8 @@ impl SaldoFavorService {
             "no_show_tour",
             "no_show",
             request.notas.as_deref(),
-            None,
-            false,
+            monto_saldo,
+            true,
             created_by,
         ).await?;
 
@@ -669,9 +688,15 @@ impl SaldoFavorService {
     // HELPERS
     // ========================================================================
 
-    /// Helper para procesar cancelación/no-show de un file_tour
-    /// Maneja: transferencia BTG/BTP, actualización de pagos, recalculo de file
-    async fn procesar_file_tour(
+    /// Procesa la cancelación o no-show de un file_tour.
+    ///
+    /// # Proceso:
+    /// 1. Identifica las entradas BTG/BTP del tour
+    /// 2. Si existe un siguiente tour, transfiere las entradas BTG/BTP a ese tour
+    /// 3. Actualiza los pagos relacionados (monto_total, saldo a favor)
+    /// 4. Actualiza el status del file_tour
+    /// 5. Recalcula los totales del file (monto_total, monto_pagado)
+    async fn aplicar_cancelacion_no_show_file_tour(
         &self,
         ft: &crate::infrastructure::persistence::models::FileTourModel,
         file: &crate::domain::entities::file::File,
@@ -698,10 +723,12 @@ impl SaldoFavorService {
         let siguiente_tour = all_tours.iter()
             .find(|t| t.orden > ft.orden && t.status != "cancelado");
 
+        // Obtener entradas del tour
         let file_entradas = self.file_entrada_repo.find_by_file_tour(id_file_tour).await?;
+        
+        // Calcular monto de entradas BTG/BTP (boleto turístico)
         let mut monto_btg_btp = zero.clone();
         let mut entradas_btg_btp: Vec<(i32, BigDecimal)> = Vec::new();
-
         for fe in &file_entradas {
             if let Ok(Some(entrada)) = self.entrada_repo.find_by_id(fe.id_entrada).await {
                 if entrada.boleto_turistico {
@@ -722,14 +749,17 @@ impl SaldoFavorService {
 
         let mut monto_transferido = zero.clone();
 
+        // Transferir entradas BTG/BTP al siguiente tour si existe
         if !entradas_btg_btp.is_empty() {
             if let Some(next_tour) = siguiente_tour {
+                // Transferir las entradas al siguiente tour
                 for (fe_id, _costo) in &entradas_btg_btp {
                     let _ = self.file_entrada_repo.transfer_to_file_tour(*fe_id, next_tour.id).await;
                 }
 
                 monto_transferido = monto_btg_btp.clone();
 
+                // Actualizar la deuda del tour destino con el monto transferido
                 let deuda_destino = all_pagos.iter()
                     .find(|p| p.id_file_tour == Some(next_tour.id) && p.tipo_registro == "deuda");
 
@@ -748,7 +778,7 @@ impl SaldoFavorService {
                     let _ = self.pago_file_repo.update(deuda.id, update_deuda).await?;
                     info!("Deuda del tour destino {} actualizada con +{}", next_tour.id, monto_transferido);
 
-                    // Also update monto_total for all other pagos_files of the destination tour
+                    // Actualizar monto_total en los demás pagos del tour destino
                     let pagos_destino: Vec<_> = all_pagos.iter()
                         .filter(|p| p.id_file_tour == Some(next_tour.id) && p.id != deuda.id)
                         .collect();
@@ -762,6 +792,7 @@ impl SaldoFavorService {
                     }
                 }
 
+                // Copiar comprobante de pago del tour cancelado al tour destino
                 if let Some(ref deuda) = deuda_tour {
                     if deuda.comprobante_url.is_some() || deuda.comprobante_key.is_some() {
                         if let Some(deuda_dest) = deuda_destino {
@@ -775,6 +806,7 @@ impl SaldoFavorService {
                     }
                 }
 
+                // Actualizar precio_aplicado en ambos tours
                 if update_precio_aplicado {
                     let precio_cancelado = ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
                     let nuevo_precio_cancelado = &precio_cancelado - &monto_transferido;
@@ -790,20 +822,19 @@ impl SaldoFavorService {
             }
         }
 
-        // Get the final precio_aplicado for this file_tour after any transfers
-        let precio_final = if update_precio_aplicado {
+        // Calcular el precio_final para actualizar monto_total en los pagos
+        let precio_final = if update_precio_aplicado && monto_transferido > zero {
             let original_precio = ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
-            let precio_after_transfer = &original_precio - &monto_btg_btp;
+            let precio_after_transfer = &original_precio - &monto_transferido;
             if precio_after_transfer > zero { precio_after_transfer } else { zero.clone() }
         } else {
             ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone())
         };
 
+        // Actualizar los pagos del tour (cambiar estado y tipo_registro)
         let mut record = None;
         for pago in &pagos_del_tour {
-            // Calculate monto_saldo_favor individually for each pago:
-            // - Debt record (with entrada_precio): monto_pagado - monto_btg_btp
-            // - Other payment records: 100% of monto_pagado
+            // Calcular saldo a favor para este pago específico
             let saldo_favor = if monto_saldo_favor.is_some() {
                 if pago.entrada_precio.is_some() && monto_btg_btp > zero {
                     let saldo = &pago.monto_pagado - &monto_btg_btp;
@@ -839,29 +870,27 @@ impl SaldoFavorService {
 
         let record = record.unwrap();
 
+        // Actualizar el status del file_tour (cancelado/no_show)
         let _ = self.file_status_service.update_file_tour_status(id_file_tour, status_file_tour).await?;
         info!("FileTour {} y sus relaciones actualizadas a status '{}'", id_file_tour, status_file_tour);
 
-        let all_pagos_updated = self.pago_file_repo.find_all_by_file(file.id).await?;
-
-        let file_monto_total = all_pagos_updated.iter()
+        // Recalcular totales del file (monto_total y monto_pagado)
+        let all_pagos = self.pago_file_repo.find_all_by_file(file.id).await?;
+        let file_monto_total = all_pagos.iter()
             .filter(|p| p.tipo_registro == "deuda")
             .map(|p| &p.monto_total)
             .fold(zero.clone(), |acc, m| acc + m);
-
-        let active_tour_ids: Vec<Option<i32>> = all_pagos_updated.iter()
+        let active_tour_ids: Vec<Option<i32>> = all_pagos.iter()
             .filter(|p| p.tipo_registro == "deuda")
             .map(|p| p.id_file_tour)
             .collect();
-
-        let file_monto_pagado = all_pagos_updated.iter()
+        let file_monto_pagado = all_pagos.iter()
             .filter(|p| {
                 (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "uso_saldo")
                     && active_tour_ids.contains(&p.id_file_tour)
             })
             .map(|p| &p.monto_pagado)
             .fold(zero.clone(), |acc, m| acc + m);
-
         let mut updated_file = file.clone();
         updated_file.monto_total = file_monto_total;
         updated_file.monto_pagado = file_monto_pagado;
@@ -986,8 +1015,6 @@ impl SaldoFavorService {
         None
     }
 
-    /// Calcular el monto total de entradas para un file_tour específico.
-    /// Suma: entrada_precios.precio × file_entrada.cantidad para cada file_entrada.
     async fn calcular_monto_entradas_tour(&self, id_file_tour: i32) -> BigDecimal {
         let zero = BigDecimal::from(0);
         let entradas = match self.file_entrada_repo.find_by_file_tour(id_file_tour).await {
@@ -1006,7 +1033,6 @@ impl SaldoFavorService {
         total
     }
 
-    /// Calcular el monto total de entradas para un file completo (todos sus file_tours).
     async fn calcular_monto_entradas_file(&self, id_file: i32) -> BigDecimal {
         let zero = BigDecimal::from(0);
         let tours = match self.file_tour_repo.find_by_file_with_tour(id_file).await {
