@@ -30,7 +30,7 @@ pub struct Agencia {
     pub media: Option<JsonValue>,
     pub encargado: Option<i32>,  // FK a personas
     pub is_active: bool,    pub pago_anticipado: bool,
-    pub dias_pago_anticipado: Option<i32>,    pub created_at: DateTime<Utc>,
+    pub tipo_vencimiento: Option<String>,    pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
@@ -51,7 +51,7 @@ impl Agencia {
             encargado: None,
             is_active: true,
             pago_anticipado: false,
-            dias_pago_anticipado: Some(30),
+            tipo_vencimiento: Some("mensual".to_string()),
             created_at: now,
             updated_at: now,
             created_by: None,

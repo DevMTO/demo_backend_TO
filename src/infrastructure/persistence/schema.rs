@@ -48,7 +48,8 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
         pago_anticipado -> Bool,
-        dias_pago_anticipado -> Nullable<Int4>,
+        #[max_length = 20]
+        tipo_vencimiento -> Nullable<Varchar>,
     }
 }
 

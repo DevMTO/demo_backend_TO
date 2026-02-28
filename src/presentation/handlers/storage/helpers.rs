@@ -39,7 +39,7 @@ pub async fn update_agencia_media(
         encargado: None,
         is_active: None,
         pago_anticipado: None,
-        dias_pago_anticipado: None,
+        tipo_vencimiento: None,
     };
     
     state.container.agencia_service
@@ -79,7 +79,7 @@ pub async fn clear_agencia_media(
         encargado: None,
         is_active: None,
         pago_anticipado: None,
-        dias_pago_anticipado: None,
+        tipo_vencimiento: None,
     };
     
     state.container.agencia_service

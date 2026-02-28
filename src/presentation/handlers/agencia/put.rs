@@ -64,7 +64,7 @@ pub async fn update_mi_agencia(
         media: request.media,
         is_active: None,
         pago_anticipado: None,
-        dias_pago_anticipado: None,
+        tipo_vencimiento: None,
     };
     
     let response = state.container.agencia_service

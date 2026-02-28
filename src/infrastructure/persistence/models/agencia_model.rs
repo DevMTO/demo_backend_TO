@@ -25,7 +25,7 @@ pub struct AgenciaModel {
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
     pub pago_anticipado: bool,
-    pub dias_pago_anticipado: Option<i32>,
+    pub tipo_vencimiento: Option<String>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -41,7 +41,7 @@ pub struct NewAgenciaModel<'a> {
     pub encargado: Option<i32>,
     pub is_active: bool,
     pub pago_anticipado: bool,
-    pub dias_pago_anticipado: Option<i32>,
+    pub tipo_vencimiento: Option<&'a str>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
 }
@@ -59,7 +59,7 @@ pub struct UpdateAgenciaModel<'a> {
     pub encargado: Option<Option<i32>>,
     pub is_active: Option<bool>,
     pub pago_anticipado: Option<bool>,
-    pub dias_pago_anticipado: Option<Option<i32>>,
+    pub tipo_vencimiento: Option<Option<&'a str>>,
     pub updated_by: Option<i32>,
 }
 
@@ -77,7 +77,7 @@ impl From<AgenciaModel> for Agencia {
             encargado: model.encargado,
             is_active: model.is_active,
             pago_anticipado: model.pago_anticipado,
-            dias_pago_anticipado: model.dias_pago_anticipado,
+            tipo_vencimiento: model.tipo_vencimiento,
             created_at: model.created_at,
             updated_at: model.updated_at,
             created_by: model.created_by,
@@ -99,7 +99,7 @@ impl<'a> From<&'a Agencia> for NewAgenciaModel<'a> {
             encargado: agencia.encargado,
             is_active: agencia.is_active,
             pago_anticipado: agencia.pago_anticipado,
-            dias_pago_anticipado: agencia.dias_pago_anticipado,
+            tipo_vencimiento: agencia.tipo_vencimiento.as_deref(),
             created_by: agencia.created_by,
             updated_by: agencia.updated_by,
         }

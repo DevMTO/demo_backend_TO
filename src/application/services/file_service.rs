@@ -657,33 +657,22 @@ impl FileService {
             .map(|m| BigDecimal::try_from(m).unwrap_or_default())
             .unwrap_or_else(|| file.monto_total.clone());
         
-        // Calcular fecha_vencimiento según política de pago de la agencia
-        let fecha_vencimiento = if agencia.pago_anticipado {
-            // Pago anticipado: vence 1 día antes de la fecha del primer tour del file
-            let tours = self.file_tour_repository.find_by_file_with_tour(request.file_id).await?;
-            let earliest_tour_date = tours.iter()
+        // Calcular fecha_vencimiento para pago anticipado (igual para todos los tours)
+        let fecha_vencimiento_anticipado = if agencia.pago_anticipado {
+            let tours_preview = self.file_tour_repository.find_by_file_with_tour(request.file_id).await?;
+            let earliest_tour_date = tours_preview.iter()
                 .filter_map(|t| t.fecha_tour)
                 .min();
-            
-            match earliest_tour_date {
-                Some(fecha) => {
-                    // 1 día antes de la fecha del tour más temprano
-                    fecha - chrono::Duration::days(1)
-                },
+
+            Some(match earliest_tour_date {
+                Some(fecha) => fecha - chrono::Duration::days(1),
                 None => {
-                    // Sin tours, usar 7 días desde ahora como fallback
                     warn!("⚠️ Agencia con pago_anticipado pero file {} sin tours con fecha", request.file_id);
                     (Utc::now() + Duration::days(7)).date_naive()
                 }
-            }
+            })
         } else {
-            // No es pago anticipado: vence el dia (1ro del mes + dias_pago_anticipado)
-            let dias = agencia.dias_pago_anticipado.unwrap_or(30);
-            let now = Utc::now().date_naive();
-            // Primer día del mes actual
-            let primer_dia_mes = chrono::NaiveDate::from_ymd_opt(now.year(), now.month(), 1)
-                .unwrap_or(now);
-            primer_dia_mes + chrono::Duration::days(dias as i64)
+            None
         };
         
         // 5. Actualizar el file a status "confirmado"
@@ -706,18 +695,19 @@ impl FileService {
         }
         
         let mut pago_file_ids: Vec<i32> = Vec::new();
-        
+        let mut primera_fecha_vencimiento: Option<NaiveDate> = fecha_vencimiento_anticipado;
+
         for ft in &tours {
             // Calcular monto del tour: precio_aplicado o tour_precio_base * nro_pasajeros
             let monto_tour = ft.precio_aplicado.clone()
                 .unwrap_or_else(|| ft.tour_precio_base.clone());
-            
+
             // Calcular monto de entradas para este file_tour
             let entradas_ft = self.file_entrada_repository.find_by_file_tour(ft.id).await.unwrap_or_default();
             let zero = BigDecimal::from(0);
             let mut monto_entradas = zero.clone();
             let tiene_entradas = !entradas_ft.is_empty();
-            
+
             for fe in &entradas_ft {
                 if let Some(precio_id) = fe.id_entrada_precio {
                     if let Ok(Some(precio)) = self.entrada_precio_repository.find_by_id(precio_id).await {
@@ -725,7 +715,24 @@ impl FileService {
                     }
                 }
             }
-            
+
+            // Calcular fecha_vencimiento según política de pago
+            let fecha_vencimiento = if let Some(fv) = fecha_vencimiento_anticipado {
+                // Pago anticipado: misma fecha para todos los tours
+                fv
+            } else {
+                // Calcular según tipo_vencimiento y fecha del tour
+                let fecha_tour = ft.fecha_tour.unwrap_or_else(|| Utc::now().date_naive());
+                calcular_fecha_vencimiento(
+                    agencia.tipo_vencimiento.as_deref().unwrap_or("mensual"),
+                    fecha_tour,
+                )
+            };
+
+            if primera_fecha_vencimiento.is_none() {
+                primera_fecha_vencimiento = Some(fecha_vencimiento);
+            }
+
             let new_pago = NewPagoFileModel {
                 id_file: request.file_id,
                 id_agencia: file.id_agencia,
@@ -745,11 +752,14 @@ impl FileService {
                 entrada_precio: if tiene_entradas { Some(monto_entradas) } else { None },
                 cuota: Some(0),
             };
-            
+
             let pago = self.pago_file_repository.create(new_pago).await?;
             info!("💰 Deuda por tour creada: pago_file ID {} para file_tour {} (file {})", pago.id, ft.id, request.file_id);
             pago_file_ids.push(pago.id);
         }
+
+        let fecha_vencimiento_display = primera_fecha_vencimiento
+            .unwrap_or_else(|| Utc::now().date_naive());
         
         info!("💰 {} deudas creadas para file {}", pago_file_ids.len(), request.file_id);
         
@@ -779,7 +789,7 @@ impl FileService {
                 request.file_id,
                 agencia.nombre,
                 monto_total,
-                fecha_vencimiento
+                fecha_vencimiento_display
             ),
             NotificationType::Success,
             NotificationCategory::Crud,
@@ -799,7 +809,7 @@ impl FileService {
                 "Se ha confirmado la reserva #{} con un monto de S/ {}.\nFecha de vencimiento: {}\nPor favor, gestione el pago.",
                 updated_file.file_code.clone().unwrap_or_else(|| format!("F-{}", request.file_id)),
                 monto_total,
-                fecha_vencimiento
+                fecha_vencimiento_display
             ),
             NotificationType::Warning,
             NotificationCategory::Financial,
@@ -815,15 +825,79 @@ impl FileService {
         let num_deudas = pago_file_ids.len();
         let mensaje = format!(
             "Reserva confirmada exitosamente. Se han generado {} deudas pendientes (una por tour) con monto total S/ {} y vencimiento el {}",
-            num_deudas, &monto_total, fecha_vencimiento
+            num_deudas, &monto_total, fecha_vencimiento_display
         );
-        
+
         Ok(ConfirmReservaResponse {
             file: FileResponse::from_file_with_tours(updated_file, tours_dto),
             pago_file_ids,
             monto_total,
-            fecha_vencimiento: fecha_vencimiento.to_string(),
+            fecha_vencimiento: fecha_vencimiento_display.to_string(),
             mensaje,
         })
     }
+}
+
+/// Calcula la fecha de vencimiento según el tipo de vencimiento y la fecha del tour.
+/// - "semanal": el domingo de la misma semana del tour
+/// - "quincenal": el 15 o el último día válido (máx 30) del mes del tour
+/// - "mensual": el último día del mes del tour
+fn calcular_fecha_vencimiento(tipo: &str, fecha_tour: NaiveDate) -> NaiveDate {
+    match tipo {
+        "semanal" => {
+            // Domingo de la misma semana. Si ya es domingo, ese mismo día.
+            let weekday = fecha_tour.weekday();
+            if weekday == chrono::Weekday::Sun {
+                fecha_tour
+            } else {
+                // num_days_from_monday(): Lun=0, Mar=1, ..., Sab=5, Dom=6
+                let dias_hasta_domingo = 6 - weekday.num_days_from_monday();
+                fecha_tour + chrono::Duration::days(dias_hasta_domingo as i64)
+            }
+        },
+        "quincenal" => {
+            let day = fecha_tour.day();
+            if day <= 15 {
+                // Vence el 15 del mismo mes
+                NaiveDate::from_ymd_opt(fecha_tour.year(), fecha_tour.month(), 15)
+                    .unwrap_or(fecha_tour)
+            } else {
+                // Vence el 30 o último día del mes (el menor)
+                let ultimo_dia = ultimo_dia_del_mes(fecha_tour);
+                let dia_vencimiento = ultimo_dia.min(30);
+                if day <= dia_vencimiento {
+                    NaiveDate::from_ymd_opt(fecha_tour.year(), fecha_tour.month(), dia_vencimiento)
+                        .unwrap_or(fecha_tour)
+                } else {
+                    // Día 31 → 15 del mes siguiente
+                    let (y, m) = if fecha_tour.month() == 12 {
+                        (fecha_tour.year() + 1, 1)
+                    } else {
+                        (fecha_tour.year(), fecha_tour.month() + 1)
+                    };
+                    NaiveDate::from_ymd_opt(y, m, 15).unwrap_or(fecha_tour)
+                }
+            }
+        },
+        // "mensual" y cualquier otro valor → último día del mes
+        _ => {
+            let ultimo = ultimo_dia_del_mes(fecha_tour);
+            NaiveDate::from_ymd_opt(fecha_tour.year(), fecha_tour.month(), ultimo)
+                .unwrap_or(fecha_tour)
+        },
+    }
+}
+
+/// Retorna el número del último día del mes de la fecha dada.
+fn ultimo_dia_del_mes(fecha: NaiveDate) -> u32 {
+    let (y, m) = if fecha.month() == 12 {
+        (fecha.year() + 1, 1)
+    } else {
+        (fecha.year(), fecha.month() + 1)
+    };
+    NaiveDate::from_ymd_opt(y, m, 1)
+        .unwrap_or(fecha)
+        .pred_opt()
+        .unwrap_or(fecha)
+        .day()
 }

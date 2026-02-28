@@ -122,7 +122,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
             encargado: Some(agencia.encargado),
             is_active: Some(agencia.is_active),
             pago_anticipado: Some(agencia.pago_anticipado),
-            dias_pago_anticipado: Some(agencia.dias_pago_anticipado),
+            tipo_vencimiento: Some(agencia.tipo_vencimiento.as_deref()),
             updated_by: agencia.updated_by,
         };
         let result = diesel::update(agencias::table.filter(agencias::id.eq(agencia.id)))
@@ -282,7 +282,7 @@ impl AgenciaRepositoryPort for PostgresAgenciaRepository {
                     encargado_nombre,
                     is_active: agencia.is_active,
                     pago_anticipado: agencia.pago_anticipado,
-                    dias_pago_anticipado: agencia.dias_pago_anticipado,
+                    tipo_vencimiento: agencia.tipo_vencimiento,
                     created_at: agencia.created_at,
                     updated_at: agencia.updated_at,
                 }

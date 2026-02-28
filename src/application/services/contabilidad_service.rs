@@ -192,7 +192,7 @@ impl ContabilidadService {
             monto_pagado: global_monto_pagado,
             monto_pendiente,
             pago_anticipado: agencia.pago_anticipado,
-            dias_pago_anticipado: agencia.dias_pago_anticipado,
+            tipo_vencimiento: agencia.tipo_vencimiento,
             files_pendientes,
             ultimos_pagos,
         })

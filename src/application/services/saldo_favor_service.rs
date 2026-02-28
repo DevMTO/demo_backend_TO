@@ -142,6 +142,7 @@ impl SaldoFavorService {
 
         // Actualizar monto_total del file a 0 (todo cancelado)
         let mut updated_file = file.clone();
+        updated_file.status = "cancelado".to_string();
         updated_file.monto_total = zero.clone();
         updated_file.monto_pagado = zero.clone();
         updated_file.updated_at = chrono::Utc::now();
