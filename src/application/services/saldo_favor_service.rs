@@ -842,6 +842,7 @@ impl SaldoFavorService {
                     .unwrap_or(0);
                 let next_cuota = max_cuota + 1;
 
+                let notas = format!("Transferido de tour cancelado/no-show #{}", id_file_tour);
                 let new_pago = NewPagoFileModel {
                     id_file: file.id,
                     id_agencia: file.id_agencia,
@@ -849,7 +850,7 @@ impl SaldoFavorService {
                     monto_pagado: a_transferir.clone(),
                     estado: estado_pago_nuevo,
                     fecha_vencimiento: None,
-                    notas: Some(&format!("Transferido de tour cancelado/no-show #{}", id_file_tour)),
+                    notas: Some(&notas),
                     created_by,
                     id_file_tour: Some(tour_sig.id),
                     tipo_registro: "pago",
