@@ -709,12 +709,10 @@ impl SaldoFavorService {
 
                 if let Some(deuda) = deuda_destino {
                     let nuevo_total = &deuda.monto_total + &monto_transferido;
-                    let nuevo_pagado = &deuda.monto_pagado + &monto_transferido;
                     let nueva_entrada_precio = deuda.entrada_precio.as_ref()
                         .unwrap_or(&zero).clone() + &monto_transferido;
                     let update_deuda = UpdatePagoFileModel {
                         monto_total: Some(nuevo_total.clone()),
-                        monto_pagado: Some(nuevo_pagado),
                         entradas: Some(true),
                         entrada_precio: Some(Some(nueva_entrada_precio)),
                         ..Default::default()
@@ -801,13 +799,6 @@ impl SaldoFavorService {
                 let pagado_sig: BigDecimal = pagos_tour_sig.iter()
                     .map(|p| &p.monto_pagado)
                     .fold(zero.clone(), |acc, m| acc + m);
-                // Because all_pagos is not updated in memory, we must manually include the amount transferido
-                // if this is the tour that received the BTG/BTP transfer.
-                let pagado_sig = if Some(tour_sig.id) == siguiente_tour.map(|t| t.id) {
-                    &pagado_sig + &monto_transferido
-                } else {
-                    pagado_sig
-                };
 
                 let pendiente_sig = &monto_total_sig - &pagado_sig;
 
@@ -821,11 +812,7 @@ impl SaldoFavorService {
                 }
 
                 if let Some(deuda) = _deuda_tour_sig {
-                    let base_pagado = if Some(tour_sig.id) == siguiente_tour.map(|t| t.id) {
-                        &deuda.monto_pagado + &monto_transferido
-                    } else {
-                        deuda.monto_pagado.clone()
-                    };
+                    let base_pagado = deuda.monto_pagado.clone();
                     
                     let base_total = if Some(tour_sig.id) == siguiente_tour.map(|t| t.id) {
                         &deuda.monto_total + &monto_transferido
