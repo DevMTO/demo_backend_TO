@@ -61,7 +61,7 @@ impl MisPagosRepositoryPort for PostgresMisPagosRepository {
                 COALESCE(f.file_code, 'N/A') as file_code,
                 COALESCE(t.nombre, 'Sin tour asignado') as tour_nombre,
                 COALESCE(ft.fecha_tour::text, '') as fecha_tour,
-                pp.monto,
+                pp.monto_total as monto,
                 pp.estado,
                 pp.fecha_pago,
                 pp.comprobante_url
@@ -135,7 +135,7 @@ impl MisPagosRepositoryPort for PostgresMisPagosRepository {
                 COALESCE(t.nombre, 'Sin tour asignado') as tour_nombre,
                 COALESCE(v.placa, 'N/A') as vehiculo_placa,
                 COALESCE(ft.fecha_tour::text, '') as fecha_tour,
-                pp.monto,
+                pp.monto_total as monto,
                 pp.estado,
                 pp.fecha_pago,
                 pp.comprobante_url
@@ -214,7 +214,7 @@ impl MisPagosRepositoryPort for PostgresMisPagosRepository {
                 COALESCE(t.nombre, 'Sin tour asignado') as tour_nombre,
                 COALESCE(ft.fecha_tour::text, '') as fecha_tour,
                 fr.tipo_servicio,
-                pp.monto,
+                pp.monto_total as monto,
                 pp.estado,
                 pp.fecha_pago,
                 pp.comprobante_url

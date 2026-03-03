@@ -76,16 +76,20 @@ pub async fn assign_restaurante_to_file_tour(
         .await?;
     
     // ===== AUTO-CREAR PAGO PROVEEDOR (restaurante) =====
+    let precio_restaurante = request.precio.map(|p| bigdecimal::BigDecimal::try_from(p).unwrap_or_default());
     let _ = state.container.contabilidad_service
         .auto_create_pago_proveedor(
             "restaurante",
             None,
             Some(request.id_restaurante),
             None,
+            None,
             Some(request.id_file_tour),
             None,
             Some(result.id),
             None,
+            None,
+            precio_restaurante,
             Some(auth.user.id),
         ).await;
     

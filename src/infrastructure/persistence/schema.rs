@@ -330,7 +330,7 @@ diesel::table! {
         id_file_vehiculo -> Nullable<Int4>,
         id_file_restaurante -> Nullable<Int4>,
         id_file_guia -> Nullable<Int4>,
-        monto -> Numeric,
+        monto_total -> Numeric,
         #[max_length = 20]
         estado -> Varchar,
         fecha_pago -> Nullable<Timestamptz>,
@@ -341,6 +341,9 @@ diesel::table! {
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         pagado_by -> Nullable<Int4>,
+        id_entrada -> Nullable<Int4>,
+        id_file_entrada -> Nullable<Int4>,
+        monto_pagado -> Nullable<Numeric>,
     }
 }
 
@@ -542,6 +545,8 @@ diesel::joinable!(notification_users -> users (user_id));
 diesel::joinable!(pagos_files -> agencias (id_agencia));
 diesel::joinable!(pagos_files -> file_tours (id_file_tour));
 diesel::joinable!(pagos_files -> files (id_file));
+diesel::joinable!(pagos_proveedores -> entradas (id_entrada));
+diesel::joinable!(pagos_proveedores -> file_entradas (id_file_entrada));
 diesel::joinable!(pagos_proveedores -> file_guias (id_file_guia));
 diesel::joinable!(pagos_proveedores -> file_restaurantes (id_file_restaurante));
 diesel::joinable!(pagos_proveedores -> file_tours (id_file_tour));

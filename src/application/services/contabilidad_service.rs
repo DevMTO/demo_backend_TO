@@ -9,7 +9,7 @@ use std::sync::Arc;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, Utc};
 use std::str::FromStr;
-use tracing::{info, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 use crate::application::dtos::contabilidad_dto::{
     AgenciaContabilidadDashboard,
@@ -588,6 +588,74 @@ impl ContabilidadService {
         self.file_repository.update(&file).await?;
         info!("File {} monto_pagado actualizado a S/ {}", id_file, nuevo_total_pagado);
 
+        // 5.1. Distribuir monto_pagado a pagos_proveedores por cada file_tour
+        let file_tours = self.file_tour_repository.find_by_file_with_tour(id_file).await?;
+        info!("File {} tiene {} file_tours", id_file, file_tours.len());
+        
+        // Volver a consultar all_records porque acabamos de insertar/actualizar pagos
+        let all_records_updated = self.pago_file_repository.find_all_by_file(id_file).await?;
+        
+        for ft in &file_tours {
+            let pagos_proveedores = self.pago_proveedor_repository
+                .find_by_file_tour(ft.id)
+                .await?;
+            
+            info!("File tour {} tiene {} pagos_proveedores", ft.id, pagos_proveedores.len());
+            
+            if pagos_proveedores.is_empty() {
+                continue;
+            }
+
+            let monto_total_tour: BigDecimal = all_records_updated.iter()
+                .filter(|p| p.id_file_tour == Some(ft.id) && p.tipo_registro == "deuda")
+                .map(|p| &p.monto_total)
+                .fold(zero.clone(), |acc, m| acc + m);
+            
+            let monto_pagado_tour: BigDecimal = all_records_updated.iter()
+                .filter(|p| p.id_file_tour == Some(ft.id))
+                .map(|p| &p.monto_pagado)
+                .fold(zero.clone(), |acc, m| acc + m);
+            
+            info!("File tour {}: monto_total={}, monto_pagado={}", ft.id, monto_total_tour, monto_pagado_tour);
+
+            for pp in &pagos_proveedores {
+                let proporcion = if monto_total_tour > zero {
+                    &pp.monto_total / &monto_total_tour
+                } else {
+                    zero.clone()
+                };
+                
+                let monto_a_pagar_proveedor = &monto_pagado_tour * &proporcion;
+                
+                let nuevo_monto_pagado = Some(monto_a_pagar_proveedor.clone());
+
+                let nuevo_estado = if &pp.monto_total - &monto_a_pagar_proveedor <= tolerancia {
+                    Some("pagado")
+                } else if monto_a_pagar_proveedor > zero {
+                    Some("parcial")
+                } else {
+                    None
+                };
+
+                let update = UpdatePagoProveedorModel {
+                    monto_total: None,
+                    estado: nuevo_estado,
+                    fecha_pago: nuevo_estado.map(|_| Utc::now()),
+                    comprobante_url: None,
+                    comprobante_key: None,
+                    notas: None,
+                    pagado_by: None,
+                    monto_pagado: nuevo_monto_pagado.clone(),
+                };
+                
+                if let Err(e) = self.pago_proveedor_repository.update(pp.id, update).await {
+                    error!("Error actualizando pago proveedor {}: {}", pp.id, e);
+                } else {
+                    info!("Pago proveedor {} actualizado: monto_pagado={:?}, estado={:?}", pp.id, nuevo_monto_pagado, nuevo_estado);
+                }
+            }
+        }
+
         // 6. Obtener el último registro afectado para respuesta
         let pago_id = ultimo_pago_id.unwrap_or(pago_original.id);
         let pago_registrado = self.pago_file_repository.find_by_id(pago_id).await?
@@ -664,6 +732,69 @@ impl ContabilidadService {
         
         if request.aprobado {
             info!("Pago de file {} verificado por {}", request.id_pago_file, verificado_por);
+            
+            let id_file = pago_actualizado.id_file;
+            let all_records = self.pago_file_repository.find_all_by_file(id_file).await?;
+            let zero = BigDecimal::from_str("0").unwrap();
+            let tolerancia = BigDecimal::from_str("0.01").unwrap();
+            
+            let file_tours = self.file_tour_repository.find_by_file_with_tour(id_file).await?;
+            for ft in &file_tours {
+                let pagos_proveedores = self.pago_proveedor_repository
+                    .find_by_file_tour(ft.id)
+                    .await?;
+                
+                if pagos_proveedores.is_empty() {
+                    continue;
+                }
+
+                let monto_total_tour: BigDecimal = all_records.iter()
+                    .filter(|p| p.id_file_tour == Some(ft.id) && p.tipo_registro == "deuda")
+                    .map(|p| &p.monto_total)
+                    .fold(zero.clone(), |acc, m| acc + m);
+                
+                let monto_pagado_tour: BigDecimal = all_records.iter()
+                    .filter(|p| p.id_file_tour == Some(ft.id))
+                    .map(|p| &p.monto_pagado)
+                    .fold(zero.clone(), |acc, m| acc + m);
+
+                for pp in &pagos_proveedores {
+                    let proporcion = if monto_total_tour > zero {
+                        &pp.monto_total / &monto_total_tour
+                    } else {
+                        zero.clone()
+                    };
+                    
+                    let monto_a_pagar_proveedor = &monto_pagado_tour * &proporcion;
+                    
+                    let nuevo_monto_pagado = Some(monto_a_pagar_proveedor.clone());
+
+                    let nuevo_estado = if &pp.monto_total - &monto_a_pagar_proveedor <= tolerancia {
+                        Some("pagado")
+                    } else if monto_a_pagar_proveedor > zero {
+                        Some("parcial")
+                    } else {
+                        None
+                    };
+
+                    let update_pp = UpdatePagoProveedorModel {
+                        monto_total: None,
+                        estado: nuevo_estado,
+                        fecha_pago: nuevo_estado.map(|_| Utc::now()),
+                        comprobante_url: None,
+                        comprobante_key: None,
+                        notas: None,
+                        pagado_by: Some(verificado_por),
+                        monto_pagado: nuevo_monto_pagado.clone(),
+                    };
+                    
+                    if let Err(e) = self.pago_proveedor_repository.update(pp.id, update_pp).await {
+                        error!("Error actualizando pago proveedor {}: {}", pp.id, e);
+                    } else {
+                        info!("Pago proveedor {} actualizado al verificar pago: monto_pagado={:?}, estado={:?}", pp.id, nuevo_monto_pagado, nuevo_estado);
+                    }
+                }
+            }
         } else {
             warn!("Pago de file {} rechazado por verificador {}", request.id_pago_file, verificado_por);
         }
@@ -724,22 +855,24 @@ impl ContabilidadService {
             id_file_vehiculo: request.id_file_vehiculo,
             id_file_restaurante: request.id_file_restaurante,
             id_file_guia: request.id_file_guia,
-            monto: request.monto,
+            monto_total: request.monto,
             estado: "pendiente",
             notas: request.notas.as_deref(),
             created_by,
+            id_entrada: request.id_entrada,
+            id_file_entrada: request.id_file_entrada,
         };
-        
+
         let pago = self.pago_proveedor_repository
             .create(new_pago)
             .await?;
-        
-        info!("Pago a proveedor creado: {} - {} ({})", pago.id, pago.tipo_proveedor, pago.monto);
+
+        info!("Pago a proveedor creado: {} - {} ({})", pago.id, pago.tipo_proveedor, pago.monto_total);
         
         Ok(self.pago_proveedor_to_response(pago).await)
     }
 
-    /// Auto-crear pago a proveedor al asignar un servicio (monto=0, estado=pendiente)
+    /// Auto-crear pago a proveedor al asignar un servicio (estado=pendiente)
     /// Similar a como pagos_files se auto-crea al confirmar un file.
     /// Verifica que no exista ya un pago_proveedor para la misma relación.
     #[instrument(skip(self))]
@@ -749,22 +882,27 @@ impl ContabilidadService {
         id_transporte: Option<i32>,
         id_restaurante: Option<i32>,
         id_guia: Option<i32>,
+        id_entrada: Option<i32>,
         id_file_tour: Option<i32>,
         id_file_vehiculo: Option<i32>,
         id_file_restaurante: Option<i32>,
         id_file_guia: Option<i32>,
+        id_file_entrada: Option<i32>,
+        monto_total: Option<BigDecimal>,
         created_by: Option<i32>,
     ) -> Result<PagoProveedorResponse, ApplicationError> {
         // Verificar si ya existe un pago_proveedor para esta relación
         let existing = self.pago_proveedor_repository
-            .find_by_file_relation(tipo_proveedor, id_file_vehiculo, id_file_restaurante, id_file_guia)
+            .find_by_file_relation(tipo_proveedor, id_file_vehiculo, id_file_restaurante, id_file_guia, id_file_entrada)
             .await?;
-        
+
         if let Some(existing) = existing {
             info!("Pago a proveedor ya existe para esta relación: {} (tipo: {})", existing.id, tipo_proveedor);
             return Ok(self.pago_proveedor_to_response(existing).await);
         }
-        
+
+        let monto = monto_total.unwrap_or_else(|| BigDecimal::from(0));
+
         let new_pago = NewPagoProveedorModel {
             tipo_proveedor,
             id_transporte,
@@ -774,18 +912,20 @@ impl ContabilidadService {
             id_file_vehiculo,
             id_file_restaurante,
             id_file_guia,
-            monto: BigDecimal::from(0),
+            monto_total: monto.clone(),
             estado: "pendiente",
             notas: None,
             created_by,
+            id_entrada,
+            id_file_entrada,
         };
-        
+
         let pago = self.pago_proveedor_repository
             .create(new_pago)
             .await?;
-        
-        info!("Pago a proveedor auto-creado al asignar servicio: {} - {} (monto=0)", pago.id, pago.tipo_proveedor);
-        
+
+        info!("Pago a proveedor auto-creado al asignar servicio: {} - {} (monto={})", pago.id, pago.tipo_proveedor, monto);
+
         Ok(self.pago_proveedor_to_response(pago).await)
     }
 
@@ -810,14 +950,18 @@ impl ContabilidadService {
         let comprobante_url: Option<&str> = request.comprobante_url.as_deref();
         let comprobante_key: Option<&str> = None;
         
+        let monto_final = request.monto.clone().unwrap_or(pago.monto_total.clone());
+        let monto_pagado_final = request.monto_pagado.clone().or(Some(monto_final));
+        
         let update = UpdatePagoProveedorModel {
-            monto: request.monto.clone(),
+            monto_total: request.monto.clone(),
             estado: Some("pagado"),
             fecha_pago: Some(Utc::now()),
             comprobante_url,
             comprobante_key,
             notas: request.notas.as_deref(),
             pagado_by: Some(pagado_by),
+            monto_pagado: monto_pagado_final,
         };
         
         let pago_actualizado = self.pago_proveedor_repository
@@ -894,6 +1038,7 @@ impl ContabilidadService {
             "transporte" => p.id_transporte.unwrap_or(0),
             "restaurante" => p.id_restaurante.unwrap_or(0),
             "guia" => p.id_guia.unwrap_or(0),
+            "entrada" => p.id_entrada.unwrap_or(0),
             _ => 0,
         };
 
@@ -919,6 +1064,9 @@ impl ContabilidadService {
                         }
                     } else { None }
                 } else { None }
+            },
+            "entrada" => {
+                p.id_entrada.map(|id| format!("Entrada #{}", id))
             },
             _ => None,
         };
@@ -955,10 +1103,12 @@ impl ContabilidadService {
             id_file_vehiculo: p.id_file_vehiculo,
             id_file_restaurante: p.id_file_restaurante,
             id_file_guia: p.id_file_guia,
+            id_file_entrada: p.id_file_entrada,
             file_code,
             tour_nombre,
             fecha_tour,
-            monto: p.monto,
+            monto: p.monto_total,
+            monto_pagado: p.monto_pagado,
             estado: p.estado,
             fecha_pago: p.fecha_pago,
             comprobante_url: p.comprobante_url,

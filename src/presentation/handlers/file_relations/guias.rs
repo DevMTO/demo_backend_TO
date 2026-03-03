@@ -86,10 +86,13 @@ pub async fn assign_guia_to_file_tour(
             None,
             None,
             Some(request.id_guia),
+            None,
             Some(request.id_file_tour),
             None,
             None,
             Some(result.id),
+            None,
+            None,
             Some(auth.user.id),
         ).await;
     

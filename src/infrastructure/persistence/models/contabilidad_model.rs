@@ -111,7 +111,7 @@ pub struct PagoProveedorModel {
     pub id_file_vehiculo: Option<i32>,
     pub id_file_restaurante: Option<i32>,
     pub id_file_guia: Option<i32>,
-    pub monto: BigDecimal,
+    pub monto_total: BigDecimal,
     pub estado: String,
     pub fecha_pago: Option<DateTime<Utc>>,
     pub comprobante_url: Option<String>,
@@ -121,6 +121,9 @@ pub struct PagoProveedorModel {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub pagado_by: Option<i32>,
+    pub id_entrada: Option<i32>,
+    pub id_file_entrada: Option<i32>,
+    pub monto_pagado: Option<BigDecimal>,
 }
 
 #[derive(Debug, Insertable)]
@@ -134,20 +137,23 @@ pub struct NewPagoProveedorModel<'a> {
     pub id_file_vehiculo: Option<i32>,
     pub id_file_restaurante: Option<i32>,
     pub id_file_guia: Option<i32>,
-    pub monto: BigDecimal,
+    pub monto_total: BigDecimal,
     pub estado: &'a str,
     pub notas: Option<&'a str>,
     pub created_by: Option<i32>,
+    pub id_entrada: Option<i32>,
+    pub id_file_entrada: Option<i32>,
 }
 
 #[derive(Debug, AsChangeset, Default)]
 #[diesel(table_name = pagos_proveedores)]
 pub struct UpdatePagoProveedorModel<'a> {
-    pub monto: Option<BigDecimal>,
+    pub monto_total: Option<BigDecimal>,
     pub estado: Option<&'a str>,
     pub fecha_pago: Option<DateTime<Utc>>,
     pub comprobante_url: Option<&'a str>,
     pub comprobante_key: Option<&'a str>,
     pub notas: Option<&'a str>,
     pub pagado_by: Option<i32>,
+    pub monto_pagado: Option<BigDecimal>,
 }

@@ -172,13 +172,23 @@ impl PagoProveedorRepositoryPort for PostgresPagoProveedorRepository {
     }
 
     #[instrument(skip(self))]
-    async fn find_by_file_relation(&self, tipo_proveedor: &str, id_file_vehiculo: Option<i32>, id_file_restaurante: Option<i32>, id_file_guia: Option<i32>) -> Result<Option<PagoProveedorModel>, ApplicationError> {
+    async fn find_by_file_relation(&self, tipo_proveedor: &str, id_file_vehiculo: Option<i32>, id_file_restaurante: Option<i32>, id_file_guia: Option<i32>, id_file_entrada: Option<i32>) -> Result<Option<PagoProveedorModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let mut query = pagos_proveedores::table.filter(pagos_proveedores::tipo_proveedor.eq(tipo_proveedor)).into_boxed();
         if let Some(id) = id_file_vehiculo { query = query.filter(pagos_proveedores::id_file_vehiculo.eq(id)); }
         if let Some(id) = id_file_restaurante { query = query.filter(pagos_proveedores::id_file_restaurante.eq(id)); }
         if let Some(id) = id_file_guia { query = query.filter(pagos_proveedores::id_file_guia.eq(id)); }
+        if let Some(id) = id_file_entrada { query = query.filter(pagos_proveedores::id_file_entrada.eq(id)); }
         query.first::<PagoProveedorModel>(&mut conn).await.optional()
+            .map_err(|e| ApplicationError::Repository(e.to_string()))
+    }
+
+    #[instrument(skip(self))]
+    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<PagoProveedorModel>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        pagos_proveedores::table
+            .filter(pagos_proveedores::id_file_tour.eq(id_file_tour))
+            .load::<PagoProveedorModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
 }

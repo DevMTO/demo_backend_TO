@@ -35,5 +35,6 @@ pub trait PagoProveedorRepositoryPort: Send + Sync {
     async fn count_filtered(&self, tipo_proveedor: Option<&str>, estado: Option<&str>, fecha_desde: Option<DateTime<Utc>>, fecha_hasta: Option<DateTime<Utc>>) -> Result<i64, ApplicationError>;
     async fn create(&self, data: NewPagoProveedorModel<'_>) -> Result<PagoProveedorModel, ApplicationError>;
     async fn update(&self, id: i32, data: UpdatePagoProveedorModel<'_>) -> Result<PagoProveedorModel, ApplicationError>;
-    async fn find_by_file_relation(&self, tipo_proveedor: &str, id_file_vehiculo: Option<i32>, id_file_restaurante: Option<i32>, id_file_guia: Option<i32>) -> Result<Option<PagoProveedorModel>, ApplicationError>;
+    async fn find_by_file_relation(&self, tipo_proveedor: &str, id_file_vehiculo: Option<i32>, id_file_restaurante: Option<i32>, id_file_guia: Option<i32>, id_file_entrada: Option<i32>) -> Result<Option<PagoProveedorModel>, ApplicationError>;
+    async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<PagoProveedorModel>, ApplicationError>;
 }
