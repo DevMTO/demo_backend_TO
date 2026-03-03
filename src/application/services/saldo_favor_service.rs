@@ -199,8 +199,6 @@ impl SaldoFavorService {
             "cancelado",
             request.notas.as_deref(),
             true,
-            true,
-            true,
             created_by,
         ).await?;
 
@@ -366,8 +364,6 @@ impl SaldoFavorService {
             "no_show",
             request.notas.as_deref(),
             false,
-            true,
-            true,
             created_by,
         ).await?;
 
@@ -651,8 +647,6 @@ impl SaldoFavorService {
         status_file_tour: &str,
         notas: Option<&str>,
         pasar_a_saldo_favor: bool,
-        update_precio_aplicado: bool,
-        pasar_a_siguiente: bool,
         created_by: Option<i32>,
     ) -> Result<PagoFileModel, ApplicationError> {
         let zero = BigDecimal::from(0);
@@ -757,33 +751,20 @@ impl SaldoFavorService {
                 }
 
                 // Actualizar precio_aplicado en ambos tours
-                if update_precio_aplicado {
-                    let precio_cancelado = ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
-                    let nuevo_precio_cancelado = &precio_cancelado - &monto_transferido;
-                    let nuevo_precio_cancelado = if nuevo_precio_cancelado > zero { Some(nuevo_precio_cancelado) } else { Some(zero.clone()) };
-                    self.file_tour_repo.update_precio_aplicado(id_file_tour, nuevo_precio_cancelado.clone()).await?;
+                let precio_cancelado = ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
+                let nuevo_precio_cancelado = &precio_cancelado - &monto_transferido;
+                let nuevo_precio_cancelado = if nuevo_precio_cancelado > zero { Some(nuevo_precio_cancelado) } else { Some(zero.clone()) };
+                self.file_tour_repo.update_precio_aplicado(id_file_tour, nuevo_precio_cancelado.clone()).await?;
 
-                    let precio_destino = next_tour.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
-                    let nuevo_precio_destino = &precio_destino + &monto_transferido;
-                    self.file_tour_repo.update_precio_aplicado(next_tour.id, Some(nuevo_precio_destino.clone())).await?;
-                }
+                let precio_destino = next_tour.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
+                let nuevo_precio_destino = &precio_destino + &monto_transferido;
+                self.file_tour_repo.update_precio_aplicado(next_tour.id, Some(nuevo_precio_destino.clone())).await?;
 
                 info!("Entradas BTG/BTP transferidas de file_tour {} a file_tour {}. Monto: {}", id_file_tour, next_tour.id, monto_transferido);
             }
         }
 
-        // Transferir monto_pagado a siguiente(s) tour(s) si pasar_a_siguiente = true
-        let monto_total_file: BigDecimal = all_pagos.iter()
-            .filter(|p| p.tipo_registro == "deuda" && p.id_file_tour != Some(id_file_tour))
-            .map(|p| &p.monto_total)
-            .fold(zero.clone(), |acc, m| acc + m);
-        let monto_pagado_en_otros: BigDecimal = all_pagos.iter()
-            .filter(|p| (p.tipo_registro == "deuda" || p.tipo_registro == "pago") && p.id_file_tour != Some(id_file_tour))
-            .map(|p| &p.monto_pagado)
-            .fold(zero.clone(), |acc, m| acc + m);
-        let pendiente_otros = &monto_total_file - &monto_pagado_en_otros;
-        let file_esta_pagado = pendiente_otros <= tolerancia;
-
+        // Transferir monto_pagado a siguiente(s) tour(s)
         let monto_pagado_transferir = pagos_del_tour.iter()
             .map(|p| &p.monto_pagado)
             .fold(zero.clone(), |acc, m| acc + m);
@@ -791,7 +772,7 @@ impl SaldoFavorService {
         let mut monto_restante = monto_pagado_transferir.clone();
         let mut saldo_favor_a_generar: Option<BigDecimal> = None;
 
-        if pasar_a_siguiente && monto_restante > zero && !file_esta_pagado {
+        if monto_restante > zero {
             let mut tours_siguientes: Vec<_> = all_tours.iter()
                 .filter(|t| t.orden > ft.orden && t.status != "cancelado" && t.status != "no_show")
                 .collect();
@@ -816,9 +797,18 @@ impl SaldoFavorService {
                 } else {
                     monto_total_sig
                 };
+                
                 let pagado_sig: BigDecimal = pagos_tour_sig.iter()
                     .map(|p| &p.monto_pagado)
                     .fold(zero.clone(), |acc, m| acc + m);
+                // Because all_pagos is not updated in memory, we must manually include the amount transferido
+                // if this is the tour that received the BTG/BTP transfer.
+                let pagado_sig = if Some(tour_sig.id) == siguiente_tour.map(|t| t.id) {
+                    &pagado_sig + &monto_transferido
+                } else {
+                    pagado_sig
+                };
+
                 let pendiente_sig = &monto_total_sig - &pagado_sig;
 
                 if pendiente_sig <= zero {
@@ -830,53 +820,53 @@ impl SaldoFavorService {
                     continue;
                 }
 
-                let estado_pago_nuevo = if &pendiente_sig - &a_transferir <= tolerancia {
-                    "pagado"
-                } else {
-                    "parcial"
-                };
+                if let Some(deuda) = _deuda_tour_sig {
+                    let base_pagado = if Some(tour_sig.id) == siguiente_tour.map(|t| t.id) {
+                        &deuda.monto_pagado + &monto_transferido
+                    } else {
+                        deuda.monto_pagado.clone()
+                    };
+                    
+                    let base_total = if Some(tour_sig.id) == siguiente_tour.map(|t| t.id) {
+                        &deuda.monto_total + &monto_transferido
+                    } else {
+                        deuda.monto_total.clone()
+                    };
 
-                let max_cuota: i16 = all_pagos.iter()
-                    .filter_map(|p| p.cuota)
-                    .max()
-                    .unwrap_or(0);
-                let next_cuota = max_cuota + 1;
+                    let nuevo_pagado = &base_pagado + &a_transferir;
+                    let estado_deuda_nuevo = if &base_total - &nuevo_pagado <= tolerancia {
+                        "pagado"
+                    } else {
+                        "parcial"
+                    };
 
-                let notas = format!("Transferido de tour cancelado/no-show #{}", id_file_tour);
-                let new_pago = NewPagoFileModel {
-                    id_file: file.id,
-                    id_agencia: file.id_agencia,
-                    monto_total: monto_total_sig.clone(),
-                    monto_pagado: a_transferir.clone(),
-                    estado: estado_pago_nuevo,
-                    fecha_vencimiento: None,
-                    notas: Some(&notas),
-                    created_by,
-                    id_file_tour: Some(tour_sig.id),
-                    tipo_registro: "pago",
-                    monto_saldo_favor: None,
-                    saldo_autorizado: false,
-                    saldo_autorizado_por: None,
-                    saldo_autorizado_at: None,
-                    entradas: false,
-                    entrada_precio: None,
-                    cuota: Some(next_cuota),
-                };
-                let _pago_creado = self.pago_file_repo.create(new_pago).await?;
-                info!("Pago transferido: S/ {} al tour {} (cuota {})", a_transferir, tour_sig.id, next_cuota);
+                    let mut set_notas = format!("Transferido {} de tour cancelado/no-show #{}", a_transferir, id_file_tour);
+                    if let Some(ref notas_antiguas) = deuda.notas {
+                        if !notas_antiguas.is_empty() {
+                            set_notas = format!("{} | {}", notas_antiguas, set_notas);
+                        }
+                    }
+
+                    let update_deuda = UpdatePagoFileModel {
+                        monto_pagado: Some(nuevo_pagado),
+                        estado: Some(estado_deuda_nuevo),
+                        notas: Some(&set_notas),
+                        ..Default::default()
+                    };
+                    let _ = self.pago_file_repo.update(deuda.id, update_deuda).await?;
+                    info!("Pago transferido: S/ {} al tour {} (actualizando deuda {})", a_transferir, tour_sig.id, deuda.id);
+                }
 
                 monto_restante -= &a_transferir;
             }
 
-            if monto_restante > zero && !file_esta_pagado {
+            if monto_restante > zero && pasar_a_saldo_favor {
                 saldo_favor_a_generar = Some(monto_restante.clone());
             }
-        } else if pasar_a_saldo_favor && monto_pagado_transferir > zero {
-            saldo_favor_a_generar = Some(monto_pagado_transferir.clone());
         }
 
         // Calcular el precio_final para actualizar monto_total en los pagos
-        let precio_final = if update_precio_aplicado && monto_transferido > zero {
+        let precio_final = if monto_transferido > zero {
             let original_precio = ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone());
             let precio_after_transfer = &original_precio - &monto_transferido;
             if precio_after_transfer > zero { precio_after_transfer } else { zero.clone() }
@@ -901,8 +891,10 @@ impl SaldoFavorService {
 
             // Si hubo transferencia de monto_pagado, actualizar monto_pagado restando lo transferido
             if monto_transferido > zero {
-                let nuevo_pagado = &pago.monto_pagado - &monto_transferido;
-                update.monto_pagado = Some( if nuevo_pagado > zero { nuevo_pagado } else { zero.clone() });
+                // TODO: improve this block?
+                // let nuevo_pagado = &pago.monto_pagado - &monto_transferido;
+                // update.monto_pagado = Some( if nuevo_pagado > zero { nuevo_pagado } else { zero.clone() });
+                update.monto_pagado = Some(zero.clone());
 
                 if let Some(ref entrada_precio) = pago.entrada_precio {
                     let nuevo_entrada_precio = entrada_precio - &monto_transferido;
@@ -910,9 +902,9 @@ impl SaldoFavorService {
                 }
             }
 
-            // Only apply saldo_favor once (to the first payment/deuda), not to all payments
+            // Apply saldo_favor to the first payment/deuda (which is the one being canceled)
             if let Some(ref saldo) = saldo_favor {
-                if !saldo_favor_aplicado {
+                if !saldo_favor_aplicado && pago.tipo_registro == "deuda" {
                     update.monto_saldo_favor = Some(saldo.clone());
                     update.saldo_autorizado = Some(true);
                     update.saldo_autorizado_por = created_by;
