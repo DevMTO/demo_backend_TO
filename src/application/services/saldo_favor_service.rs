@@ -102,39 +102,52 @@ impl SaldoFavorService {
         let all_pagos = self.pago_file_repo.find_all_by_file(request.id_file).await?;
         let zero = BigDecimal::from(0);
 
-        // Calcular monto total pagado
-        let monto_pagado_total = all_pagos.iter()
+        let mut record_to_return = None;
+        let mut saldo_total_generado = zero.clone();
+
+        // Identificamos las deudas y pagos que suman al total pagado
+        let pagos_a_actualizar: Vec<_> = all_pagos.iter()
             .filter(|p| p.tipo_registro == "pago" || p.tipo_registro == "deuda")
-            .map(|p| &p.monto_pagado)
-            .fold(zero.clone(), |acc, m| acc + m);
+            .collect();
 
-        // El monto pagado completo se convierte en saldo a favor
-        let monto_saldo = if monto_pagado_total > zero { Some(monto_pagado_total.clone()) } else { None };
+        if pagos_a_actualizar.is_empty() {
+             return Err(ApplicationError::Validation(format!("No se encontró deuda/pago para el file {}", request.id_file)));
+        }
 
-        // Crear registro de cancelación
-        let new_record = NewPagoFileModel {
-            id_file: request.id_file,
-            id_agencia: file.id_agencia,
-            monto_total: file.monto_total.clone(),
-            monto_pagado: zero.clone(),
-            estado: "cancelado",
-            fecha_vencimiento: None,
-            notas: request.notas.as_deref(),
-            created_by,
-            id_file_tour: None,
-            tipo_registro: "cancelacion",
-            monto_saldo_favor: monto_saldo,
-            saldo_autorizado: true,
-            saldo_autorizado_por: created_by,
-            saldo_autorizado_at: Some(chrono::Utc::now()),
-            entradas: false,
-            entrada_precio: None,
-            cuota: None,
-        };
+        for pago in &pagos_a_actualizar {
+            let mut monto_saldo_favor = None;
+            let mut saldo_autorizado = false;
+            let mut saldo_autorizado_por = None;
+            let mut saldo_autorizado_at = None;
 
-        let record = self.pago_file_repo.create(new_record).await?;
+            if pago.monto_pagado > zero {
+                monto_saldo_favor = Some(pago.monto_pagado.clone());
+                saldo_autorizado = true;
+                saldo_autorizado_por = created_by;
+                saldo_autorizado_at = Some(chrono::Utc::now());
+                saldo_total_generado += &pago.monto_pagado;
+            }
 
-        info!("File {} cancelado. Saldo a favor generado: {:?}", request.id_file, record.monto_saldo_favor);
+            let update = UpdatePagoFileModel {
+                estado: Some("cancelado"),
+                tipo_registro: Some("cancelacion"),
+                notas: request.notas.as_deref(),
+                monto_saldo_favor,
+                saldo_autorizado: Some(saldo_autorizado),
+                saldo_autorizado_por,
+                saldo_autorizado_at,
+                ..Default::default()
+            };
+
+            let updated = self.pago_file_repo.update(pago.id, update).await?;
+            if record_to_return.is_none() {
+                record_to_return = Some(updated);
+            }
+        }
+
+        let record = record_to_return.unwrap();
+
+        info!("File {} cancelado. Saldo a favor generado: {:?}", request.id_file, saldo_total_generado);
 
         // Actualizar file status + cascada a file_tours, guias, vehiculos, restaurantes, entradas
         let _ = self.file_status_service.update_file_status(request.id_file, "cancelado").await?;
@@ -152,8 +165,7 @@ impl SaldoFavorService {
         let _ = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
             "File Cancelado",
-            &format!("File #{} cancelado. Saldo a favor: S/ {}", request.id_file,
-                record.monto_saldo_favor.as_ref().map(|v| v.to_string()).unwrap_or("0".into())),
+            &format!("File #{} cancelado. Saldo a favor: S/ {}", request.id_file, saldo_total_generado.to_string()),
             NotificationType::Warning,
             NotificationCategory::Financial,
             NotificationPriority::High,
@@ -862,12 +874,10 @@ impl SaldoFavorService {
         };
 
         // Actualizar los pagos del tour (cambiar estado y tipo_registro)
-        let mut record = None;
-        let mut saldo_favor_aplicado = false;
-        for pago in &pagos_del_tour {
-            // Usar el saldo_a_generar pre-calculado (del transfer o del cálculo original)
-            let saldo_favor = saldo_favor_a_generar.clone();
+        let mut record_to_return = None;
+        let mut monto_transferido_restante = monto_transferido.clone();
 
+        for pago in &pagos_del_tour {
             let mut update = UpdatePagoFileModel {
                 estado: Some(estado),
                 tipo_registro: Some(tipo_registro),
@@ -876,38 +886,39 @@ impl SaldoFavorService {
                 ..Default::default()
             };
 
-            // Si hubo transferencia de monto_pagado, actualizar monto_pagado restando lo transferido
-            if monto_transferido > zero {
-                // TODO: improve this block?
-                // let nuevo_pagado = &pago.monto_pagado - &monto_transferido;
-                // update.monto_pagado = Some( if nuevo_pagado > zero { nuevo_pagado } else { zero.clone() });
-                update.monto_pagado = Some(zero.clone());
+            let mut remaining_pagado = pago.monto_pagado.clone();
+
+            // Si hubo transferencia de monto_pagado (por entradas BTG/BTP o saldo reasignado), 
+            if monto_transferido_restante > zero {
+                let a_descontar = remaining_pagado.clone().min(monto_transferido_restante.clone());
+                remaining_pagado -= &a_descontar;
+                monto_transferido_restante -= &a_descontar;
+                
+                update.monto_pagado = Some(remaining_pagado.clone());
 
                 if let Some(ref entrada_precio) = pago.entrada_precio {
-                    let nuevo_entrada_precio = entrada_precio - &monto_transferido;
+                    let nuevo_entrada_precio = entrada_precio - &a_descontar;
                     update.entrada_precio = Some(Some( if nuevo_entrada_precio > zero { nuevo_entrada_precio } else { zero.clone() }));
                 }
             }
 
-            // Apply saldo_favor to the first payment/deuda (which is the one being canceled)
-            if let Some(ref saldo) = saldo_favor {
-                if !saldo_favor_aplicado && pago.tipo_registro == "deuda" {
-                    update.monto_saldo_favor = Some(saldo.clone());
-                    update.saldo_autorizado = Some(true);
-                    update.saldo_autorizado_por = created_by;
-                    update.saldo_autorizado_at = Some(chrono::Utc::now());
-                    saldo_favor_aplicado = true;
-                }
+            // Si este pago aún tiene saldo restante a su favor luego de transferencias (monto pagado real original)
+            if remaining_pagado > zero && pasar_a_saldo_favor {
+                update.monto_saldo_favor = Some(remaining_pagado.clone());
+                update.saldo_autorizado = Some(true);
+                update.saldo_autorizado_por = created_by;
+                update.saldo_autorizado_at = Some(chrono::Utc::now());
             }
 
             let updated = self.pago_file_repo.update(pago.id, update).await?;
-            info!("Pago {} actualizado a {} para file_tour {} (saldo: {:?})", pago.id, tipo_registro, id_file_tour, saldo_favor);
-            if record.is_none() {
-                record = Some(updated);
+            info!("Pago {} actualizado a {} para file_tour {} (saldo_favor asignado localmente)", pago.id, tipo_registro, id_file_tour);
+            
+            if record_to_return.is_none() {
+                record_to_return = Some(updated);
             }
         }
 
-        let record = record.unwrap();
+        let record = record_to_return.ok_or_else(|| ApplicationError::Validation(format!("No se encontraron pagos para el file_tour {} a actualizar", id_file_tour)))?;
 
         // Actualizar el status del file_tour (cancelado/no_show)
         let _ = self.file_status_service.update_file_tour_status(id_file_tour, status_file_tour).await?;
