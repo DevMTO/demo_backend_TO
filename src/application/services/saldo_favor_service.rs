@@ -780,7 +780,6 @@ impl SaldoFavorService {
             .fold(zero.clone(), |acc, m| acc + m);
 
         let mut monto_restante = monto_pagado_transferir.clone();
-        let mut saldo_favor_a_generar: Option<BigDecimal> = None;
 
         if monto_restante > zero {
             let mut tours_siguientes: Vec<_> = all_tours.iter()
@@ -858,10 +857,6 @@ impl SaldoFavorService {
 
                 monto_restante -= &a_transferir;
             }
-
-            if monto_restante > zero && pasar_a_saldo_favor {
-                saldo_favor_a_generar = Some(monto_restante.clone());
-            }
         }
 
         // Calcular el precio_final para actualizar monto_total en los pagos
@@ -874,10 +869,11 @@ impl SaldoFavorService {
         };
 
         // Actualizar los pagos del tour (cambiar estado y tipo_registro)
-        let mut record_to_return = None;
-        let mut monto_transferido_restante = monto_transferido.clone();
-
+        let mut record = None;
+        let mut dinero_restante_aplicado = false;
         for pago in &pagos_del_tour {
+            let dinero_restante = monto_restante.clone();
+
             let mut update = UpdatePagoFileModel {
                 estado: Some(estado),
                 tipo_registro: Some(tipo_registro),
@@ -886,39 +882,38 @@ impl SaldoFavorService {
                 ..Default::default()
             };
 
-            let mut remaining_pagado = pago.monto_pagado.clone();
-
-            // Si hubo transferencia de monto_pagado (por entradas BTG/BTP o saldo reasignado), 
-            if monto_transferido_restante > zero {
-                let a_descontar = remaining_pagado.clone().min(monto_transferido_restante.clone());
-                remaining_pagado -= &a_descontar;
-                monto_transferido_restante -= &a_descontar;
-                
-                update.monto_pagado = Some(remaining_pagado.clone());
-
+            // Si hubo transferencia de monto_pagado, actualizar monto_pagado restando lo transferido
+            if monto_transferido > zero {
+                update.monto_pagado = Some(zero.clone());
                 if let Some(ref entrada_precio) = pago.entrada_precio {
-                    let nuevo_entrada_precio = entrada_precio - &a_descontar;
+                    let nuevo_entrada_precio = entrada_precio - &monto_transferido;
                     update.entrada_precio = Some(Some( if nuevo_entrada_precio > zero { nuevo_entrada_precio } else { zero.clone() }));
                 }
             }
 
-            // Si este pago aún tiene saldo restante a su favor luego de transferencias (monto pagado real original)
-            if remaining_pagado > zero && pasar_a_saldo_favor {
-                update.monto_saldo_favor = Some(remaining_pagado.clone());
-                update.saldo_autorizado = Some(true);
-                update.saldo_autorizado_por = created_by;
-                update.saldo_autorizado_at = Some(chrono::Utc::now());
+            // Apply saldo_favor to the first payment/deuda (which is the one being canceled)
+            if !dinero_restante_aplicado && dinero_restante > 0 {
+                if pago.tipo_registro == "deuda" && pago.id_file_tour == Some(id_file_tour) {
+                    if pasar_a_saldo_favor {
+                        update.monto_saldo_favor = Some(dinero_restante.clone());
+                        update.saldo_autorizado = Some(true);
+                        update.saldo_autorizado_por = created_by;
+                        update.saldo_autorizado_at = Some(chrono::Utc::now());
+                    } else { 
+                        update.monto_pagado = Some(dinero_restante.clone());
+                    }
+                    dinero_restante_aplicado = true;
+                }
             }
 
             let updated = self.pago_file_repo.update(pago.id, update).await?;
-            info!("Pago {} actualizado a {} para file_tour {} (saldo_favor asignado localmente)", pago.id, tipo_registro, id_file_tour);
-            
-            if record_to_return.is_none() {
-                record_to_return = Some(updated);
+            info!("Pago {} actualizado a {} para file_tour {} (saldo: {:?})", pago.id, tipo_registro, id_file_tour, dinero_restante);
+            if record.is_none() {
+                record = Some(updated);
             }
         }
 
-        let record = record_to_return.ok_or_else(|| ApplicationError::Validation(format!("No se encontraron pagos para el file_tour {} a actualizar", id_file_tour)))?;
+        let record = record.unwrap();
 
         // Actualizar el status del file_tour (cancelado/no_show)
         let _ = self.file_status_service.update_file_tour_status(id_file_tour, status_file_tour).await?;
