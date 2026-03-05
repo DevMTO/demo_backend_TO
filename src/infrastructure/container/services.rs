@@ -84,6 +84,22 @@ impl Services {
             notify.clone(),
         ));
 
+        let contabilidad = Arc::new(ContabilidadService::new(
+            repos.pago_file.clone(),
+            repos.pago_proveedor.clone(),
+            repos.agencia.clone(),
+            repos.file.clone(),
+            notify.clone(),
+            repos.file_tour.clone(),
+            repos.tour.clone(),
+            repos.transporte.clone(),
+            repos.restaurante.clone(),
+            repos.guia.clone(),
+            repos.user.clone(),
+            repos.persona.clone(),
+            repos.entrada.clone(),
+        ));
+
         let file = Arc::new(FileService::new(
             repos.file.clone(),
             repos.file_tour.clone(),
@@ -93,6 +109,8 @@ impl Services {
             repos.agencia.clone(),
             repos.file_entrada.clone(),
             repos.entrada_precio.clone(),
+            repos.file_restaurante.clone(),
+            contabilidad.clone(),
         ));
 
         let restaurante = Arc::new(RestauranteService::new(
@@ -136,22 +154,6 @@ impl Services {
 
         let my_files_repo = Arc::new(PostgresMyFilesRepository::new(db_pool.clone()));
         let my_files = Arc::new(MyFilesService::new(my_files_repo));
-
-        let contabilidad = Arc::new(ContabilidadService::new(
-            repos.pago_file.clone(),
-            repos.pago_proveedor.clone(),
-            repos.agencia.clone(),
-            repos.file.clone(),
-            notify.clone(),
-            repos.file_tour.clone(),
-            repos.tour.clone(),
-            repos.transporte.clone(),
-            repos.restaurante.clone(),
-            repos.guia.clone(),
-            repos.user.clone(),
-            repos.persona.clone(),
-            repos.entrada.clone(),
-        ));
 
         let file_assignment = Arc::new(FileAssignmentService::new(
             repos.file.clone(),

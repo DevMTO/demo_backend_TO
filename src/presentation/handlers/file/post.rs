@@ -1,8 +1,7 @@
 //! POST handlers para File
 
 use axum::{extract::State, response::IntoResponse, Json};
-use bigdecimal::BigDecimal;
-use tracing::{info, instrument, warn};
+use tracing::{info, instrument};
 use validator::Validate;
 
 use crate::application::dtos::{CreateFileRequest, ConfirmReservaRequest};
@@ -64,51 +63,6 @@ pub async fn confirmar_reserva(
             Some(auth.user.username.clone()),
         )
         .await?;
-
-    // ===== AUTO-CREAR PAGOS PROVEEDOR (entradas) =====
-    // Recorrer los file_tours y crear un pago_proveedor por cada file_entrada
-    let tours = state.container.file_tour_repository
-        .find_by_file_with_tour(file_id)
-        .await
-        .unwrap_or_default();
-
-    for ft in &tours {
-        let entradas = state.container.file_entrada_repository
-            .find_by_file_tour(ft.id)
-            .await
-            .unwrap_or_default();
-
-        for fe in &entradas {
-            // Calcular monto: precio * cantidad
-            let monto = if let Some(precio_id) = fe.id_entrada_precio {
-                match state.container.entrada_precio_service.get_precio(precio_id).await {
-                    Ok(precio) => Some(precio.precio * BigDecimal::from(fe.cantidad)),
-                    Err(_) => None,
-                }
-            } else {
-                None
-            };
-
-            if let Err(e) = state.container.contabilidad_service
-                .auto_create_pago_proveedor(
-                    "entrada",
-                    None,
-                    None,
-                    None,
-                    Some(fe.id_entrada),
-                    Some(ft.id),
-                    None,
-                    None,
-                    None,
-                    Some(fe.id),
-                    monto,
-                    Some(auth.user.id),
-                ).await
-            {
-                warn!("Error al auto-crear pago proveedor para entrada {}: {}", fe.id_entrada, e);
-            }
-        }
-    }
 
     Ok(json_ok(response))
 }

@@ -20,8 +20,8 @@ use crate::application::dtos::{
 };
 use crate::application::ports::{FileRepositoryPort, PaginationOptions, NotificationServicePort};
 use crate::application::ports::{FileTourRepositoryPort, FileTourInputData, PagoFileRepositoryPort, AgenciaRepositoryPort};
-use crate::application::ports::{FileEntradaRepositoryPort, EntradaPrecioRepositoryPort};
-use crate::application::services::LoggingService;
+use crate::application::ports::{FileEntradaRepositoryPort, EntradaPrecioRepositoryPort, FileRestauranteRepositoryPort};
+use crate::application::services::{LoggingService, ContabilidadService};
 use crate::domain::entities::{
     File, EntityType, UserRole,
     NotificationType, NotificationCategory, NotificationPriority,
@@ -39,6 +39,8 @@ pub struct FileService {
     agencia_repository: Arc<dyn AgenciaRepositoryPort>,
     file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
     entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
+    file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
+    contabilidad_service: Arc<ContabilidadService>,
 }
 
 impl FileService {
@@ -51,6 +53,8 @@ impl FileService {
         agencia_repository: Arc<dyn AgenciaRepositoryPort>,
         file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
         entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
+        file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
+        contabilidad_service: Arc<ContabilidadService>,
     ) -> Self {
         Self {
             file_repository,
@@ -61,6 +65,8 @@ impl FileService {
             agencia_repository,
             file_entrada_repository,
             entrada_precio_repository,
+            file_restaurante_repository,
+            contabilidad_service,
         }
     }
 
@@ -716,6 +722,17 @@ impl FileService {
                 }
             }
 
+            // Calcular monto de restaurantes para este file_tour
+            let restaurantes_ft = self.file_restaurante_repository.find_by_file_tour(ft.id).await.unwrap_or_default();
+            let _tiene_restaurantes = !restaurantes_ft.is_empty();
+            let mut monto_restaurantes = zero.clone();
+
+            for fr in &restaurantes_ft {
+                if let Some(precio) = &fr.precio {
+                    monto_restaurantes += precio;
+                }
+            }
+
             // Calcular fecha_vencimiento según política de pago
             let fecha_vencimiento = if let Some(fv) = fecha_vencimiento_anticipado {
                 // Pago anticipado: misma fecha para todos los tours
@@ -756,6 +773,59 @@ impl FileService {
             let pago = self.pago_file_repository.create(new_pago).await?;
             info!("💰 Deuda por tour creada: pago_file ID {} para file_tour {} (file {})", pago.id, ft.id, request.file_id);
             pago_file_ids.push(pago.id);
+
+            // AUTO-CREAR PAGOS PROVEEDOR (entradas)
+            for fe in &entradas_ft {
+                let monto = if let Some(precio_id) = fe.id_entrada_precio {
+                    match self.entrada_precio_repository.find_by_id(precio_id).await {
+                        Ok(Some(precio)) => Some(precio.precio * BigDecimal::from(fe.cantidad)),
+                        _ => None,
+                    }
+                } else {
+                    None
+                };
+
+                if let Err(e) = self.contabilidad_service
+                    .auto_create_pago_proveedor(
+                        "entrada",
+                        None,
+                        None,
+                        None,
+                        Some(fe.id_entrada),
+                        Some(ft.id),
+                        None,
+                        None,
+                        None,
+                        Some(fe.id),
+                        monto,
+                        Some(confirmed_by),
+                    ).await
+                {
+                    warn!("Error al auto-crear pago proveedor para entrada {}: {}", fe.id_entrada, e);
+                }
+            }
+
+            // AUTO-CREAR PAGOS PROVEEDOR (restaurantes)
+            for fr in &restaurantes_ft {
+                if let Err(e) = self.contabilidad_service
+                    .auto_create_pago_proveedor(
+                        "restaurante",
+                        None,
+                        Some(fr.id_restaurante),
+                        None,
+                        None,
+                        Some(ft.id),
+                        None,
+                        Some(fr.id),
+                        None,
+                        None,
+                        fr.precio.clone(),
+                        Some(confirmed_by),
+                    ).await
+                {
+                    warn!("Error al auto-crear pago proveedor para restaurante {}: {}", fr.id_restaurante, e);
+                }
+            }
         }
 
         let fecha_vencimiento_display = primera_fecha_vencimiento
