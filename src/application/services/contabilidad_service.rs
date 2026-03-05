@@ -22,7 +22,7 @@ use crate::application::ports::{
     AgenciaRepositoryPort, FileRepositoryPort, NotificationServicePort,
     FileTourRepositoryPort, TourRepositoryPort,
     TransporteRepositoryPort, RestauranteRepositoryPort, GuiaRepositoryPort,
-    UserRepositoryPort, PersonaRepositoryPort,
+    UserRepositoryPort, PersonaRepositoryPort, EntradaRepositoryPort,
 };
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::{
@@ -52,6 +52,7 @@ pub struct ContabilidadService {
     guia_repository: Arc<dyn GuiaRepositoryPort>,
     user_repository: Arc<dyn UserRepositoryPort>,
     persona_repository: Arc<dyn PersonaRepositoryPort>,
+    entrada_repository: Arc<dyn EntradaRepositoryPort>,
 }
 
 impl ContabilidadService {
@@ -68,6 +69,7 @@ impl ContabilidadService {
         guia_repository: Arc<dyn GuiaRepositoryPort>,
         user_repository: Arc<dyn UserRepositoryPort>,
         persona_repository: Arc<dyn PersonaRepositoryPort>,
+        entrada_repository: Arc<dyn EntradaRepositoryPort>,
     ) -> Self {
         Self {
             pago_file_repository,
@@ -82,6 +84,7 @@ impl ContabilidadService {
             guia_repository,
             user_repository,
             persona_repository,
+            entrada_repository,
         }
     }
 
@@ -1066,7 +1069,9 @@ impl ContabilidadService {
                 } else { None }
             },
             "entrada" => {
-                p.id_entrada.map(|id| format!("Entrada #{}", id))
+                if let Some(id) = p.id_entrada {
+                    self.entrada_repository.find_by_id(id).await.ok().flatten().map(|e| e.nombre)
+                } else { None }
             },
             _ => None,
         };

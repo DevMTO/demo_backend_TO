@@ -150,6 +150,7 @@ impl Services {
             repos.guia.clone(),
             repos.user.clone(),
             repos.persona.clone(),
+            repos.entrada.clone(),
         ));
 
         let file_assignment = Arc::new(FileAssignmentService::new(
