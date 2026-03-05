@@ -191,4 +191,13 @@ impl PagoProveedorRepositoryPort for PostgresPagoProveedorRepository {
             .load::<PagoProveedorModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
+
+    #[instrument(skip(self))]
+    async fn update_status(&self, id: i32, estado: &str) -> Result<PagoProveedorModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        let data = UpdatePagoProveedorModel { estado: Some(estado), ..Default::default() };
+        diesel::update(pagos_proveedores::table.find(id)).set(&data)
+            .get_result::<PagoProveedorModel>(&mut conn).await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))
+    }
 }

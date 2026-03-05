@@ -177,6 +177,7 @@ impl Services {
             repos.file_restaurante.clone(),
             repos.file_entrada.clone(),
             repos.entrada.clone(),
+            repos.pago_proveedor.clone(),
         ));
 
         let file_status = Arc::new(FileStatusService::new(
@@ -187,6 +188,7 @@ impl Services {
             repos.file_restaurante.clone(),
             repos.file_entrada.clone(),
             repos.entrada.clone(),
+            repos.pago_proveedor.clone(),
         ));
 
         let saldo_favor = Arc::new(SaldoFavorService::new(

@@ -10,7 +10,7 @@ use tracing::{info, instrument};
 
 use crate::application::ports::{
     FileTourRepositoryPort, FileGuiaRepositoryPort, FileVehiculoRepositoryPort, FileRestauranteRepositoryPort, FileEntradaRepositoryPort, FileRepositoryPort,
-    EntradaRepositoryPort,
+    EntradaRepositoryPort, PagoProveedorRepositoryPort,
 };
 use crate::domain::errors::ApplicationError;
 
@@ -19,7 +19,7 @@ use crate::domain::errors::ApplicationError;
 const CASCADE_STATUSES: &[&str] = &["asignado", "cancelado", "no_show"];
 
 /// Statuses finales que no deben ser actualizados por cascada
-const FINAL_STATUSES: &[&str] = &["cancelado", "completado"];
+const FINAL_STATUSES: &[&str] = &["cancelado", "completado", "no_show"];
 
 /// Resultado de una actualización de estado de File con información de cascada
 #[derive(Debug, Clone)]
@@ -30,6 +30,7 @@ pub struct UpdateFileStatusResult {
     pub vehiculos_actualizados: usize,
     pub restaurantes_actualizados: usize,
     pub entradas_actualizadas: usize,
+    pub pagos_proveedores_actualizados: usize,
 }
 
 impl UpdateFileStatusResult {
@@ -39,23 +40,25 @@ impl UpdateFileStatusResult {
             || self.vehiculos_actualizados > 0
             || self.restaurantes_actualizados > 0
             || self.entradas_actualizadas > 0
+            || self.pagos_proveedores_actualizados > 0
     }
 
     /// Genera un mensaje descriptivo del resultado
     pub fn to_message(&self) -> String {
         if self.has_cascade_updates() {
             format!(
-                "Status de file actualizado de '{}' a '{}'. Guias: {}, Vehiculos: {}, Restaurantes: {}, Entradas: {},",
+                "Status de file actualizado de '{}' a '{}'. Guias: {}, Vehiculos: {}, Restaurantes: {}, Entradas: {}, Pagos proveedores: {}",
                 self.old_status,
                 self.new_status,
                 self.guias_actualizados,
                 self.vehiculos_actualizados,
                 self.restaurantes_actualizados,
-                self.entradas_actualizadas
+                self.entradas_actualizadas,
+                self.pagos_proveedores_actualizados
             )
         } else {
             format!(
-                "Status de file actualizado de '{}' a '{}',",
+                "Status de file actualizado de '{}' a '{}'",
                 self.old_status, self.new_status
             )
         }
@@ -71,6 +74,7 @@ pub struct FileStatusService {
     file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
     file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
     entrada_repository: Arc<dyn EntradaRepositoryPort>,
+    pago_proveedor_repository: Arc<dyn PagoProveedorRepositoryPort>,
 }
 
 impl FileStatusService {
@@ -82,6 +86,7 @@ impl FileStatusService {
         file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
         file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
         entrada_repository: Arc<dyn EntradaRepositoryPort>,
+        pago_proveedor_repository: Arc<dyn PagoProveedorRepositoryPort>,
     ) -> Self {
         Self {
             file_repository,
@@ -91,6 +96,7 @@ impl FileStatusService {
             file_restaurante_repository,
             file_entrada_repository,
             entrada_repository,
+            pago_proveedor_repository,
         }
     }
 
@@ -132,6 +138,7 @@ impl FileStatusService {
                 vehiculos_actualizados: 0,
                 restaurantes_actualizados: 0,
                 entradas_actualizadas: 0,
+                pagos_proveedores_actualizados: 0,
             };
 
             // Obtener todos los file_tours relacionados y actualizar file_tours
@@ -156,8 +163,8 @@ impl FileStatusService {
                         .await?;
                     
                     info!(
-                        "Relaciones de FileTour {} actualizadas: guias={}, vehiculos={}, restaurantes={}, entradas={}",
-                        file_tour.id, result.guias_actualizados, result.vehiculos_actualizados, result.restaurantes_actualizados, result.entradas_actualizadas
+                        "Relaciones de FileTour {} actualizadas: guias={}, vehiculos={}, restaurantes={}, entradas={}, pagos_proveedores={}",
+                        file_tour.id, result.guias_actualizados, result.vehiculos_actualizados, result.restaurantes_actualizados, result.entradas_actualizadas, result.pagos_proveedores_actualizados
                     );
                 }
             }
@@ -171,6 +178,7 @@ impl FileStatusService {
                 vehiculos_actualizados: 0,
                 restaurantes_actualizados: 0,
                 entradas_actualizadas: 0,
+                pagos_proveedores_actualizados: 0,
             })
         }
     }
@@ -273,11 +281,49 @@ impl FileStatusService {
             }
         }
 
+        result = self
+            .propagate_status_to_pagos_proveedores(file_tour_id, new_status, result)
+            .await?;
+
         info!(
             "Cascada completada para FileTour {}: {} entidades actualizadas",
             file_tour_id,
-            result.guias_actualizados + result.vehiculos_actualizados + result.restaurantes_actualizados + result.entradas_actualizadas
+            result.guias_actualizados + result.vehiculos_actualizados + result.restaurantes_actualizados + result.entradas_actualizadas + result.pagos_proveedores_actualizados
         );
+
+        Ok(result)
+    }
+
+    /// Propaga el estado a pagos de proveedores relacionados a un FileTour
+    ///
+    /// Solo actualiza entidades que no estén en estados finales (cancelado, completado)
+    #[instrument(skip(self))]
+    async fn propagate_status_to_pagos_proveedores(
+        &self,
+        file_tour_id: i32,
+        new_status: &str,
+        mut result: UpdateFileStatusResult,
+    ) -> Result<UpdateFileStatusResult, ApplicationError> {
+        if !CASCADE_STATUSES.contains(&new_status) {
+            return Ok(result);
+        }
+
+        let pagos = self.pago_proveedor_repository
+            .find_by_file_tour(file_tour_id)
+            .await?;
+
+        for pago in pagos {
+            if !FINAL_STATUSES.contains(&pago.estado.as_str()) {
+                self.pago_proveedor_repository
+                    .update_status(pago.id, new_status)
+                    .await?;
+                result.pagos_proveedores_actualizados += 1;
+                info!(
+                    "PagoProveedor {} actualizado a '{}' por cascada de FileTour {}",
+                    pago.id, new_status, file_tour_id
+                );
+            }
+        }
 
         Ok(result)
     }
@@ -320,6 +366,7 @@ impl FileStatusService {
                 vehiculos_actualizados: 0,
                 restaurantes_actualizados: 0,
                 entradas_actualizadas: 0,
+                pagos_proveedores_actualizados: 0,
             };
 
             result = self
@@ -335,6 +382,7 @@ impl FileStatusService {
                 vehiculos_actualizados: 0,
                 restaurantes_actualizados: 0,
                 entradas_actualizadas: 0,
+                pagos_proveedores_actualizados: 0,
             })
         }
     }
