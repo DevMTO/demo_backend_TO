@@ -127,29 +127,6 @@ pub async fn verificar_pago_file(
 // PAGOS A PROVEEDORES HANDLERS
 // ============================================================================
 
-/// POST /api/contabilidad/pagos-proveedores
-/// Crear pago a proveedor (al asignar servicio)
-#[instrument(skip(state, auth, request))]
-pub async fn create_pago_proveedor(
-    State(state): State<AppState>,
-    auth: AuthUser,
-    Json(request): Json<CreatePagoProveedorRequest>,
-) -> Result<impl IntoResponse, ApplicationError> {
-    if !is_admin_or_operador(&auth.user.role) {
-        return Err(ApplicationError::Forbidden(
-            "No tienes permiso para crear pagos a proveedores".to_string(),
-        ));
-    }
-
-    let response = state
-        .container
-        .contabilidad_service
-        .create_pago_proveedor(request, Some(auth.user.id))
-        .await?;
-
-    Ok(json_created(response))
-}
-
 /// POST /api/contabilidad/pagos-proveedores/:id/pagar
 /// Marcar pago a proveedor como pagado
 #[instrument(skip(state, auth, request))]

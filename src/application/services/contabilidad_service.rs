@@ -842,39 +842,6 @@ impl ContabilidadService {
         Ok((responses, total))
     }
 
-    /// Crear pago a proveedor (cuando se asigna un servicio)
-    #[instrument(skip(self))]
-    pub async fn create_pago_proveedor(
-        &self,
-        request: CreatePagoProveedorRequest,
-        created_by: Option<i32>,
-    ) -> Result<PagoProveedorResponse, ApplicationError> {
-        let new_pago = NewPagoProveedorModel {
-            tipo_proveedor: &request.tipo_proveedor,
-            id_transporte: request.id_transporte,
-            id_restaurante: request.id_restaurante,
-            id_guia: request.id_guia,
-            id_file_tour: request.id_file_tour,
-            id_file_vehiculo: request.id_file_vehiculo,
-            id_file_restaurante: request.id_file_restaurante,
-            id_file_guia: request.id_file_guia,
-            monto_total: request.monto,
-            estado: "pendiente",
-            notas: request.notas.as_deref(),
-            created_by,
-            id_entrada: request.id_entrada,
-            id_file_entrada: request.id_file_entrada,
-        };
-
-        let pago = self.pago_proveedor_repository
-            .create(new_pago)
-            .await?;
-
-        info!("Pago a proveedor creado: {} - {} ({})", pago.id, pago.tipo_proveedor, pago.monto_total);
-        
-        Ok(self.pago_proveedor_to_response(pago).await)
-    }
-
     /// Auto-crear pago a proveedor al asignar un servicio (estado=pendiente)
     /// Similar a como pagos_files se auto-crea al confirmar un file.
     /// Verifica que no exista ya un pago_proveedor para la misma relación.
