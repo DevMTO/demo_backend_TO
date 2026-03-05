@@ -1071,13 +1071,17 @@ impl ContabilidadService {
             _ => None,
         };
 
-        // Obtener info del file_tour (file_code, tour_nombre, fecha_tour)
+        // Obtener info del file_tour (file_code, tour_nombre, fecha_tour, turno_tour)
         let mut file_code = None;
         let mut tour_nombre = None;
+        let mut tour_id = None;
+        let mut turno_tour = None;
         let mut fecha_tour = None;
         if let Some(ft_id) = p.id_file_tour {
             if let Ok(Some(ft)) = self.file_tour_repository.find_by_id(ft_id).await {
                 fecha_tour = ft.fecha_tour.map(|d| d.to_string());
+                turno_tour = ft.turno_tour;
+                tour_id = Some(ft.id_tour);
                 // file_code from parent file
                 if let Ok(Some(file)) = self.file_repository.find_by_id(ft.id_file).await {
                     file_code = file.file_code;
@@ -1106,6 +1110,8 @@ impl ContabilidadService {
             id_file_entrada: p.id_file_entrada,
             file_code,
             tour_nombre,
+            turno_tour,
+            tour_id,
             fecha_tour,
             monto: p.monto_total,
             monto_pagado: p.monto_pagado,

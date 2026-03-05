@@ -131,6 +131,8 @@ pub struct PagoProveedorResponse {
     pub id_file_entrada: Option<i32>,
     pub file_code: Option<String>,
     pub tour_nombre: Option<String>,
+    pub turno_tour: Option<String>,
+    pub tour_id: Option<i32>,
     pub fecha_tour: Option<String>,
     #[ts(type = "string")]
     pub monto: BigDecimal,
