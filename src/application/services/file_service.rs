@@ -771,9 +771,11 @@ impl FileService {
                 cuota: Some(0),
             };
 
-            let pago = self.pago_file_repository.create(new_pago).await?;
-            info!("💰 Deuda por tour creada: pago_file ID {} para file_tour {} (file {})", pago.id, ft.id, request.file_id);
-            pago_file_ids.push(pago.id);
+            if tiene_entradas {
+                let pago = self.pago_file_repository.create(new_pago).await?;
+                info!("💰 Deuda por entrada creada: pago_file ID {} para file_tour {} (file {})", pago.id, ft.id, request.file_id);
+                pago_file_ids.push(pago.id);
+            }
 
             // AUTO-CREAR PAGOS PROVEEDOR (entradas)
             for fe in &entradas_ft {
