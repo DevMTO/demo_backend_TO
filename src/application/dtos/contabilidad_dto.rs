@@ -166,18 +166,6 @@ pub struct CreatePagoProveedorRequest {
     pub notas: Option<String>,
 }
 
-/// Request para registrar pago a proveedor (admin paga)
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct PagarProveedorRequest {
-    pub id_pago_proveedor: i32,
-    pub notas: Option<String>,
-    /// Comprobante en base64 (se subira a Tigris)
-    pub comprobante_base64: Option<String>,
-    pub comprobante_filename: Option<String>,
-}
-
 /// Request para marcar pago a proveedor como pagado
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -250,32 +238,6 @@ pub struct MiPagoRestauranteResponse {
     pub estado: String,
     pub fecha_pago: Option<DateTime<Utc>>,
     pub comprobante_url: Option<String>,
-}
-
-// ============================================================================
-// LISTADOS Y FILTROS
-// ============================================================================
-
-/// Filtros para listar pagos de files
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct PagosFilesFilter {
-    pub id_agencia: Option<i32>,
-    pub estado: Option<String>,
-    pub fecha_desde: Option<String>,
-    pub fecha_hasta: Option<String>,
-}
-
-/// Filtros para listar pagos a proveedores
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct PagosProveedoresFilter {
-    pub tipo_proveedor: Option<String>,
-    pub estado: Option<String>,
-    pub fecha_desde: Option<String>,
-    pub fecha_hasta: Option<String>,
 }
 
 // ============================================================================

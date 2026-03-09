@@ -77,20 +77,6 @@ pub struct AuthUserInfo {
     pub is_active: bool,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct ChangePasswordRequest {
-    #[validate(length(min = 1, message = "Current password is required"))]
-    pub current_password: String,
-    
-    #[validate(length(min = 8, message = "New password must be at least 8 characters"))]
-    pub new_password: String,
-    
-    #[validate(must_match(other = "new_password", message = "Passwords do not match"))]
-    pub new_password_confirm: String,
-}
-
 #[derive(Debug, Clone, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
@@ -98,16 +84,6 @@ pub struct LogoutRequest {
     #[serde(default)]
     pub all_sessions: bool,
 }
-
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct SuccessResponse {
-    pub success: bool,
-    pub message: String,
-}
-
-
 
 /// Información de persona asociada al usuario (para perfil)
 #[derive(Debug, Clone, Serialize, TS)]

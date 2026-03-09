@@ -197,12 +197,3 @@ impl UpdateRestauranteRequest {
         restaurante
     }
 }
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RestauranteListResponse {
-    pub items: Vec<RestauranteResponse>,
-    pub total: i64,
-    pub page: i64,
-    pub page_size: i64,
-    pub total_pages: i64,
-}

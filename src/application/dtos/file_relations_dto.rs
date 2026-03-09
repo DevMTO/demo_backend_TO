@@ -568,54 +568,6 @@ pub struct UpdateFileGuiaRequest {
 
 // ==================== FILE DETALLE COMPLETO ====================
 
-/// Respuesta completa de un File con todos sus datos relacionados
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct FileDetailResponse {
-    // Datos básicos del file
-    pub id: i32,
-    pub id_tour: i32,
-    pub id_agencia: i32,
-    pub fecha_inicio: String, // NaiveDate como string
-    pub fecha_fin: String,
-    pub lugar_recojo: Option<String>,
-    pub hora_recojo: Option<String>, // NaiveTime como string
-    pub notas: Option<String>,
-    pub status: String,
-    #[ts(type = "string")]
-    pub monto_total: String,
-    #[ts(type = "string")]
-    pub monto_pagado: String,
-    #[ts(type = "string")]
-    pub saldo_pendiente: String,
-    pub is_active: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    
-    // Datos del tour relacionado
-    pub tour_nombre: Option<String>,
-    pub tour_lugar_inicio: Option<String>,
-    pub tour_lugar_fin: Option<String>,
-    
-    // Datos de la agencia relacionada
-    pub agencia_nombre: Option<String>,
-    
-    // Totales de asignaciones
-    pub total_pasajeros: i32,
-    pub total_entradas: i32,
-    pub total_guias: i32,
-    pub total_vehiculos: i32,
-    pub total_restaurantes: i32,
-    
-    // Listas de asignaciones
-    pub entradas: Vec<FileEntradaResponse>,
-    pub guias: Vec<FileGuiaResponse>,
-    pub pasajeros: Vec<FilePasajeroResponse>,
-    pub restaurantes: Vec<FileRestauranteResponse>,
-    pub vehiculos: Vec<FileVehiculoResponse>,
-}
-
 /// Respuesta para cambio de status de recursos asignados
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
@@ -638,21 +590,6 @@ pub struct UpdateVehiculoStatusRequest {
 }
 
 /// Información de disponibilidad de vehículo
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct VehiculoDisponibilidadResponse {
-    pub id: i32,
-    pub nombre: String,
-    pub placa: String,
-    pub capacidad: i32,
-    pub status: String,
-    pub pax_asignados: i32,
-    pub pax_disponibles: i32,
-    pub files_asignados: Vec<i32>, // IDs de files donde está asignado
-    pub puede_asignar_mas: bool,
-}
-
 // ==================== MY FILES (Para usuarios autenticados) ====================
 
 /// File asignado a un guía con todos los detalles necesarios

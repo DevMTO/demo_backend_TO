@@ -677,7 +677,7 @@ impl SaldoFavorService {
             .collect();
 
         let siguiente_tour = all_tours.iter()
-            .find(|t| t.orden > ft.orden && t.status != "cancelado");
+            .find(|t| t.orden > ft.orden && t.status != "cancelado" && t.status != "no_show");
 
         // Obtener entradas del tour
         let file_entradas = self.file_entrada_repo.find_by_file_tour(id_file_tour).await?;
@@ -892,7 +892,7 @@ impl SaldoFavorService {
             }
 
             // Apply saldo_favor to the first payment/deuda (which is the one being canceled)
-            if !dinero_restante_aplicado && dinero_restante > 0 {
+            if !dinero_restante_aplicado && dinero_restante > zero {
                 if pago.tipo_registro == "deuda" && pago.id_file_tour == Some(id_file_tour) {
                     if pasar_a_saldo_favor {
                         update.monto_saldo_favor = Some(dinero_restante.clone());

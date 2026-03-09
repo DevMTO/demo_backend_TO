@@ -355,21 +355,6 @@ impl UpdateFileRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct FileListResponse {
-    pub items: Vec<FileResponse>,
-    #[ts(type = "number")]
-    pub total: i64,
-    #[ts(type = "number")]
-    pub page: i64,
-    #[ts(type = "number")]
-    pub page_size: i64,
-    #[ts(type = "number")]
-    pub total_pages: i64,
-}
-
 // =============================================================================
 // CONFIRMACIÓN DE RESERVA
 // =============================================================================

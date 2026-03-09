@@ -208,17 +208,6 @@ impl UpdateAgenciaRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct AgenciaListResponse {
-    pub items: Vec<AgenciaResponse>,
-    pub total: i64,
-    pub page: i64,
-    pub page_size: i64,
-    pub total_pages: i64,
-}
-
 /// Request para actualizar solo la interfaz de la agencia (logo y paleta de colores)
 #[derive(Debug, Clone, Deserialize, TS)]
 #[ts(export)]

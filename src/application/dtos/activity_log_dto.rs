@@ -85,22 +85,6 @@ impl From<ActivityLogWithUser> for ActivityLogDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct ActivityLogFilters {
-    pub user_id: Option<i32>,
-    pub action_type: Option<String>,
-    pub action: Option<String>,
-    pub entity_type: Option<String>,
-    pub entity_id: Option<i32>,
-    pub status: Option<String>,
-    #[ts(type = "string | null")]
-    pub from_date: Option<DateTime<Utc>>,
-    #[ts(type = "string | null")]
-    pub to_date: Option<DateTime<Utc>>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

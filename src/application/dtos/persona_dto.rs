@@ -140,14 +140,3 @@ impl UpdatePersonaRequest {
         persona
     }
 }
-
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct PersonaListResponse {
-    pub items: Vec<PersonaResponse>,
-    pub total: i64,
-    pub page: i64,
-    pub page_size: i64,
-    pub total_pages: i64,
-}

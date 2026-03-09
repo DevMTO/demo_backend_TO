@@ -150,14 +150,3 @@ impl UpdateVehiculoRequest {
         vehiculo
     }
 }
-
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct VehiculoListResponse {
-    pub items: Vec<VehiculoListItemDto>,
-    pub total: i64,
-    pub page: i64,
-    pub page_size: i64,
-    pub total_pages: i64,
-}

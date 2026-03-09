@@ -3,52 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use ts_rs::TS;
 
-use crate::domain::entities::{Notification, NotificationWithReadStatus};
-
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct NotificationDto {
-    pub id: i32,
-    pub notification_type: String,
-    pub category: String,
-    pub title: String,
-    pub message: String,
-    pub entity_type: Option<String>,
-    pub entity_id: Option<i32>,
-    #[ts(type = "Record<string, any> | null")]
-    pub metadata: Option<JsonValue>,
-    pub priority: String,
-    #[ts(type = "string[] | null")]
-    pub target_roles: Option<JsonValue>,
-    pub target_user_id: Option<i32>,
-    #[ts(type = "string | null")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[ts(type = "string")]
-    pub created_at: DateTime<Utc>,
-    pub created_by: Option<i32>,
-}
-
-impl From<Notification> for NotificationDto {
-    fn from(n: Notification) -> Self {
-        Self {
-            id: n.id,
-            notification_type: n.notification_type,
-            category: n.category,
-            title: n.title,
-            message: n.message,
-            entity_type: n.entity_type,
-            entity_id: n.entity_id,
-            metadata: n.metadata,
-            priority: n.priority,
-            target_roles: n.target_roles,
-            target_user_id: n.target_user_id,
-            expires_at: n.expires_at,
-            created_at: n.created_at,
-            created_by: n.created_by,
-        }
-    }
-}
+use crate::domain::entities::{NotificationWithReadStatus};
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -123,31 +78,6 @@ fn default_priority() -> String { "normal".to_string() }
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct MarkNotificationReadRequest {
-    pub notification_ids: Vec<i32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct DismissNotificationRequest {
-    pub notification_ids: Vec<i32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct NotificationFilters {
-    pub notification_type: Option<String>,
-    pub category: Option<String>,
-    pub priority: Option<String>,
-    pub is_read: Option<bool>,
-    pub is_dismissed: Option<bool>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UserNotificationListDto {
     pub notifications: Vec<UserNotificationDto>,
     pub total: i64,
@@ -162,27 +92,4 @@ pub struct UserNotificationListDto {
 pub struct UnreadCountDto {
     pub unread_count: i64,
     pub user_id: i32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-#[serde(tag = "type", content = "data")]
-pub enum SseNotificationEvent {
-    /// Nueva notificación recibida
-    NewNotification(UserNotificationDto),
-    /// Notificación marcada como leída
-    NotificationRead { notification_id: i32 },
-    /// Notificación descartada
-    NotificationDismissed { notification_id: i32 },
-    /// Todas las notificaciones marcadas como leídas
-    AllNotificationsRead,
-    /// Todas las notificaciones descartadas
-    AllNotificationsDismissed,
-    /// Contador de no leídas actualizado
-    UnreadCountUpdated { count: i64 },
-    /// Heartbeat para mantener la conexión viva
-    Heartbeat,
-    /// Conexión establecida
-    Connected { user_id: i32 },
 }

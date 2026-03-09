@@ -278,28 +278,3 @@ impl User {
         self.updated_at = Utc::now();
     }
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserInfo {
-    pub id: i32,
-    pub id_persona: Option<i32>,
-    pub username: String,
-    pub email: String,
-    pub role: String,
-    pub id_entidad: Option<i32>,
-    pub is_active: bool,
-}
-
-impl From<&User> for UserInfo {
-    fn from(user: &User) -> Self {
-        Self {
-            id: user.id,
-            id_persona: user.id_persona,
-            username: user.username.clone(),
-            email: user.email.clone(),
-            role: user.role.to_string(),
-            id_entidad: user.id_entidad,
-            is_active: user.is_active,
-        }
-    }
-}

@@ -180,17 +180,6 @@ impl UpdateTransporteRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[ts(export_to = "../../frontend/src/domain/contracts/")]
-pub struct TransporteListResponse {
-    pub items: Vec<TransporteResponse>,
-    pub total: i64,
-    pub page: i64,
-    pub page_size: i64,
-    pub total_pages: i64,
-}
-
 /// Request para actualizar solo la interfaz del transporte (logo y paleta de colores)
 #[derive(Debug, Clone, Deserialize, TS)]
 #[ts(export)]

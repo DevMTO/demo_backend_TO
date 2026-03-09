@@ -122,15 +122,6 @@ impl UpdateGuiaRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct GuiaListResponse {
-    pub items: Vec<GuiaResponse>,
-    pub total: i64,
-    pub page: i64,
-    pub page_size: i64,
-    pub total_pages: i64,
-}
-
 /// DTO para listado de guías con información de la persona asociada
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]

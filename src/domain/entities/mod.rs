@@ -18,7 +18,6 @@ pub mod restaurante;
 pub mod entrada;
 pub mod entrada_precio;
 pub mod file;
-pub mod file_tour;
 
 // Re-exports - Auth core
 pub use user::{User, UserRole};

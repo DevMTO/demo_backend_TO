@@ -128,12 +128,3 @@ impl UpdateEntradaRequest {
         entrada
     }
 }
-
-#[derive(Debug, Clone, Serialize)]
-pub struct EntradaListResponse {
-    pub items: Vec<EntradaResponse>,
-    pub total: i64,
-    pub page: i64,
-    pub page_size: i64,
-    pub total_pages: i64,
-}
