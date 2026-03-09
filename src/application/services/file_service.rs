@@ -154,11 +154,11 @@ impl FileService {
     ) -> Result<FileResponse, ApplicationError> {
         // Resolver id_entidad según el rol del usuario
         let id_entidad_resolved = match user_role {
-            UserRole::Agencias => {
-                // Para agencias, usar su id_entidad automáticamente
+            UserRole::Agencias | UserRole::Hoteles | UserRole::HotelesGerente => {
+                // Para agencias/hoteles, usar su id_entidad automáticamente
                 user_id_entidad.ok_or_else(|| {
                     ApplicationError::Validation(
-                        "Usuario de agencia sin id_entidad configurado".to_string()
+                        "Usuario sin id_entidad configurado".to_string()
                     )
                 })?
             },
@@ -166,7 +166,7 @@ impl FileService {
                 // Para superadmin/admin, debe venir en el request
                 request.id_entidad.ok_or_else(|| {
                     ApplicationError::Validation(
-                        "Debe seleccionar una agencia para crear el file".to_string()
+                        "Debe seleccionar una entidad para crear el file".to_string()
                     )
                 })?
             }
@@ -181,7 +181,13 @@ impl FileService {
         }
 
         // Crear entidad de dominio con id_entidad resuelto
-        let file = request.into_entity(Some(created_by), id_entidad_resolved);
+        let mut file = request.into_entity(Some(created_by), id_entidad_resolved);
+        
+        // Determinar tipo de entidad según el rol del usuario
+        file.entidad = match user_role {
+            UserRole::Hoteles | UserRole::HotelesGerente => Some("hoteles".to_string()),
+            _ => Some("agencias".to_string()),
+        };
         
         // Persistir el file
         let created = self.file_repository.create(&file).await?;
@@ -520,9 +526,9 @@ impl FileService {
 
     /// Listar files por agencia
     #[instrument(skip(self))]
-    pub async fn list_files_by_agencia(&self, agencia_id: i32) -> Result<Vec<FileResponse>, ApplicationError> {
+    pub async fn list_files_by_agencia(&self, agencia_id: i32, entidad: Option<&str>) -> Result<Vec<FileResponse>, ApplicationError> {
         let files = self.file_repository
-            .find_by_entidad(agencia_id)
+            .find_by_entidad(agencia_id, entidad)
             .await?;
         
         // Cargar tours para cada file
@@ -532,7 +538,7 @@ impl FileService {
             items.push(FileResponse::from_file_with_tours(file, tours));
         }
         
-        info!("{} files encontrados para agencia {} (con tours cargados)", items.len(), agencia_id);
+        info!("{} files encontrados para entidad {} {:?} (con tours cargados)", items.len(), agencia_id, entidad);
         Ok(items)
     }
 

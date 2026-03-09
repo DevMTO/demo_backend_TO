@@ -23,7 +23,7 @@ pub trait FileRepositoryPort: Send + Sync {
     async fn list_paginated(&self, options: PaginationOptions) -> Result<PaginatedResult<File>, ApplicationError>;
     
     // Específicos de File
-    async fn find_by_entidad(&self, id_entidad: i32) -> Result<Vec<File>, ApplicationError>;
+    async fn find_by_entidad(&self, id_entidad: i32, entidad: Option<&str>) -> Result<Vec<File>, ApplicationError>;
     async fn find_by_date_range(&self, from: NaiveDate, to: NaiveDate) -> Result<Vec<File>, ApplicationError>;
     async fn find_upcoming(&self) -> Result<Vec<File>, ApplicationError>;
     async fn find_pending_payment(&self) -> Result<Vec<File>, ApplicationError>;

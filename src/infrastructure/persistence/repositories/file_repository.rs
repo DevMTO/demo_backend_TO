@@ -155,12 +155,19 @@ impl FileRepositoryPort for PostgresFileRepository {
         Ok(PaginatedResult::new(data, total, limit, offset))
     }
     
-    async fn find_by_entidad(&self, id_entidad: i32) -> Result<Vec<File>, ApplicationError> {
+    async fn find_by_entidad(&self, id_entidad: i32, entidad: Option<&str>) -> Result<Vec<File>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
-        let results = files::table
+        let mut query = files::table
             .filter(files::id_entidad.eq(id_entidad))
             .order(files::fecha_inicio.desc())
+            .into_boxed();
+        
+        if let Some(ent) = entidad {
+            query = query.filter(files::entidad.eq(ent));
+        }
+        
+        let results = query
             .select(FileModel::as_select())
             .load(&mut conn)
             .await

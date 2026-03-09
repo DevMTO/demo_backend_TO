@@ -8,7 +8,7 @@ use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use crate::presentation::handlers::common::{PaginationParams, PaginatedResponse, PaginationInfo, json_ok};
 
-use super::query_params::DateRangeQuery;
+use super::query_params::{DateRangeQuery, EntidadQuery};
 
 /// Listar files con paginación
 #[instrument(skip(state, _auth))]
@@ -51,10 +51,11 @@ pub async fn get_file(
 pub async fn list_files_by_agencia(
     State(state): State<AppState>, 
     _auth: AuthUser, 
-    Path(agencia_id): Path<i32>
+    Path(agencia_id): Path<i32>,
+    Query(query): Query<EntidadQuery>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let files = state.container.file_service
-        .list_files_by_agencia(agencia_id)
+        .list_files_by_agencia(agencia_id, query.entidad.as_deref())
         .await?;
     
     Ok(json_ok(files))
