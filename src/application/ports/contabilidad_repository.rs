@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::models::{
@@ -14,14 +14,14 @@ use crate::infrastructure::persistence::models::{
 #[async_trait]
 pub trait PagoFileRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<PagoFileModel>, ApplicationError>;
-    async fn find_by_agencia(&self, id_agencia: i32, limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError>;
-    async fn find_filtered(&self, id_agencia: Option<i32>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>, limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError>;
-    async fn count_filtered(&self, id_agencia: Option<i32>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>) -> Result<i64, ApplicationError>;
+    async fn find_by_entidad(&self, id_entidad: i32, limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError>;
+    async fn find_filtered(&self, id_entidad: Option<i32>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>, limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError>;
+    async fn count_filtered(&self, id_entidad: Option<i32>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>) -> Result<i64, ApplicationError>;
     async fn create(&self, data: NewPagoFileModel<'_>) -> Result<PagoFileModel, ApplicationError>;
     async fn update(&self, id: i32, data: UpdatePagoFileModel<'_>) -> Result<PagoFileModel, ApplicationError>;
     async fn find_all_by_file(&self, id_file: i32) -> Result<Vec<PagoFileModel>, ApplicationError>;
     /// Buscar registros por agencia y tipos de registro (cancelacion, no_show, etc.)
-    async fn find_by_agencia_tipos(&self, id_agencia: i32, tipos: &[&str], limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError>;
+    async fn find_by_entidad_tipos(&self, id_entidad: i32, tipos: &[&str], limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError>;
 }
 
 // ============================================================================

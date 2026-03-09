@@ -141,8 +141,8 @@ impl FileService {
 
     /// Crear un nuevo file
     /// 
-    /// Si el usuario tiene rol "Agencias", se usa su id_entidad como id_agencia automáticamente.
-    /// Si el usuario es SuperAdmin o Admin, debe proporcionar id_agencia en el request.
+    /// Si el usuario tiene rol "Agencias", se usa su id_entidad como id_entidad automáticamente.
+    /// Si el usuario es SuperAdmin o Admin, debe proporcionar id_entidad en el request.
     #[instrument(skip(self, request))]
     pub async fn create_file(
         &self,
@@ -152,8 +152,8 @@ impl FileService {
         user_role: UserRole,
         user_id_entidad: Option<i32>,
     ) -> Result<FileResponse, ApplicationError> {
-        // Resolver id_agencia según el rol del usuario
-        let id_agencia_resolved = match user_role {
+        // Resolver id_entidad según el rol del usuario
+        let id_entidad_resolved = match user_role {
             UserRole::Agencias => {
                 // Para agencias, usar su id_entidad automáticamente
                 user_id_entidad.ok_or_else(|| {
@@ -164,7 +164,7 @@ impl FileService {
             },
             _ => {
                 // Para superadmin/admin, debe venir en el request
-                request.id_agencia.ok_or_else(|| {
+                request.id_entidad.ok_or_else(|| {
                     ApplicationError::Validation(
                         "Debe seleccionar una agencia para crear el file".to_string()
                     )
@@ -180,8 +180,8 @@ impl FileService {
             ));
         }
 
-        // Crear entidad de dominio con id_agencia resuelto
-        let file = request.into_entity(Some(created_by), id_agencia_resolved);
+        // Crear entidad de dominio con id_entidad resuelto
+        let file = request.into_entity(Some(created_by), id_entidad_resolved);
         
         // Persistir el file
         let created = self.file_repository.create(&file).await?;
@@ -522,7 +522,7 @@ impl FileService {
     #[instrument(skip(self))]
     pub async fn list_files_by_agencia(&self, agencia_id: i32) -> Result<Vec<FileResponse>, ApplicationError> {
         let files = self.file_repository
-            .find_by_agencia(agencia_id)
+            .find_by_entidad(agencia_id)
             .await?;
         
         // Cargar tours para cada file
@@ -594,8 +594,8 @@ impl FileService {
         if request.tours.is_some() {
             changed.push("tours".to_string());
         }
-        if request.id_agencia.as_ref().map(|a| *a != old.id_agencia).unwrap_or(false) {
-            changed.push("id_agencia".to_string());
+        if request.id_entidad.as_ref().map(|a| *a != old.id_entidad).unwrap_or(false) {
+            changed.push("id_entidad".to_string());
         }
         if request.status.as_ref().map(|s| s != &old.status).unwrap_or(false) {
             changed.push("status".to_string());
@@ -653,10 +653,10 @@ impl FileService {
         
         // 3. Obtener info de la agencia
         let agencia = self.agencia_repository
-            .find_by_id(file.id_agencia)
+            .find_by_id(file.id_entidad)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(
-                format!("Agencia {} no encontrada", file.id_agencia)
+                format!("Agencia {} no encontrada", file.id_entidad)
             ))?;
         
         // 4. Calcular montos y fechas
@@ -753,7 +753,8 @@ impl FileService {
 
             let new_pago = NewPagoFileModel {
                 id_file: request.file_id,
-                id_agencia: file.id_agencia,
+                id_entidad: file.id_entidad,
+                entidad: file.entidad.as_deref(),
                 monto_total: monto_tour,
                 monto_pagado: zero.clone(),
                 estado: "pendiente",
@@ -876,7 +877,7 @@ impl FileService {
         // Solo notificará a los usuarios AgenciasContador que pertenezcan a ESTA agencia
         if let Err(e) = self.notification_service.notify_roles_for_entity(
             vec![UserRole::AgenciasContador, UserRole::AgenciasGerente],
-            file.id_agencia, // Filtrar por la agencia del file
+            file.id_entidad, // Filtrar por la agencia del file
             "💰 Nuevo pago pendiente",
             &format!(
                 "Se ha confirmado la reserva #{} con un monto de S/ {}.\nFecha de vencimiento: {}\nPor favor, gestione el pago.",

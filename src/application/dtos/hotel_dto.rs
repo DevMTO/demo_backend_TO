@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 use ts_rs::TS;
 use validator::Validate;
 
@@ -18,9 +17,6 @@ pub struct HotelResponse {
     pub correo: Option<String>,
     pub direccion: Option<String>,
     pub ciudad: Option<String>,
-    #[ts(type = "object | null")]
-    pub media: Option<JsonValue>,
-    pub encargado: Option<i32>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -37,8 +33,6 @@ impl From<Hotel> for HotelResponse {
             correo: h.correo,
             direccion: h.direccion,
             ciudad: h.ciudad,
-            media: h.media,
-            encargado: h.encargado,
             is_active: h.is_active,
             created_at: h.created_at,
             updated_at: h.updated_at,
@@ -59,10 +53,6 @@ pub struct HotelListItemDto {
     pub correo: Option<String>,
     pub direccion: Option<String>,
     pub ciudad: Option<String>,
-    #[ts(type = "object | null")]
-    pub media: Option<JsonValue>,
-    pub encargado: Option<i32>,
-    pub encargado_nombre: Option<String>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -90,11 +80,6 @@ pub struct CreateHotelRequest {
 
     #[validate(length(max = 100))]
     pub ciudad: Option<String>,
-
-    #[ts(type = "object | null")]
-    pub media: Option<JsonValue>,
-
-    pub encargado: Option<i32>,
 }
 
 impl CreateHotelRequest {
@@ -109,8 +94,6 @@ impl CreateHotelRequest {
             correo: self.correo,
             direccion: self.direccion,
             ciudad: self.ciudad,
-            media: self.media,
-            encargado: self.encargado,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -143,11 +126,6 @@ pub struct UpdateHotelRequest {
     #[validate(length(max = 100))]
     pub ciudad: Option<String>,
 
-    #[ts(type = "object | null | undefined")]
-    pub media: Option<JsonValue>,
-
-    pub encargado: Option<i32>,
-
     pub is_active: Option<bool>,
 }
 
@@ -174,10 +152,6 @@ impl UpdateHotelRequest {
         if let Some(ciudad) = self.ciudad {
             hotel.ciudad = Some(ciudad);
         }
-        if let Some(media) = self.media {
-            hotel.media = Some(media);
-        }
-        hotel.encargado = self.encargado;
         if let Some(is_active) = self.is_active {
             hotel.is_active = is_active;
         }

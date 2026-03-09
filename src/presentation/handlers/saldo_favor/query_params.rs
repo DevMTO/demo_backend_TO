@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct SaldoFavorQueryParams {
-    pub id_agencia: Option<i32>,
+    pub id_entidad: Option<i32>,
     #[serde(default = "default_page")]
     pub page: i64,
     #[serde(default = "default_page_size", alias = "per_page")]

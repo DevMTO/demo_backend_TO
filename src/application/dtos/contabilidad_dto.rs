@@ -19,8 +19,8 @@ use ts_rs::TS;
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct AgenciaContabilidadDashboard {
-    /// ID de la agencia
-    pub id_agencia: i32,
+    /// ID de la entidad (agencia/hotel)
+    pub id_entidad: i32,
     /// Nombre de la agencia
     pub nombre_agencia: String,
     /// Total de files generados
@@ -56,7 +56,7 @@ pub struct PagoFileResponse {
     pub id: i32,
     pub id_file: i32,
     pub file_code: Option<String>,
-    pub id_agencia: i32,
+    pub id_entidad: i32,
     pub agencia_nombre: Option<String>,
     #[ts(type = "string")]
     pub monto_total: BigDecimal,
@@ -252,7 +252,7 @@ pub struct CancelacionResponse {
     pub id: i32,
     pub id_file: i32,
     pub file_code: Option<String>,
-    pub id_agencia: i32,
+    pub id_entidad: i32,
     pub agencia_nombre: Option<String>,
     pub id_file_tour: Option<i32>,
     pub tour_nombre: Option<String>,
@@ -299,7 +299,7 @@ pub struct NoShowResponse {
     pub id: i32,
     pub id_file: i32,
     pub file_code: Option<String>,
-    pub id_agencia: i32,
+    pub id_entidad: i32,
     pub agencia_nombre: Option<String>,
     pub id_file_tour: Option<i32>,
     pub tour_nombre: Option<String>,
@@ -350,7 +350,7 @@ pub struct AutorizarNoShowSaldoRequest {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct SaldoFavorResumen {
-    pub id_agencia: i32,
+    pub id_entidad: i32,
     pub nombre_agencia: String,
     #[ts(type = "number")]
     pub saldo_generado: f64,
@@ -370,7 +370,7 @@ pub struct MovimientoSaldoResponse {
     pub id: i32,
     pub id_file: i32,
     pub file_code: Option<String>,
-    pub id_agencia: i32,
+    pub id_entidad: i32,
     pub id_file_tour: Option<i32>,
     pub tipo: String,
     pub concepto: String,
@@ -396,7 +396,7 @@ pub struct SaldoFavorDashboard {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UsarSaldoFavorRequest {
-    pub id_agencia: i32,
+    pub id_entidad: i32,
     pub id_file: i32,
     #[ts(type = "number")]
     pub monto: f64,

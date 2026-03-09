@@ -21,6 +21,7 @@ pub struct CadenaHoteleraModel {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub paleta_colores: Option<JsonValue>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -34,6 +35,7 @@ pub struct NewCadenaHoteleraModel<'a> {
     pub is_active: bool,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub paleta_colores: Option<JsonValue>,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -46,6 +48,7 @@ pub struct UpdateCadenaHoteleraModel<'a> {
     pub encargado: Option<Option<i32>>,
     pub is_active: Option<bool>,
     pub updated_by: Option<i32>,
+    pub paleta_colores: Option<Option<JsonValue>>,
 }
 
 impl From<CadenaHoteleraModel> for CadenaHotelera {
@@ -62,6 +65,7 @@ impl From<CadenaHoteleraModel> for CadenaHotelera {
             updated_at: model.updated_at,
             created_by: model.created_by,
             updated_by: model.updated_by,
+            paleta_colores: model.paleta_colores,
         }
     }
 }
@@ -77,6 +81,7 @@ impl<'a> From<&'a CadenaHotelera> for NewCadenaHoteleraModel<'a> {
             is_active: c.is_active,
             created_by: c.created_by,
             updated_by: c.updated_by,
+            paleta_colores: c.paleta_colores.clone(),
         }
     }
 }

@@ -95,16 +95,16 @@ impl ContabilidadService {
 
     /// Obtiene el dashboard de contabilidad para una agencia
     #[instrument(skip(self))]
-    pub async fn get_agencia_dashboard(&self, id_agencia: i32) -> Result<AgenciaContabilidadDashboard, ApplicationError> {
+    pub async fn get_agencia_dashboard(&self, id_entidad: i32) -> Result<AgenciaContabilidadDashboard, ApplicationError> {
         // Verificar que la agencia existe
         let agencia = self.agencia_repository
-            .find_by_id(id_agencia)
+            .find_by_id(id_entidad)
             .await?
-            .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id_agencia)))?;
+            .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id_entidad)))?;
         
         // Obtener todos los pagos de files de esta agencia
         let all_pagos = self.pago_file_repository
-            .find_by_agencia(id_agencia, 1000, 0)
+            .find_by_entidad(id_entidad, 1000, 0)
             .await?;
         
         // Excluir pagos de files cancelados/no_show y registros que no sean deuda/pago
@@ -189,7 +189,7 @@ impl ContabilidadService {
         let monto_pendiente = &global_monto_total - &global_monto_pagado;
         
         Ok(AgenciaContabilidadDashboard {
-            id_agencia,
+            id_entidad,
             nombre_agencia: agencia.nombre,
             total_files: file_groups.len() as i32,
             monto_total_files: global_monto_total,
@@ -210,7 +210,7 @@ impl ContabilidadService {
     #[instrument(skip(self))]
     pub async fn list_pagos_files(
         &self,
-        id_agencia: Option<i32>,
+        id_entidad: Option<i32>,
         estado: Option<&str>,
         fecha_desde: Option<NaiveDate>,
         fecha_hasta: Option<NaiveDate>,
@@ -218,11 +218,11 @@ impl ContabilidadService {
         offset: i64,
     ) -> Result<(Vec<PagoFileResponse>, i64), ApplicationError> {
         let pagos = self.pago_file_repository
-            .find_filtered(id_agencia, estado, fecha_desde, fecha_hasta, limit, offset)
+            .find_filtered(id_entidad, estado, fecha_desde, fecha_hasta, limit, offset)
             .await?;
 
         let total = self.pago_file_repository
-            .count_filtered(id_agencia, estado, fecha_desde, fecha_hasta)
+            .count_filtered(id_entidad, estado, fecha_desde, fecha_hasta)
             .await?;
 
         // Group pagos by file to calculate cumulative monto_pagado per file
@@ -271,7 +271,7 @@ impl ContabilidadService {
 
         let mut responses = Vec::new();
         for p in pagos {
-            let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(p.id_agencia).await {
+            let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(p.id_entidad).await {
                 Some(agencia.nombre)
             } else {
                 None
@@ -329,7 +329,7 @@ impl ContabilidadService {
             .ok_or_else(|| ApplicationError::NotFound(format!("Pago {} no encontrado", request.id_pago_file)))?;
             
         let id_file = pago_original.id_file;
-        let id_agencia = pago_original.id_agencia;
+        let id_entidad = pago_original.id_entidad;
 
         // Guard: no permitir pagos en registros cancelados o no_show
         if pago_original.estado == "cancelado" || pago_original.estado == "no_show" {
@@ -469,7 +469,8 @@ impl ContabilidadService {
                     let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
                     let new_pago = NewPagoFileModel {
                         id_file,
-                        id_agencia,
+                        id_entidad,
+                        entidad: None,
                         monto_total: d.monto_total.clone(),
                         monto_pagado: a_pagar.clone(),
                         estado,
@@ -548,7 +549,8 @@ impl ContabilidadService {
                 let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
                 let new_pago = NewPagoFileModel {
                     id_file,
-                    id_agencia,
+                    id_entidad,
+                    entidad: None,
                     monto_total: d.monto_total.clone(),
                     monto_pagado: a_pagar.clone(),
                     estado,
@@ -671,7 +673,7 @@ impl ContabilidadService {
             id_file, request.monto, nuevo_total_pagado, monto_total_file);
 
         // 7. Preparar respuesta y notificaciones
-        let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(id_agencia).await {
+        let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(id_entidad).await {
             Some(agencia.nombre.clone())
         } else {
             None
@@ -803,7 +805,7 @@ impl ContabilidadService {
             warn!("Pago de file {} rechazado por verificador {}", request.id_pago_file, verificado_por);
         }
         
-        let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(pago_actualizado.id_agencia).await {
+        let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(pago_actualizado.id_entidad).await {
             Some(agencia.nombre)
         } else {
             None
@@ -1096,7 +1098,7 @@ impl ContabilidadService {
             id: p.id,
             id_file: p.id_file,
             file_code,
-            id_agencia: p.id_agencia,
+            id_entidad: p.id_entidad,
             agencia_nombre,
             monto_total: p.monto_total,
             monto_pagado: p.monto_pagado,

@@ -106,6 +106,7 @@ impl CadenaHoteleraRepositoryPort for PostgresCadenaHoteleraRepository {
             media: Some(cadena.media.clone()),
             encargado: Some(cadena.encargado),
             is_active: Some(cadena.is_active),
+            paleta_colores: Some(cadena.paleta_colores.clone()),
             updated_by: cadena.updated_by,
         };
         let result = diesel::update(cadenas_hoteleras::table.filter(cadenas_hoteleras::id.eq(cadena.id)))
@@ -246,6 +247,7 @@ impl CadenaHoteleraRepositoryPort for PostgresCadenaHoteleraRepository {
                     encargado: cadena.encargado,
                     encargado_nombre,
                     is_active: cadena.is_active,
+                    paleta_colores: cadena.paleta_colores,
                     total_hoteles,
                     created_at: cadena.created_at,
                     updated_at: cadena.updated_at,

@@ -332,11 +332,10 @@ impl HotelService {
         &self,
         user_role: &UserRole,
         id_entidad: Option<i32>,
-        id_persona: Option<i32>,
         username: &str,
     ) -> Result<HotelResponse, ApplicationError> {
-        info!("Buscando hotel para usuario '{}' (id_persona: {:?}, id_entidad: {:?}, role: {:?})", 
-            username, id_persona, id_entidad, user_role);
+        info!("Buscando hotel para usuario '{}' (id_entidad: {:?}, role: {:?})", 
+            username, id_entidad, user_role);
         
         let mut hotel: Option<Hotel> = None;
         
@@ -349,17 +348,6 @@ impl HotelService {
                     .await?;
                 if hotel.is_some() {
                     info!("Hotel encontrado por id_entidad: {}", entity_id);
-                }
-            }
-        }
-        
-        if hotel.is_none() {
-            if let Some(persona_id) = id_persona {
-                hotel = self.hotel_repository
-                    .find_by_encargado(persona_id)
-                    .await?;
-                if hotel.is_some() {
-                    info!("Hotel encontrado por encargado (persona_id: {})", persona_id);
                 }
             }
         }
@@ -396,12 +384,6 @@ impl HotelService {
         }
         if request.ciudad.as_ref().map(|c| Some(c.clone()) != old.ciudad).unwrap_or(false) {
             changed.push("ciudad".to_string());
-        }
-        if request.encargado.is_some() && request.encargado != old.encargado {
-            changed.push("encargado".to_string());
-        }
-        if request.media.is_some() {
-            changed.push("media".to_string());
         }
         if request.is_active.as_ref().map(|a| *a != old.is_active).unwrap_or(false) {
             changed.push("is_active".to_string());

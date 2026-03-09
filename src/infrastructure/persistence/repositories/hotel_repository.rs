@@ -10,7 +10,7 @@ use crate::domain::{entities::Hotel, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
     models::{HotelModel, NewHotelModel, UpdateHotelModel},
-    schema::{hoteles, cadenas_hoteleras, personas},
+    schema::{hoteles, cadenas_hoteleras},
 };
 
 pub struct PostgresHotelRepository {
@@ -83,19 +83,6 @@ impl HotelRepositoryPort for PostgresHotelRepository {
         Ok(None)
     }
 
-    #[instrument(skip(self))]
-    async fn find_by_encargado(&self, persona_id: i32) -> Result<Option<Hotel>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        let result = hoteles::table
-            .filter(hoteles::encargado.eq(Some(persona_id)))
-            .filter(hoteles::is_active.eq(true))
-            .first::<HotelModel>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(result.map(Into::into))
-    }
-
     #[instrument(skip(self, hotel))]
     async fn update(&self, hotel: &Hotel) -> Result<Hotel, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
@@ -107,8 +94,6 @@ impl HotelRepositoryPort for PostgresHotelRepository {
             correo: Some(hotel.correo.as_deref()),
             direccion: Some(hotel.direccion.as_deref()),
             ciudad: Some(hotel.ciudad.as_deref()),
-            media: Some(hotel.media.clone()),
-            encargado: Some(hotel.encargado),
             is_active: Some(hotel.is_active),
             updated_by: hotel.updated_by,
         };
@@ -225,13 +210,11 @@ impl HotelRepositoryPort for PostgresHotelRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
 
-        let results: Vec<(HotelModel, String, Option<(String, String)>)> = hoteles::table
+        let results: Vec<(HotelModel, String)> = hoteles::table
             .inner_join(cadenas_hoteleras::table.on(hoteles::id_cadena.eq(cadenas_hoteleras::id)))
-            .left_join(personas::table.on(hoteles::encargado.eq(personas::id.nullable())))
             .select((
                 HotelModel::as_select(),
                 cadenas_hoteleras::nombre,
-                (personas::nombre, personas::apellidos).nullable(),
             ))
             .order(hoteles::created_at.desc())
             .limit(limit)
@@ -242,11 +225,7 @@ impl HotelRepositoryPort for PostgresHotelRepository {
 
         let items: Vec<crate::application::dtos::HotelListItemDto> = results
             .into_iter()
-            .map(|(hotel, cadena_nombre, persona_data)| {
-                let encargado_nombre = persona_data.map(|(nombre, apellidos)| {
-                    format!("{} {}", nombre, apellidos)
-                });
-
+            .map(|(hotel, cadena_nombre)| {
                 crate::application::dtos::HotelListItemDto {
                     id: hotel.id,
                     id_cadena: hotel.id_cadena,
@@ -257,9 +236,6 @@ impl HotelRepositoryPort for PostgresHotelRepository {
                     correo: hotel.correo,
                     direccion: hotel.direccion,
                     ciudad: hotel.ciudad,
-                    media: hotel.media,
-                    encargado: hotel.encargado,
-                    encargado_nombre,
                     is_active: hotel.is_active,
                     created_at: hotel.created_at,
                     updated_at: hotel.updated_at,

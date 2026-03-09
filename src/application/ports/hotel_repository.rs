@@ -7,7 +7,6 @@ use crate::application::dtos::HotelListItemDto;
 pub trait HotelRepositoryPort: Send + Sync {
     async fn create(&self, hotel: &Hotel) -> Result<Hotel, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<Hotel>, ApplicationError>;
-    async fn find_by_encargado(&self, persona_id: i32) -> Result<Option<Hotel>, ApplicationError>;
     async fn update(&self, hotel: &Hotel) -> Result<Hotel, ApplicationError>;
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;

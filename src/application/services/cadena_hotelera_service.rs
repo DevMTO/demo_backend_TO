@@ -357,6 +357,9 @@ impl CadenaHoteleraService {
         if request.is_active.as_ref().map(|a| *a != old.is_active).unwrap_or(false) {
             changed.push("is_active".to_string());
         }
+        if request.paleta_colores.is_some() {
+            changed.push("paleta_colores".to_string());
+        }
         
         changed
     }

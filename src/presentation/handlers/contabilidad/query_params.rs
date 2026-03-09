@@ -5,7 +5,7 @@ use serde::Deserialize;
 /// Parametros para listar pagos de files
 #[derive(Debug, Deserialize)]
 pub struct PagosFilesQueryParams {
-    pub id_agencia: Option<i32>,
+    pub id_entidad: Option<i32>,
     pub estado: Option<String>,
     pub fecha_desde: Option<String>,
     pub fecha_hasta: Option<String>,

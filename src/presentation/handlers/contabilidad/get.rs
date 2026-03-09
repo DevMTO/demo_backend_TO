@@ -21,25 +21,25 @@ fn is_admin_or_operador(role: &UserRole) -> bool {
 }
 
 /// Helper para verificar si el usuario es agencia/contador de agencia y pertenece a esa agencia
-fn is_own_agencia(auth: &AuthUser, id_agencia: i32) -> bool {
+fn is_own_agencia(auth: &AuthUser, id_entidad: i32) -> bool {
     matches!(auth.user.role, UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente)
-        && auth.user.id_entidad == Some(id_agencia)
+        && auth.user.id_entidad == Some(id_entidad)
 }
 
 // ============================================================================
 // DASHBOARD HANDLERS
 // ============================================================================
 
-/// GET /api/contabilidad/dashboard/agencia/:id_agencia
+/// GET /api/contabilidad/dashboard/agencia/:id_entidad
 /// Obtiene el dashboard de contabilidad para una agencia especifica
 #[instrument(skip(state, auth))]
 pub async fn get_agencia_dashboard(
     State(state): State<AppState>,
     auth: AuthUser,
-    Path(id_agencia): Path<i32>,
+    Path(id_entidad): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let is_admin = is_admin_or_operador(&auth.user.role);
-    let is_own = is_own_agencia(&auth, id_agencia);
+    let is_own = is_own_agencia(&auth, id_entidad);
 
     if !is_admin && !is_own {
         return Err(ApplicationError::Forbidden(
@@ -50,7 +50,7 @@ pub async fn get_agencia_dashboard(
     let dashboard = state
         .container
         .contabilidad_service
-        .get_agencia_dashboard(id_agencia)
+        .get_agencia_dashboard(id_entidad)
         .await?;
 
     Ok(json_ok(dashboard))
@@ -68,8 +68,8 @@ pub async fn list_pagos_files(
     auth: AuthUser,
     Query(params): Query<PagosFilesQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let id_agencia_filter = if is_admin_or_operador(&auth.user.role) {
-        params.id_agencia
+    let id_entidad_filter = if is_admin_or_operador(&auth.user.role) {
+        params.id_entidad
     } else if auth.user.role == UserRole::Agencias || auth.user.role == UserRole::AgenciasGerente {
         auth.user.id_entidad
     } else {
@@ -93,7 +93,7 @@ pub async fn list_pagos_files(
         .container
         .contabilidad_service
         .list_pagos_files(
-            id_agencia_filter,
+            id_entidad_filter,
             params.estado.as_deref(),
             fecha_desde,
             fecha_hasta,

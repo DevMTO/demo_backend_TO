@@ -11,7 +11,6 @@ use crate::infrastructure::persistence::schema::files;
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct FileModel {
     pub id: i32,
-    pub id_agencia: i32,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
     pub notas: Option<String>,
@@ -26,13 +25,15 @@ pub struct FileModel {
     pub nro_pasajeros: i32,
     pub file_code: Option<String>,
     pub deadline_confirmacion: Option<DateTime<Utc>>,
-    // Campos eliminados: lugar_recojo, hora_recojo, turno_tour (ahora están en file_tours)
+    pub id_entidad: i32,
+    pub entidad: Option<String>,
 }
 
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = files)]
 pub struct NewFileModel<'a> {
-    pub id_agencia: i32,
+    pub id_entidad: i32,
+    pub entidad: Option<&'a str>,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
     pub notas: Option<&'a str>,
@@ -51,7 +52,8 @@ pub struct NewFileModel<'a> {
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = files)]
 pub struct UpdateFileModel<'a> {
-    pub id_agencia: Option<i32>,
+    pub id_entidad: Option<i32>,
+    pub entidad: Option<Option<&'a str>>,
     pub fecha_inicio: Option<NaiveDate>,
     pub fecha_fin: Option<NaiveDate>,
     pub notas: Option<Option<&'a str>>,
@@ -70,7 +72,8 @@ impl From<FileModel> for File {
     fn from(model: FileModel) -> Self {
         File {
             id: model.id,
-            id_agencia: model.id_agencia,
+            id_entidad: model.id_entidad,
+            entidad: model.entidad,
             fecha_inicio: model.fecha_inicio,
             fecha_fin: model.fecha_fin,
             notas: model.notas,
@@ -92,7 +95,8 @@ impl From<FileModel> for File {
 impl<'a> From<&'a File> for NewFileModel<'a> {
     fn from(f: &'a File) -> Self {
         NewFileModel {
-            id_agencia: f.id_agencia,
+            id_entidad: f.id_entidad,
+            entidad: f.entidad.as_deref(),
             fecha_inicio: f.fecha_inicio,
             fecha_fin: f.fecha_fin,
             notas: f.notas.as_deref(),

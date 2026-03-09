@@ -47,7 +47,6 @@ pub async fn update_mi_hotel(
         .get_mi_hotel(
             &auth.user.role,
             auth.user.id_entidad,
-            auth.user.id_persona,
             &auth.user.username,
         )
         .await?;
@@ -61,8 +60,6 @@ pub async fn update_mi_hotel(
         correo: request.correo,
         direccion: request.direccion,
         ciudad: request.ciudad,
-        media: request.media,
-        encargado: None,
         is_active: None,
     };
     

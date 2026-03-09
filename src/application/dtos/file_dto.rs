@@ -96,7 +96,8 @@ pub struct FileResponse {
     /// ID del tour principal (primer tour por orden) - para compatibilidad
     #[ts(type = "number | null")]
     pub id_tour: Option<i32>,
-    pub id_agencia: i32,
+    pub id_entidad: i32,
+    pub entidad: Option<String>,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
     // Nota: lugar_recojo, hora_recojo, turno_tour ahora están en cada tour (FileTourDto)
@@ -126,7 +127,8 @@ impl FileResponse {
             id: f.id,
             tours,
             id_tour,
-            id_agencia: f.id_agencia,
+            id_entidad: f.id_entidad,
+            entidad: f.entidad,
             fecha_inicio: f.fecha_inicio,
             fecha_fin: f.fecha_fin,
             // lugar_recojo, hora_recojo, turno_tour ahora están en FileTourDto
@@ -165,9 +167,9 @@ pub struct CreateFileRequest {
     /// Si se especifica, se ignora si también se especifica `tours`
     pub id_tour: Option<i32>,
     
-    /// ID de la agencia - Opcional si el usuario es rol "agencias" (se auto-asigna)
+    /// ID de la entidad (agencia u hotel) - Opcional si el usuario tiene rol vinculado (se auto-asigna)
     /// Requerido si el usuario es superadmin/admin
-    pub id_agencia: Option<i32>,
+    pub id_entidad: Option<i32>,
     
     pub fecha_inicio: NaiveDate,
     
@@ -220,12 +222,13 @@ impl CreateFileRequest {
     }
     
     /// Convierte el request en una entidad File
-    /// `id_agencia_resolved` es el ID de agencia ya resuelto (puede venir del request o del usuario)
-    pub fn into_entity(self, created_by: Option<i32>, id_agencia_resolved: i32) -> File {
+    /// `id_entidad_resolved` es el ID de entidad ya resuelto (puede venir del request o del usuario)
+    pub fn into_entity(self, created_by: Option<i32>, id_entidad_resolved: i32) -> File {
         let now = Utc::now();
         File {
             id: 0,
-            id_agencia: id_agencia_resolved,
+            id_entidad: id_entidad_resolved,
+            entidad: None,
             fecha_inicio: self.fecha_inicio,
             fecha_fin: self.fecha_fin,
             // lugar_recojo, hora_recojo, turno_tour ahora están en file_tours
@@ -257,7 +260,7 @@ pub struct UpdateFileRequest {
     /// ID de tour único (para compatibilidad) - se ignora si se especifica `tours`
     pub id_tour: Option<i32>,
     
-    pub id_agencia: Option<i32>,
+    pub id_entidad: Option<i32>,
     
     pub fecha_inicio: Option<NaiveDate>,
     
@@ -315,8 +318,8 @@ impl UpdateFileRequest {
     
     pub fn apply_to(self, mut file: File, updated_by: Option<i32>) -> File {
         // Nota: tours se manejan aparte en el servicio
-        if let Some(id_agencia) = self.id_agencia {
-            file.id_agencia = id_agencia;
+        if let Some(id_entidad) = self.id_entidad {
+            file.id_entidad = id_entidad;
         }
         if let Some(fecha_inicio) = self.fecha_inicio {
             file.fecha_inicio = fecha_inicio;

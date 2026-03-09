@@ -15,6 +15,7 @@ pub struct CadenaHotelera {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
+    pub paleta_colores: Option<JsonValue>,
 }
 
 impl CadenaHotelera {
@@ -32,6 +33,7 @@ impl CadenaHotelera {
             updated_at: now,
             created_by: None,
             updated_by: None,
+            paleta_colores: None,
         }
     }
 }

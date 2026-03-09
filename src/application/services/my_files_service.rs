@@ -83,7 +83,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             INNER JOIN file_tours ft ON ft.id = fg.id_file_tour
             INNER JOIN files f ON f.id = ft.id_file
             INNER JOIN tours t ON t.id = ft.id_tour
-            INNER JOIN agencias a ON a.id = f.id_agencia
+            INNER JOIN agencias a ON a.id = f.id_entidad
             WHERE g.id_persona = $1
               AND f.is_active = true
             ORDER BY f.fecha_inicio DESC, ft.hora_recojo ASC
@@ -231,7 +231,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             INNER JOIN file_tours ft ON ft.id = fv.id_file_tour
             INNER JOIN files f ON f.id = ft.id_file
             INNER JOIN tours t ON t.id = ft.id_tour
-            INNER JOIN agencias a ON a.id = f.id_agencia
+            INNER JOIN agencias a ON a.id = f.id_entidad
             WHERE c.id_persona = $1
               AND f.is_active = true
             ORDER BY f.fecha_inicio DESC, ft.hora_recojo ASC
@@ -359,7 +359,7 @@ impl MyFilesRepositoryPort for PostgresMyFilesRepository {
             INNER JOIN file_tours ft ON ft.id = fr.id_file_tour
             INNER JOIN files f ON f.id = ft.id_file
             INNER JOIN tours t ON t.id = ft.id_tour
-            INNER JOIN agencias a ON a.id = f.id_agencia
+            INNER JOIN agencias a ON a.id = f.id_entidad
             WHERE fr.id_restaurante = $1
               AND f.is_active = true
             ORDER BY f.fecha_inicio DESC, ft.orden ASC

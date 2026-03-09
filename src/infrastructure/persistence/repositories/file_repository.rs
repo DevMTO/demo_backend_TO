@@ -36,7 +36,7 @@ impl FileRepositoryPort for PostgresFileRepository {
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;
         
-        info!("File creado: agencia={} (id: {})", result.id_agencia, result.id);
+        info!("File creado: agencia={} (id: {})", result.id_entidad, result.id);
         Ok(result.into())
     }
     
@@ -59,7 +59,8 @@ impl FileRepositoryPort for PostgresFileRepository {
         
         let changes = UpdateFileModel {
             // id_tour eliminado - ahora en file_tours
-            id_agencia: Some(file.id_agencia),
+            id_entidad: Some(file.id_entidad),
+            entidad: Some(file.entidad.as_deref()),
             fecha_inicio: Some(file.fecha_inicio),
             fecha_fin: Some(file.fecha_fin),
             // lugar_recojo, hora_recojo, turno_tour ahora están en file_tours
@@ -154,11 +155,11 @@ impl FileRepositoryPort for PostgresFileRepository {
         Ok(PaginatedResult::new(data, total, limit, offset))
     }
     
-    async fn find_by_agencia(&self, id_agencia: i32) -> Result<Vec<File>, ApplicationError> {
+    async fn find_by_entidad(&self, id_entidad: i32) -> Result<Vec<File>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         
         let results = files::table
-            .filter(files::id_agencia.eq(id_agencia))
+            .filter(files::id_entidad.eq(id_entidad))
             .order(files::fecha_inicio.desc())
             .select(FileModel::as_select())
             .load(&mut conn)

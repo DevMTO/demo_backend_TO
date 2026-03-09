@@ -66,7 +66,8 @@ impl std::str::FromStr for StatusFile {
 pub struct File {
     pub id: i32,
     // id_tour eliminado - ahora los tours están en file_tours (relación N:M)
-    pub id_agencia: i32,
+    pub id_entidad: i32,
+    pub entidad: Option<String>,
     pub fecha_inicio: NaiveDate,
     pub fecha_fin: NaiveDate,
     pub notas: Option<String>,
@@ -84,12 +85,13 @@ pub struct File {
 }
 
 impl File {
-    pub fn new(id_agencia: i32, fecha_inicio: NaiveDate, fecha_fin: NaiveDate) -> Self {
+    pub fn new(id_entidad: i32, fecha_inicio: NaiveDate, fecha_fin: NaiveDate) -> Self {
         let now = Utc::now();
         Self {
             id: 0, // Será asignado por la DB (SERIAL)
             // tours se asignan aparte en file_tours
-            id_agencia,
+            id_entidad,
+            entidad: None,
             fecha_inicio,
             fecha_fin,
             notas: None,

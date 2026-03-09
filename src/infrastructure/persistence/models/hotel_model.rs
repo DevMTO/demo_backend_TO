@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 
 use crate::domain::entities::Hotel;
 use crate::infrastructure::persistence::schema::hoteles;
@@ -18,8 +17,6 @@ pub struct HotelModel {
     pub correo: Option<String>,
     pub direccion: Option<String>,
     pub ciudad: Option<String>,
-    pub media: Option<JsonValue>,
-    pub encargado: Option<i32>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -37,8 +34,6 @@ pub struct NewHotelModel<'a> {
     pub correo: Option<&'a str>,
     pub direccion: Option<&'a str>,
     pub ciudad: Option<&'a str>,
-    pub media: Option<JsonValue>,
-    pub encargado: Option<i32>,
     pub is_active: bool,
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
@@ -54,8 +49,6 @@ pub struct UpdateHotelModel<'a> {
     pub correo: Option<Option<&'a str>>,
     pub direccion: Option<Option<&'a str>>,
     pub ciudad: Option<Option<&'a str>>,
-    pub media: Option<Option<JsonValue>>,
-    pub encargado: Option<Option<i32>>,
     pub is_active: Option<bool>,
     pub updated_by: Option<i32>,
 }
@@ -71,8 +64,6 @@ impl From<HotelModel> for Hotel {
             correo: model.correo,
             direccion: model.direccion,
             ciudad: model.ciudad,
-            media: model.media,
-            encargado: model.encargado,
             is_active: model.is_active,
             created_at: model.created_at,
             updated_at: model.updated_at,
@@ -92,8 +83,6 @@ impl<'a> From<&'a Hotel> for NewHotelModel<'a> {
             correo: h.correo.as_deref(),
             direccion: h.direccion.as_deref(),
             ciudad: h.ciudad.as_deref(),
-            media: h.media.clone(),
-            encargado: h.encargado,
             is_active: h.is_active,
             created_by: h.created_by,
             updated_by: h.updated_by,

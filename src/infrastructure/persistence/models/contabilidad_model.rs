@@ -21,7 +21,6 @@ use crate::infrastructure::persistence::schema::{pagos_files, pagos_proveedores}
 pub struct PagoFileModel {
     pub id: i32,
     pub id_file: i32,
-    pub id_agencia: i32,
     pub monto_total: BigDecimal,
     pub monto_pagado: BigDecimal,
     pub estado: String,
@@ -34,26 +33,25 @@ pub struct PagoFileModel {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<i32>,
-    // Nuevos campos — simplificación contabilidad
     pub id_file_tour: Option<i32>,
     pub tipo_registro: String,
     pub monto_saldo_favor: Option<BigDecimal>,
     pub saldo_autorizado: bool,
     pub saldo_autorizado_por: Option<i32>,
     pub saldo_autorizado_at: Option<DateTime<Utc>>,
-    /// Indica si este registro cubre pago de entradas
     pub entradas: bool,
-    /// Costo de entradas del file_tour (solo cuando entradas = true)
     pub entrada_precio: Option<BigDecimal>,
-    /// Número de cuota (para indexar pagos de un file_tour)
     pub cuota: Option<i16>,
+    pub id_entidad: i32,
+    pub entidad: Option<String>,
 }
 
 #[derive(Debug, Insertable)]
 #[diesel(table_name = pagos_files)]
 pub struct NewPagoFileModel<'a> {
     pub id_file: i32,
-    pub id_agencia: i32,
+    pub id_entidad: i32,
+    pub entidad: Option<&'a str>,
     pub monto_total: BigDecimal,
     pub monto_pagado: BigDecimal,
     pub estado: &'a str,

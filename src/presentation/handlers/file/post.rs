@@ -13,7 +13,7 @@ use crate::presentation::handlers::common::{json_created, json_ok};
 /// Crear nuevo file
 /// 
 /// Si el usuario tiene rol "agencias", se auto-asigna su agencia (id_entidad).
-/// Si el usuario es superadmin/admin, debe proporcionar id_agencia en el request.
+/// Si el usuario es superadmin/admin, debe proporcionar id_entidad en el request.
 #[instrument(skip(state, auth, request))]
 pub async fn create_file(
     State(state): State<AppState>, 

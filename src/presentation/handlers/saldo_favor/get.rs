@@ -20,24 +20,24 @@ fn is_admin(role: &UserRole) -> bool {
 }
 
 /// Helper: ¿es agencia y pertenece a esta agencia?
-fn is_own_agencia(auth: &AuthUser, id_agencia: i32) -> bool {
+fn is_own_agencia(auth: &AuthUser, id_entidad: i32) -> bool {
     matches!(auth.user.role, UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente)
-        && auth.user.id_entidad == Some(id_agencia)
+        && auth.user.id_entidad == Some(id_entidad)
 }
 
 // ============================================================================
 // RESUMEN Y DASHBOARD
 // ============================================================================
 
-/// GET /api/contabilidad/saldos-favor/resumen/{id_agencia}
+/// GET /api/contabilidad/saldos-favor/resumen/{id_entidad}
 /// Obtiene el resumen de saldo a favor de una agencia
 #[instrument(skip(state, auth))]
 pub async fn get_saldo_resumen(
     State(state): State<AppState>,
     auth: AuthUser,
-    Path(id_agencia): Path<i32>,
+    Path(id_entidad): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if !is_admin(&auth.user.role) && !is_own_agencia(&auth, id_agencia) {
+    if !is_admin(&auth.user.role) && !is_own_agencia(&auth, id_entidad) {
         return Err(ApplicationError::Forbidden(
             "No tienes permiso para ver este resumen".to_string(),
         ));
@@ -46,21 +46,21 @@ pub async fn get_saldo_resumen(
     let resumen = state
         .container
         .saldo_favor_service
-        .get_saldo_agencia(id_agencia)
+        .get_saldo_agencia(id_entidad)
         .await?;
 
     Ok(json_ok(resumen))
 }
 
-/// GET /api/contabilidad/saldos-favor/dashboard/{id_agencia}
+/// GET /api/contabilidad/saldos-favor/dashboard/{id_entidad}
 /// Dashboard completo de saldo a favor
 #[instrument(skip(state, auth))]
 pub async fn get_saldo_dashboard(
     State(state): State<AppState>,
     auth: AuthUser,
-    Path(id_agencia): Path<i32>,
+    Path(id_entidad): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if !is_admin(&auth.user.role) && !is_own_agencia(&auth, id_agencia) {
+    if !is_admin(&auth.user.role) && !is_own_agencia(&auth, id_entidad) {
         return Err(ApplicationError::Forbidden(
             "No tienes permiso para ver este dashboard".to_string(),
         ));
@@ -69,7 +69,7 @@ pub async fn get_saldo_dashboard(
     let dashboard = state
         .container
         .saldo_favor_service
-        .get_dashboard(id_agencia)
+        .get_dashboard(id_entidad)
         .await?;
 
     Ok(json_ok(dashboard))
@@ -109,8 +109,8 @@ pub async fn list_cancelaciones(
     auth: AuthUser,
     Query(params): Query<SaldoFavorQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let id_agencia = if is_admin(&auth.user.role) {
-        params.id_agencia
+    let id_entidad = if is_admin(&auth.user.role) {
+        params.id_entidad
     } else {
         auth.user.id_entidad
     };
@@ -119,7 +119,7 @@ pub async fn list_cancelaciones(
     let cancelaciones = state
         .container
         .saldo_favor_service
-        .list_cancelaciones(id_agencia, params.page_size, offset)
+        .list_cancelaciones(id_entidad, params.page_size, offset)
         .await?;
 
     Ok(json_ok(cancelaciones))
@@ -137,8 +137,8 @@ pub async fn list_no_shows(
     auth: AuthUser,
     Query(params): Query<SaldoFavorQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let id_agencia = if is_admin(&auth.user.role) {
-        params.id_agencia
+    let id_entidad = if is_admin(&auth.user.role) {
+        params.id_entidad
     } else {
         auth.user.id_entidad
     };
@@ -147,7 +147,7 @@ pub async fn list_no_shows(
     let no_shows = state
         .container
         .saldo_favor_service
-        .list_no_shows(id_agencia, params.page_size, offset)
+        .list_no_shows(id_entidad, params.page_size, offset)
         .await?;
 
     Ok(json_ok(no_shows))
@@ -165,8 +165,8 @@ pub async fn list_movimientos(
     auth: AuthUser,
     Query(params): Query<SaldoFavorQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let id_agencia = if is_admin(&auth.user.role) {
-        params.id_agencia
+    let id_entidad = if is_admin(&auth.user.role) {
+        params.id_entidad
     } else {
         auth.user.id_entidad
     };
@@ -175,7 +175,7 @@ pub async fn list_movimientos(
     let movimientos = state
         .container
         .saldo_favor_service
-        .list_movimientos(id_agencia, params.page_size, offset)
+        .list_movimientos(id_entidad, params.page_size, offset)
         .await?;
 
     Ok(json_ok(movimientos))

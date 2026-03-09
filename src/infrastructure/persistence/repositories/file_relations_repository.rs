@@ -703,7 +703,7 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
             INNER JOIN file_tours ft ON ft.id = fv.id_file_tour
             INNER JOIN files f ON f.id = ft.id_file
             INNER JOIN tours t ON t.id = ft.id_tour
-            INNER JOIN agencias a ON a.id = f.id_agencia
+            INNER JOIN agencias a ON a.id = f.id_entidad
             INNER JOIN vehiculos v ON v.id = fv.id_vehiculo
             LEFT JOIN conductores c ON c.id = fv.id_conductor
             LEFT JOIN personas pc ON pc.id = c.id_persona

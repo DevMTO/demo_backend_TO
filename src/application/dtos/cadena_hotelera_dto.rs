@@ -18,6 +18,8 @@ pub struct CadenaHoteleraResponse {
     pub media: Option<JsonValue>,
     pub encargado: Option<i32>,
     pub is_active: bool,
+    #[ts(type = "object | null")]
+    pub paleta_colores: Option<JsonValue>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -32,6 +34,7 @@ impl From<CadenaHotelera> for CadenaHoteleraResponse {
             media: c.media,
             encargado: c.encargado,
             is_active: c.is_active,
+            paleta_colores: c.paleta_colores,
             created_at: c.created_at,
             updated_at: c.updated_at,
         }
@@ -51,6 +54,8 @@ pub struct CadenaHoteleraListItemDto {
     pub encargado: Option<i32>,
     pub encargado_nombre: Option<String>,
     pub is_active: bool,
+    #[ts(type = "object | null")]
+    pub paleta_colores: Option<JsonValue>,
     pub total_hoteles: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -73,6 +78,9 @@ pub struct CreateCadenaHoteleraRequest {
     pub media: Option<JsonValue>,
 
     pub encargado: Option<i32>,
+
+    #[ts(type = "object | null")]
+    pub paleta_colores: Option<JsonValue>,
 }
 
 impl CreateCadenaHoteleraRequest {
@@ -90,6 +98,7 @@ impl CreateCadenaHoteleraRequest {
             updated_at: now,
             created_by,
             updated_by: created_by,
+            paleta_colores: self.paleta_colores,
         }
     }
 }
@@ -113,6 +122,9 @@ pub struct UpdateCadenaHoteleraRequest {
     pub encargado: Option<i32>,
 
     pub is_active: Option<bool>,
+
+    #[ts(type = "object | null | undefined")]
+    pub paleta_colores: Option<JsonValue>,
 }
 
 impl UpdateCadenaHoteleraRequest {
@@ -132,6 +144,9 @@ impl UpdateCadenaHoteleraRequest {
         cadena.encargado = self.encargado;
         if let Some(is_active) = self.is_active {
             cadena.is_active = is_active;
+        }
+        if let Some(paleta_colores) = self.paleta_colores {
+            cadena.paleta_colores = Some(paleta_colores);
         }
         cadena.updated_by = updated_by;
         cadena.updated_at = Utc::now();

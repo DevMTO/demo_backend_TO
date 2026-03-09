@@ -69,6 +69,7 @@ diesel::table! {
         updated_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
+        paleta_colores -> Nullable<Jsonb>,
     }
 }
 
@@ -231,7 +232,6 @@ diesel::table! {
 diesel::table! {
     files (id) {
         id -> Int4,
-        id_agencia -> Int4,
         fecha_inicio -> Date,
         fecha_fin -> Date,
         notas -> Nullable<Text>,
@@ -248,6 +248,9 @@ diesel::table! {
         #[max_length = 50]
         file_code -> Nullable<Varchar>,
         deadline_confirmacion -> Nullable<Timestamptz>,
+        id_entidad -> Int4,
+        #[max_length = 50]
+        entidad -> Nullable<Varchar>,
     }
 }
 
@@ -284,8 +287,6 @@ diesel::table! {
         direccion -> Nullable<Text>,
         #[max_length = 100]
         ciudad -> Nullable<Varchar>,
-        media -> Nullable<Jsonb>,
-        encargado -> Nullable<Int4>,
         is_active -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
@@ -335,7 +336,6 @@ diesel::table! {
     pagos_files (id) {
         id -> Int4,
         id_file -> Int4,
-        id_agencia -> Int4,
         monto_total -> Numeric,
         monto_pagado -> Numeric,
         #[max_length = 30]
@@ -359,6 +359,9 @@ diesel::table! {
         entradas -> Bool,
         entrada_precio -> Nullable<Numeric>,
         cuota -> Nullable<Int2>,
+        id_entidad -> Int4,
+        #[max_length = 50]
+        entidad -> Nullable<Varchar>,
     }
 }
 
@@ -583,13 +586,10 @@ diesel::joinable!(file_vehiculos -> conductores (id_conductor));
 diesel::joinable!(file_vehiculos -> file_tours (id_file_tour));
 diesel::joinable!(file_vehiculos -> users (created_by));
 diesel::joinable!(file_vehiculos -> vehiculos (id_vehiculo));
-diesel::joinable!(files -> agencias (id_agencia));
 diesel::joinable!(guias -> personas (id_persona));
 diesel::joinable!(hoteles -> cadenas_hoteleras (id_cadena));
-diesel::joinable!(hoteles -> personas (encargado));
 diesel::joinable!(notification_users -> notifications (notification_id));
 diesel::joinable!(notification_users -> users (user_id));
-diesel::joinable!(pagos_files -> agencias (id_agencia));
 diesel::joinable!(pagos_files -> file_tours (id_file_tour));
 diesel::joinable!(pagos_files -> files (id_file));
 diesel::joinable!(pagos_proveedores -> entradas (id_entrada));

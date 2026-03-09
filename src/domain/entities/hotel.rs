@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Hotel {
@@ -12,8 +11,6 @@ pub struct Hotel {
     pub correo: Option<String>,
     pub direccion: Option<String>,
     pub ciudad: Option<String>,
-    pub media: Option<JsonValue>,
-    pub encargado: Option<i32>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -33,8 +30,6 @@ impl Hotel {
             correo: None,
             direccion: None,
             ciudad: None,
-            media: Some(serde_json::json!({})),
-            encargado: None,
             is_active: true,
             created_at: now,
             updated_at: now,

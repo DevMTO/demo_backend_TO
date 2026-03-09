@@ -238,14 +238,14 @@ impl SaldoFavorService {
     #[instrument(skip(self))]
     pub async fn list_cancelaciones(
         &self,
-        id_agencia: Option<i32>,
+        id_entidad: Option<i32>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<CancelacionResponse>, ApplicationError> {
         let tipos = &["cancelacion", "cancelacion_tour"];
 
-        let records = if let Some(ag_id) = id_agencia {
-            self.pago_file_repo.find_by_agencia_tipos(ag_id, tipos, limit, offset).await?
+        let records = if let Some(ag_id) = id_entidad {
+            self.pago_file_repo.find_by_entidad_tipos(ag_id, tipos, limit, offset).await?
         } else {
             // Para admin: obtener todas
             self.pago_file_repo.find_filtered(None, Some("cancelado"), None, None, limit, offset).await?
@@ -330,7 +330,7 @@ impl SaldoFavorService {
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", request.id_file)))?;
         let _ = self.notification_service.notify_roles_for_entity(
             vec![UserRole::AgenciasContador, UserRole::AgenciasGerente],
-            file.id_agencia,
+            file.id_entidad,
             "No-Show Registrado",
             &format!("File #{} marcado como no-show.", request.id_file),
             NotificationType::Error,
@@ -399,7 +399,7 @@ impl SaldoFavorService {
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
         let _ = self.notification_service.notify_roles_for_entity(
             vec![UserRole::AgenciasContador, UserRole::AgenciasGerente],
-            file.id_agencia,
+            file.id_entidad,
             "No-Show Registrado",
             &format!("FileTour #{} marcado como no-show.", request.id_file_tour),
             NotificationType::Error,
@@ -415,14 +415,14 @@ impl SaldoFavorService {
     #[instrument(skip(self))]
     pub async fn list_no_shows(
         &self,
-        id_agencia: Option<i32>,
+        id_entidad: Option<i32>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<NoShowResponse>, ApplicationError> {
         let tipos = &["no_show", "no_show_tour"];
 
-        let records = if let Some(ag_id) = id_agencia {
-            self.pago_file_repo.find_by_agencia_tipos(ag_id, tipos, limit, offset).await?
+        let records = if let Some(ag_id) = id_entidad {
+            self.pago_file_repo.find_by_entidad_tipos(ag_id, tipos, limit, offset).await?
         } else {
             self.pago_file_repo.find_filtered(None, Some("no_show"), None, None, limit, offset).await?
                 .into_iter()
@@ -476,16 +476,16 @@ impl SaldoFavorService {
     #[instrument(skip(self))]
     pub async fn get_saldo_agencia(
         &self,
-        id_agencia: i32,
+        id_entidad: i32,
     ) -> Result<SaldoFavorResumen, ApplicationError> {
-        let agencia = self.agencia_repo.find_by_id(id_agencia).await?
-            .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id_agencia)))?;
+        let agencia = self.agencia_repo.find_by_id(id_entidad).await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id_entidad)))?;
 
         let zero = BigDecimal::from(0);
 
         // Obtener cancelaciones autorizadas
         let cancelaciones = self.pago_file_repo
-            .find_by_agencia_tipos(id_agencia, &["cancelacion", "cancelacion_tour"], 10000, 0).await?;
+            .find_by_entidad_tipos(id_entidad, &["cancelacion", "cancelacion_tour"], 10000, 0).await?;
         let saldo_cancelaciones = cancelaciones.iter()
             .filter(|p| p.saldo_autorizado)
             .map(|p| p.monto_saldo_favor.as_ref().unwrap_or(&zero))
@@ -493,7 +493,7 @@ impl SaldoFavorService {
 
         // Obtener no-shows autorizados
         let no_shows = self.pago_file_repo
-            .find_by_agencia_tipos(id_agencia, &["no_show", "no_show_tour"], 10000, 0).await?;
+            .find_by_entidad_tipos(id_entidad, &["no_show", "no_show_tour"], 10000, 0).await?;
         let saldo_no_shows = no_shows.iter()
             .filter(|p| p.saldo_autorizado)
             .map(|p| p.monto_saldo_favor.as_ref().unwrap_or(&zero))
@@ -503,7 +503,7 @@ impl SaldoFavorService {
 
         // Obtener uso de saldo
         let usos = self.pago_file_repo
-            .find_by_agencia_tipos(id_agencia, &["uso_saldo"], 10000, 0).await?;
+            .find_by_entidad_tipos(id_entidad, &["uso_saldo"], 10000, 0).await?;
         let saldo_usado = usos.iter()
             .map(|p| &p.monto_pagado)
             .fold(zero.clone(), |acc, m| acc + m);
@@ -511,7 +511,7 @@ impl SaldoFavorService {
         let saldo_disponible = &saldo_generado - &saldo_usado;
 
         Ok(SaldoFavorResumen {
-            id_agencia,
+            id_entidad,
             nombre_agencia: agencia.nombre,
             saldo_generado: saldo_generado.to_f64().unwrap_or(0.0),
             saldo_usado: saldo_usado.to_f64().unwrap_or(0.0),
@@ -525,13 +525,13 @@ impl SaldoFavorService {
     #[instrument(skip(self))]
     pub async fn get_dashboard(
         &self,
-        id_agencia: i32,
+        id_entidad: i32,
     ) -> Result<SaldoFavorDashboard, ApplicationError> {
-        let resumen = self.get_saldo_agencia(id_agencia).await?;
+        let resumen = self.get_saldo_agencia(id_entidad).await?;
 
-        let cancelaciones = self.list_cancelaciones(Some(id_agencia), 10, 0).await?;
-        let no_shows = self.list_no_shows(Some(id_agencia), 10, 0).await?;
-        let movimientos = self.list_movimientos(Some(id_agencia), 20, 0).await?;
+        let cancelaciones = self.list_cancelaciones(Some(id_entidad), 10, 0).await?;
+        let no_shows = self.list_no_shows(Some(id_entidad), 10, 0).await?;
+        let movimientos = self.list_movimientos(Some(id_entidad), 20, 0).await?;
 
         Ok(SaldoFavorDashboard {
             resumen,
@@ -560,14 +560,14 @@ impl SaldoFavorService {
     #[instrument(skip(self))]
     pub async fn list_movimientos(
         &self,
-        id_agencia: Option<i32>,
+        id_entidad: Option<i32>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<MovimientoSaldoResponse>, ApplicationError> {
         let tipos = &["cancelacion", "cancelacion_tour", "no_show", "no_show_tour", "uso_saldo"];
 
-        let records = if let Some(ag_id) = id_agencia {
-            self.pago_file_repo.find_by_agencia_tipos(ag_id, tipos, limit, offset).await?
+        let records = if let Some(ag_id) = id_entidad {
+            self.pago_file_repo.find_by_entidad_tipos(ag_id, tipos, limit, offset).await?
         } else {
             // Admin: filtrar por tipos de registro relevantes
             let all = self.pago_file_repo.find_filtered(None, None, None, None, limit * 2, offset).await?;
@@ -592,7 +592,7 @@ impl SaldoFavorService {
         created_by: Option<i32>,
     ) -> Result<MovimientoSaldoResponse, ApplicationError> {
         // Verificar saldo disponible
-        let resumen = self.get_saldo_agencia(request.id_agencia).await?;
+        let resumen = self.get_saldo_agencia(request.id_entidad).await?;
         if request.monto > resumen.saldo_disponible {
             return Err(ApplicationError::Validation(
                 format!("Saldo insuficiente. Disponible: S/ {:.2}, Solicitado: S/ {:.2}",
@@ -612,7 +612,8 @@ impl SaldoFavorService {
 
         let new_record = NewPagoFileModel {
             id_file: request.id_file,
-            id_agencia: request.id_agencia,
+            id_entidad: request.id_entidad,
+            entidad: None,
             monto_total: file.monto_total.clone(),
             monto_pagado: monto,
             estado: "pagado",
@@ -949,7 +950,7 @@ impl SaldoFavorService {
 
     async fn pago_to_cancelacion_response(&self, p: PagoFileModel) -> Result<CancelacionResponse, ApplicationError> {
         let file_code = self.get_file_code(p.id_file).await;
-        let agencia_nombre = self.get_agencia_nombre(p.id_agencia).await;
+        let agencia_nombre = self.get_agencia_nombre(p.id_entidad).await;
         let tour_nombre = if let Some(ft_id) = p.id_file_tour {
             self.get_tour_nombre_by_file_tour(ft_id).await
         } else { None };
@@ -965,7 +966,7 @@ impl SaldoFavorService {
             id: p.id,
             id_file: p.id_file,
             file_code,
-            id_agencia: p.id_agencia,
+            id_entidad: p.id_entidad,
             agencia_nombre,
             id_file_tour: p.id_file_tour,
             tour_nombre,
@@ -982,7 +983,7 @@ impl SaldoFavorService {
 
     async fn pago_to_no_show_response(&self, p: PagoFileModel) -> Result<NoShowResponse, ApplicationError> {
         let file_code = self.get_file_code(p.id_file).await;
-        let agencia_nombre = self.get_agencia_nombre(p.id_agencia).await;
+        let agencia_nombre = self.get_agencia_nombre(p.id_entidad).await;
         let tour_nombre = if let Some(ft_id) = p.id_file_tour {
             self.get_tour_nombre_by_file_tour(ft_id).await
         } else { None };
@@ -998,7 +999,7 @@ impl SaldoFavorService {
             id: p.id,
             id_file: p.id_file,
             file_code,
-            id_agencia: p.id_agencia,
+            id_entidad: p.id_entidad,
             agencia_nombre,
             id_file_tour: p.id_file_tour,
             tour_nombre,
@@ -1035,7 +1036,7 @@ impl SaldoFavorService {
             id: p.id,
             id_file: p.id_file,
             file_code,
-            id_agencia: p.id_agencia,
+            id_entidad: p.id_entidad,
             id_file_tour: p.id_file_tour,
             tipo,
             concepto,
@@ -1049,8 +1050,8 @@ impl SaldoFavorService {
         self.file_repo.find_by_id(id_file).await.ok().flatten().and_then(|f| f.file_code)
     }
 
-    async fn get_agencia_nombre(&self, id_agencia: i32) -> Option<String> {
-        self.agencia_repo.find_by_id(id_agencia).await.ok().flatten().map(|a| a.nombre)
+    async fn get_agencia_nombre(&self, id_entidad: i32) -> Option<String> {
+        self.agencia_repo.find_by_id(id_entidad).await.ok().flatten().map(|a| a.nombre)
     }
 
     async fn get_tour_nombre_by_file_tour(&self, id_file_tour: i32) -> Option<String> {
