@@ -34,7 +34,7 @@ pub async fn list_users(
         .list_users(params.page, params.page_size)
         .await?;
     
-    let page_size = params.page_size.min(10000).max(1);
+    let page_size = params.page_size.clamp(1, 10000);
     let response = create_paginated_response(users, total, params.page, page_size);
     
     Ok(json_ok(response))

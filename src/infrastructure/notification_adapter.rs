@@ -79,7 +79,7 @@ impl NotificationServicePort for NotificationBroadcastAdapter {
             created_at: notification.created_at,
         };
 
-        let event = SseEvent::NewNotification(dto);
+        let event = SseEvent::NewNotification(Box::new(dto));
         let mut sent_count = 0;
         for user_id in user_ids {
             // Excluir al usuario que creó la notificación del broadcast SSE
@@ -133,7 +133,7 @@ impl NotificationServicePort for NotificationBroadcastAdapter {
             created_at: notification.created_at,
         };
 
-        let event = SseEvent::NewNotification(dto);
+        let event = SseEvent::NewNotification(Box::new(dto));
         self.broadcaster.send_to_user(user_id, event).await;
 
         Ok(())
@@ -175,7 +175,7 @@ impl NotificationServicePort for NotificationBroadcastAdapter {
             created_at: notification.created_at,
         };
 
-        let event = SseEvent::NewNotification(dto);
+        let event = SseEvent::NewNotification(Box::new(dto));
         
         // Obtener todos los usuarios activos y enviarles
         match self.notification_repository.get_all_active_user_ids().await {
@@ -241,7 +241,7 @@ impl NotificationServicePort for NotificationBroadcastAdapter {
             created_at: notification.created_at,
         };
 
-        let event = SseEvent::NewNotification(dto);
+        let event = SseEvent::NewNotification(Box::new(dto));
         let mut sent_count = 0;
         for user_id in user_ids {
             // Excluir al usuario que creó la notificación del broadcast SSE

@@ -589,7 +589,7 @@ pub struct UpdateVehiculoStatusRequest {
     pub status: String, // "disponible", "ocupado", "en_servicio", "mantenimiento"
 }
 
-/// Información de disponibilidad de vehículo
+// Información de disponibilidad de vehículo
 // ==================== MY FILES (Para usuarios autenticados) ====================
 
 /// File asignado a un guía con todos los detalles necesarios
@@ -716,13 +716,13 @@ pub struct ConfirmAssignmentResponse {
 
 // ==================== UPDATE STATUS REQUESTS ====================
 
-/// Estados válidos para file relations
-/// - reservado: Estado inicial por defecto
-/// - pendiente: Solo para file_guias (guía no ha aceptado aún)
-/// - asignado: Recurso asignado y confirmado
-/// - en_curso: Servicio en progreso
-/// - completado: Servicio finalizado
-/// - cancelado: Asignación cancelada
+// Estados válidos para file relations
+// - reservado: Estado inicial por defecto
+// - pendiente: Solo para file_guias (guía no ha aceptado aún)
+// - asignado: Recurso asignado y confirmado
+// - en_curso: Servicio en progreso
+// - completado: Servicio finalizado
+// - cancelado: Asignación cancelada
 
 /// Request para actualizar el status de una asignación
 #[derive(Debug, Clone, Deserialize, Validate, TS)]

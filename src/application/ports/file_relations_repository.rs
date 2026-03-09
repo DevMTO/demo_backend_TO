@@ -75,6 +75,7 @@ pub trait FilePasajeroRepositoryPort: Send + Sync {
     /// Agrega un pasajero a un file
     /// - id_persona es opcional para permitir pasajeros anónimos
     /// - edad es opcional
+    #[allow(clippy::too_many_arguments)]
     async fn add(&self, id_file: i32, id_persona: Option<i32>, asiento: Option<&str>, tipo_pasajero: Option<&str>, nacionalidad: Option<&str>, notas: Option<&str>, edad: Option<i32>, created_by: Option<i32>) -> Result<FilePasajeroModel, ApplicationError>;
     async fn remove(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn find_by_file_with_persona(&self, id_file: i32) -> Result<Vec<FilePasajeroWithPersonaModel>, ApplicationError>;

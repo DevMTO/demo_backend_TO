@@ -3,8 +3,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StatusGuia {
+    #[default]
     Disponible,
     EnServicio,
     Inactivo,
@@ -33,12 +34,6 @@ impl std::str::FromStr for StatusGuia {
             "suspendido" => Ok(StatusGuia::Suspendido),
             _ => Err(format!("Status de guía inválido: {s}")),
         }
-    }
-}
-
-impl Default for StatusGuia {
-    fn default() -> Self {
-        StatusGuia::Disponible
     }
 }
 

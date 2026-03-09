@@ -9,6 +9,7 @@ use crate::domain::errors::ApplicationError;
 /// 
 /// Este trait permite desacoplar la lógica de negocio del mecanismo
 /// específico de envío de notificaciones (base de datos, SSE, etc.)
+#[allow(clippy::too_many_arguments)]
 #[async_trait]
 pub trait NotificationServicePort: Send + Sync {
     /// Notificar a roles específicos

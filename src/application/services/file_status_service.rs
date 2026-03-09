@@ -78,6 +78,7 @@ pub struct FileStatusService {
 }
 
 impl FileStatusService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         file_repository: Arc<dyn FileRepositoryPort>,
         file_tour_repository: Arc<dyn FileTourRepositoryPort>,

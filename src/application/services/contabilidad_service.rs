@@ -56,6 +56,7 @@ pub struct ContabilidadService {
 }
 
 impl ContabilidadService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
         pago_proveedor_repository: Arc<dyn PagoProveedorRepositoryPort>,
@@ -124,7 +125,7 @@ impl ContabilidadService {
         let mut files_pendientes: Vec<PagoFileResponse> = Vec::new();
         let mut ultimos_pagos: Vec<PagoFileResponse> = Vec::new();
         
-        for (_id_file, file_pagos) in &file_groups {
+        for file_pagos in file_groups.values() {
             // monto_total: suma de TODAS las deudas por tour
             let monto_total = file_pagos.iter()
                 .filter(|p| p.tipo_registro == "deuda")
@@ -294,7 +295,7 @@ impl ContabilidadService {
             let mut p = p;
             if p.tipo_registro == "deuda" {
                 let tolerancia = BigDecimal::from_str("0.01").unwrap();
-                if &monto_pendiente <= &tolerancia {
+                if monto_pendiente <= tolerancia {
                     p.estado = "pagado".to_string();
                 } else if p.monto_pagado > BigDecimal::from_str("0").unwrap() {
                     p.estado = "parcial".to_string();
@@ -664,7 +665,7 @@ impl ContabilidadService {
         let pago_registrado = self.pago_file_repository.find_by_id(pago_id).await?
             .ok_or_else(|| ApplicationError::NotFound("Pago no encontrado después de registrar".into()))?;
 
-        let deuda_saldada = &nuevo_total_pagado >= &(&monto_total_file - &tolerancia);
+        let deuda_saldada = nuevo_total_pagado >= (&monto_total_file - &tolerancia);
         
         info!("Pago distribuido para file {}: S/ {} (total pagado: S/ {}, total deuda: S/ {})", 
             id_file, request.monto, nuevo_total_pagado, monto_total_file);
@@ -878,6 +879,7 @@ impl ContabilidadService {
     /// Auto-crear pago a proveedor al asignar un servicio (estado=pendiente)
     /// Similar a como pagos_files se auto-crea al confirmar un file.
     /// Verifica que no exista ya un pago_proveedor para la misma relación.
+    #[allow(clippy::too_many_arguments)]
     #[instrument(skip(self))]
     pub async fn auto_create_pago_proveedor(
         &self,

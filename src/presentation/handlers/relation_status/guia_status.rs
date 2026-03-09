@@ -22,7 +22,7 @@ pub async fn update_file_guia_status(
     
     // Validar status (guías permite todos los estados incluyendo pendiente)
     let status = FileRelationStatus::from_str(&request.status)
-        .map_err(|e| ApplicationError::Validation(e))?;
+        .map_err(ApplicationError::Validation)?;
     
     // Obtener registro actual
     let current = state.container.file_guia_repository

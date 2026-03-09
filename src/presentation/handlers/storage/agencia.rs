@@ -72,7 +72,7 @@ pub async fn upload_agencia_logo(
     }
     
     // Procesar archivo del multipart
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
+    if let Some(field) = multipart.next_field().await.map_err(|e| {
         error!("Error procesando multipart: {}", e);
         (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
             success: false,
@@ -194,7 +194,7 @@ pub async fn upload_agencia_banner(
         })));
     }
     
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
+    if let Some(field) = multipart.next_field().await.map_err(|e| {
         (StatusCode::BAD_REQUEST, Json(StorageErrorResponse {
             success: false,
             error: format!("Error procesando archivo: {}", e),

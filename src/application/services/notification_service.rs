@@ -95,6 +95,7 @@ impl NotificationService {
     }
 
     /// Notificación para roles específicos
+    #[allow(clippy::too_many_arguments)]
     #[instrument(skip(self, roles))]
     pub async fn notify_roles(
         &self,
@@ -136,6 +137,7 @@ impl NotificationService {
 
     /// Notificación para roles específicos de una entidad (ej: contadores de una agencia específica)
     /// Esto asegura que solo usuarios del rol especificado Y que pertenezcan a la entidad reciban la notificación
+    #[allow(clippy::too_many_arguments)]
     #[instrument(skip(self, roles))]
     pub async fn notify_roles_for_entity(
         &self,
@@ -182,6 +184,7 @@ impl NotificationService {
     }
 
     /// Notificación para un usuario específico
+    #[allow(clippy::too_many_arguments)]
     #[instrument(skip(self))]
     pub async fn notify_user(
         &self,

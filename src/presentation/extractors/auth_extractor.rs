@@ -79,6 +79,7 @@ fn extract_session_token(parts: &Parts, cookie_name: &str) -> Option<String> {
 }
 
 /// Crea una cookie de sesión con el token rotado
+#[allow(clippy::too_many_arguments)]
 fn create_session_cookie_for_rotation(
     token: &str,
     max_age_hours: i64,

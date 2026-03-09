@@ -70,7 +70,7 @@ impl UserService {
         page: i64,
         page_size: i64,
     ) -> Result<(Vec<UserListItemDto>, i64), ApplicationError> {
-        let page_size = page_size.min(10000).max(1);
+        let page_size = page_size.clamp(1, 10000);
         let offset = (page - 1).max(0) * page_size;
         
         self.user_repository
@@ -244,10 +244,8 @@ impl UserService {
         // Verificar unicidad de email si se está cambiando
         if let Some(ref new_email) = request.email {
             let email_lower = new_email.to_lowercase();
-            if email_lower != user.email {
-                if self.user_repository.exists_by_email(&email_lower).await? {
-                    return Err(ApplicationError::Conflict(format!("Email {} ya registrado", new_email)));
-                }
+            if email_lower != user.email && self.user_repository.exists_by_email(&email_lower).await? {
+                return Err(ApplicationError::Conflict(format!("Email {} ya registrado", new_email)));
             }
         }
         

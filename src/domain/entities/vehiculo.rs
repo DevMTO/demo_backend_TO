@@ -1,8 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StatusVehiculo {
+    #[default]
     Disponible,
     EnUso,
     Mantenimiento,
@@ -31,12 +32,6 @@ impl std::str::FromStr for StatusVehiculo {
             "fuera_servicio" => Ok(StatusVehiculo::FueraServicio),
             _ => Err(format!("Status de vehículo inválido: {s}")),
         }
-    }
-}
-
-impl Default for StatusVehiculo {
-    fn default() -> Self {
-        StatusVehiculo::Disponible
     }
 }
 

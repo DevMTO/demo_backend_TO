@@ -32,6 +32,7 @@ impl AppState {
     }
     
     /// Notificar a roles específicos y enviar por SSE
+    #[allow(clippy::too_many_arguments)]
     pub async fn notify_roles_with_broadcast(
         &self,
         roles: Vec<UserRole>,
@@ -74,7 +75,7 @@ impl AppState {
             created_at: notification.created_at,
         };
 
-        let event = SseEvent::NewNotification(dto);
+        let event = SseEvent::NewNotification(Box::new(dto));
         for user_id in user_ids {
             // Excluir al usuario que creó la notificación del broadcast SSE
             if Some(user_id) != created_by {

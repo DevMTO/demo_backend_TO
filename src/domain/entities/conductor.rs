@@ -2,8 +2,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StatusConductor {
+    #[default]
     Disponible,
     EnServicio,
     Inactivo,
@@ -32,12 +33,6 @@ impl std::str::FromStr for StatusConductor {
             "suspendido" => Ok(StatusConductor::Suspendido),
             _ => Err(format!("Status de conductor inválido: {s}")),
         }
-    }
-}
-
-impl Default for StatusConductor {
-    fn default() -> Self {
-        StatusConductor::Disponible
     }
 }
 

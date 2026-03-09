@@ -13,8 +13,9 @@ use bigdecimal::BigDecimal;
 /// - Cancelado: File cancelado por el cliente o agencia
 /// - Anulado: File anulado por incumplimiento o fuerza mayor
 /// - NoShow: File marcado como no-show (cliente no se presento)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StatusFile {
+    #[default]
     Pendiente,
     Reservado,
     Asignado,
@@ -58,12 +59,6 @@ impl std::str::FromStr for StatusFile {
             "no_show" => Ok(StatusFile::NoShow),
             _ => Err(format!("Status de file invalido: {}. Valores: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado, no_show", s)),
         }
-    }
-}
-
-impl Default for StatusFile {
-    fn default() -> Self {
-        StatusFile::Pendiente
     }
 }
 

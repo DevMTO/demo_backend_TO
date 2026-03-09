@@ -31,7 +31,7 @@ pub async fn list_logs(
     
     info!("Listando logs de actividad (page: {}, size: {})", params.page, params.page_size);
     
-    let page_size = params.page_size.min(10000).max(1);
+    let page_size = params.page_size.clamp(1, 10000);
     let offset = (params.page - 1).max(0) * page_size;
     
     let filters = ActivityLogFilters {

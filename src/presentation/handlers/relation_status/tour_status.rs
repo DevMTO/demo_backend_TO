@@ -22,7 +22,7 @@ pub async fn update_file_tour_status(
 
     // Validar status
     let status = FileRelationStatus::from_str(&request.status)
-        .map_err(|e| ApplicationError::Validation(e))?;
+        .map_err(ApplicationError::Validation)?;
 
     // Usar el servicio para actualizar el status con cascada
     let result = state.container.file_tour_status_service

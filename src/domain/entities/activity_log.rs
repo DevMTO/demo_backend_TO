@@ -6,11 +6,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
 /// Tipos de acción del sistema
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ActionType {
     Auth,    // Acciones de autenticación
     Crud,    // Operaciones CRUD
+    #[default]
     System,  // Acciones del sistema
 }
 
@@ -37,7 +38,7 @@ impl From<&str> for ActionType {
 }
 
 /// Acciones específicas del sistema
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
     // Auth actions
@@ -49,6 +50,7 @@ pub enum Action {
     
     // CRUD actions
     Create,
+    #[default]
     Read,
     Update,
     Delete,
@@ -103,9 +105,10 @@ impl From<&str> for Action {
 }
 
 /// Estado del log
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum LogStatus {
+    #[default]
     Success,
     Error,
     Warning,
@@ -134,7 +137,7 @@ impl From<&str> for LogStatus {
 }
 
 /// Tipos de entidades del sistema
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum EntityType {
     User,
@@ -151,6 +154,7 @@ pub enum EntityType {
     Pago,
     Session,
     Notification,
+    #[default]
     System,
 }
 
@@ -238,30 +242,6 @@ pub struct ActivityLogBuilder {
     user_agent: Option<String>,
     status: LogStatus,
     error_message: Option<String>,
-}
-
-impl Default for ActionType {
-    fn default() -> Self {
-        ActionType::System
-    }
-}
-
-impl Default for Action {
-    fn default() -> Self {
-        Action::Read
-    }
-}
-
-impl Default for EntityType {
-    fn default() -> Self {
-        EntityType::System
-    }
-}
-
-impl Default for LogStatus {
-    fn default() -> Self {
-        LogStatus::Success
-    }
 }
 
 #[allow(dead_code)]

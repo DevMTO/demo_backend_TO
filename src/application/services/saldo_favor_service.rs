@@ -50,6 +50,7 @@ pub struct SaldoFavorService {
 }
 
 impl SaldoFavorService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pago_file_repo: Arc<dyn PagoFileRepositoryPort>,
         file_repo: Arc<dyn FileRepositoryPort>,
@@ -165,7 +166,7 @@ impl SaldoFavorService {
         let _ = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
             "File Cancelado",
-            &format!("File #{} cancelado. Saldo a favor: S/ {}", request.id_file, saldo_total_generado.to_string()),
+            &format!("File #{} cancelado. Saldo a favor: S/ {}", request.id_file, saldo_total_generado),
             NotificationType::Warning,
             NotificationCategory::Financial,
             NotificationPriority::High,
@@ -647,6 +648,7 @@ impl SaldoFavorService {
     /// 3. Actualiza los pagos relacionados (monto_total, saldo a favor)
     /// 4. Actualiza el status del file_tour
     /// 5. Recalcula los totales del file (monto_total, monto_pagado)
+    #[allow(clippy::too_many_arguments)]
     async fn aplicar_cancelacion_no_show_file_tour(
         &self,
         ft: &crate::infrastructure::persistence::models::FileTourModel,
@@ -747,7 +749,7 @@ impl SaldoFavorService {
                 }
 
                 // Copiar comprobante de pago del tour cancelado al tour destino
-                if let Some(ref deuda) = deuda_tour {
+                if let Some(deuda) = deuda_tour {
                     if deuda.comprobante_url.is_some() || deuda.comprobante_key.is_some() {
                         if let Some(deuda_dest) = deuda_destino {
                             let update_comprobante = UpdatePagoFileModel {
@@ -892,18 +894,18 @@ impl SaldoFavorService {
             }
 
             // Apply saldo_favor to the first payment/deuda (which is the one being canceled)
-            if !dinero_restante_aplicado && dinero_restante > zero {
-                if pago.tipo_registro == "deuda" && pago.id_file_tour == Some(id_file_tour) {
-                    if pasar_a_saldo_favor {
-                        update.monto_saldo_favor = Some(dinero_restante.clone());
-                        update.saldo_autorizado = Some(true);
-                        update.saldo_autorizado_por = created_by;
-                        update.saldo_autorizado_at = Some(chrono::Utc::now());
-                    } else { 
-                        update.monto_pagado = Some(dinero_restante.clone());
-                    }
-                    dinero_restante_aplicado = true;
+            if !dinero_restante_aplicado && dinero_restante > zero
+                && pago.tipo_registro == "deuda" && pago.id_file_tour == Some(id_file_tour)
+            {
+                if pasar_a_saldo_favor {
+                    update.monto_saldo_favor = Some(dinero_restante.clone());
+                    update.saldo_autorizado = Some(true);
+                    update.saldo_autorizado_por = created_by;
+                    update.saldo_autorizado_at = Some(chrono::Utc::now());
+                } else { 
+                    update.monto_pagado = Some(dinero_restante.clone());
                 }
+                dinero_restante_aplicado = true;
             }
 
             let updated = self.pago_file_repo.update(pago.id, update).await?;

@@ -92,6 +92,7 @@ impl LoggingService {
     }
 
     /// Log de creación de entidad
+    #[allow(clippy::too_many_arguments)]
     #[instrument(skip(self, new_values))]
     pub async fn log_create<T: serde::Serialize>(
         &self,
@@ -127,6 +128,7 @@ impl LoggingService {
     }
 
     /// Log de actualización de entidad
+    #[allow(clippy::too_many_arguments)]
     #[instrument(skip(self, old_values, new_values, changed_fields))]
     pub async fn log_update<T: serde::Serialize>(
         &self,
@@ -207,6 +209,7 @@ impl LoggingService {
     }
 
     /// Log de error genérico
+    #[allow(clippy::too_many_arguments)]
     #[instrument(skip(self))]
     pub async fn log_error(
         &self,

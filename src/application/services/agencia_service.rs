@@ -159,12 +159,10 @@ impl AgenciaService {
         
         // Si se está cambiando el RUC, verificar unicidad
         if let Some(ref new_ruc) = request.ruc {
-            if new_ruc != &old_agencia.ruc {
-                if self.agencia_repository.exists_by_ruc(new_ruc).await? {
-                    return Err(ApplicationError::Conflict(
-                        format!("Ya existe una agencia con RUC {}", new_ruc)
-                    ));
-                }
+            if new_ruc != &old_agencia.ruc && self.agencia_repository.exists_by_ruc(new_ruc).await? {
+                return Err(ApplicationError::Conflict(
+                    format!("Ya existe una agencia con RUC {}", new_ruc)
+                ));
             }
         }
         

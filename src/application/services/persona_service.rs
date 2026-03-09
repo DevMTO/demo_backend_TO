@@ -135,12 +135,12 @@ impl PersonaService {
         let new_tipo = request.tipo_documento.as_ref().unwrap_or(&old_tipo_str);
         let new_nro = request.nro_documento.as_ref().unwrap_or(&old_persona.nro_documento);
         
-        if new_tipo != &old_tipo_str || new_nro != &old_persona.nro_documento {
-            if self.persona_repository.exists_by_documento(new_tipo, new_nro).await? {
-                return Err(ApplicationError::Conflict(
-                    format!("Ya existe una persona con {} {}", new_tipo, new_nro)
-                ));
-            }
+        if (new_tipo != &old_tipo_str || new_nro != &old_persona.nro_documento)
+            && self.persona_repository.exists_by_documento(new_tipo, new_nro).await?
+        {
+            return Err(ApplicationError::Conflict(
+                format!("Ya existe una persona con {} {}", new_tipo, new_nro)
+            ));
         }
         
         // Detectar campos cambiados

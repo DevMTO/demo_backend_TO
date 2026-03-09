@@ -1,8 +1,9 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TipoDocumento {
+    #[default]
     Dni,
     Pasaporte,
     CarnetExtranjeria,
@@ -34,12 +35,6 @@ impl std::str::FromStr for TipoDocumento {
             "OTRO" => Ok(TipoDocumento::Otro),
             _ => Err(format!("Tipo de documento inválido: {s}")),
         }
-    }
-}
-
-impl Default for TipoDocumento {
-    fn default() -> Self {
-        TipoDocumento::Dni
     }
 }
 

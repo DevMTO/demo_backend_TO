@@ -48,7 +48,7 @@ impl VerifySessionUseCase {
         let mut session = self.session_repository
             .find_by_token_hash(&token_hash)
             .await?
-            .ok_or_else(|| ApplicationError::SessionRequired)?;
+            .ok_or(ApplicationError::SessionRequired)?;
         
         // 3. Verificar que la sesión sea válida (activa, no expirada, no idle)
         // Si falla, invalidamos la sesión para evitar reutilización

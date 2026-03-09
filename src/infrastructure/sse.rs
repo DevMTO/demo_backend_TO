@@ -12,7 +12,7 @@ const BROADCAST_CAPACITY: usize = 256;
 #[serde(tag = "type", content = "data")]
 pub enum SseEvent {
     /// Nueva notificación recibida
-    NewNotification(UserNotificationDto),
+    NewNotification(Box<UserNotificationDto>),
     /// Notificación marcada como leída
     NotificationRead { notification_id: i32 },
     /// Notificación descartada
@@ -137,7 +137,7 @@ impl NotificationBroadcaster {
     /// Enviar nueva notificación
     #[allow(dead_code)]
     pub async fn notify_new(&self, user_id: Option<i32>, notification: UserNotificationDto) {
-        let event = SseEvent::NewNotification(notification);
+        let event = SseEvent::NewNotification(Box::new(notification));
         
         if let Some(uid) = user_id {
             self.send_to_user(uid, event).await;

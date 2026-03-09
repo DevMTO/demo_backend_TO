@@ -15,9 +15,9 @@ pub async fn restore_vehiculo(
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let vehiculo = state.container.vehiculo_service
+    state.container.vehiculo_service
         .restore_vehiculo(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
-    Ok(json_ok(vehiculo))
+    Ok(json_ok(()))
 }

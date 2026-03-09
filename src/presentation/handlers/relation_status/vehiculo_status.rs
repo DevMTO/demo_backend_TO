@@ -22,7 +22,7 @@ pub async fn update_file_vehiculo_status_relation(
     
     // Validar status
     let status = FileRelationStatus::from_str(&request.status)
-        .map_err(|e| ApplicationError::Validation(e))?;
+        .map_err(ApplicationError::Validation)?;
     
     // Obtener registro actual
     let current = state.container.file_vehiculo_repository

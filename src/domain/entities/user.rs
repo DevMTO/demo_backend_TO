@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 // UserStatus eliminado - ahora usamos is_active booleano
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum UserRole {
     /// Administrador supremo con acceso total al sistema (SYSCO)
     SuperAdmin,
@@ -12,6 +12,7 @@ pub enum UserRole {
     /// Gerente de agencia - ve contabilidad, saldos y pagos de su agencia, pero no crea reservas
     AgenciasGerente,
     /// Personal de agencias - gestión de agencia
+    #[default]
     Agencias,
     /// Contador de agencia - maneja contabilidad de una agencia específica (vinculado a id_entidad)
     AgenciasContador,
@@ -57,12 +58,6 @@ impl std::str::FromStr for UserRole {
             "restaurantes" | "restaurante" | "restaurant" => Ok(UserRole::Restaurantes),
             _ => Err(format!("Invalid role: {s}")),
         }
-    }
-}
-
-impl Default for UserRole {
-    fn default() -> Self {
-        UserRole::Agencias // Rol más común por defecto
     }
 }
 

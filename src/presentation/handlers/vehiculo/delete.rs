@@ -15,7 +15,7 @@ pub async fn delete_vehiculo(
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let _vehiculo = state.container.vehiculo_service
+    state.container.vehiculo_service
         .delete_vehiculo(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     
@@ -29,7 +29,7 @@ pub async fn hard_delete_vehiculo(
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let _vehiculo = state.container.vehiculo_service
+    state.container.vehiculo_service
         .hard_delete_vehiculo(id, auth.user.id, Some(auth.user.username.clone()))
         .await?;
     

@@ -208,7 +208,7 @@ pub async fn update_file_pasajero(
     // Validar status si se proporciona
     if let Some(ref status) = request.status {
         FileRelationStatus::from_str(status)
-            .map_err(|e| ApplicationError::Validation(e))?;
+            .map_err(ApplicationError::Validation)?;
     }
     
     // Construir modelo de actualización

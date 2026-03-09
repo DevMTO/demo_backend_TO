@@ -6,9 +6,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
 /// Tipo de notificación
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationType {
+    #[default]
     Info,
     Warning,
     Error,
@@ -41,12 +42,6 @@ impl From<&str> for NotificationType {
     }
 }
 
-impl Default for NotificationType {
-    fn default() -> Self {
-        NotificationType::Info
-    }
-}
-
 impl std::str::FromStr for NotificationType {
     type Err = String;
     
@@ -56,11 +51,12 @@ impl std::str::FromStr for NotificationType {
 }
 
 /// Categoría de notificación
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationCategory {
     Auth,
     Crud,
+    #[default]
     System,
     Alert,
     Financial,
@@ -91,12 +87,6 @@ impl From<&str> for NotificationCategory {
     }
 }
 
-impl Default for NotificationCategory {
-    fn default() -> Self {
-        NotificationCategory::System
-    }
-}
-
 impl std::str::FromStr for NotificationCategory {
     type Err = String;
     
@@ -106,10 +96,11 @@ impl std::str::FromStr for NotificationCategory {
 }
 
 /// Prioridad de notificación
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationPriority {
     Low,
+    #[default]
     Normal,
     High,
     Urgent,
@@ -135,12 +126,6 @@ impl From<&str> for NotificationPriority {
             "urgent" => NotificationPriority::Urgent,
             _ => NotificationPriority::Normal,
         }
-    }
-}
-
-impl Default for NotificationPriority {
-    fn default() -> Self {
-        NotificationPriority::Normal
     }
 }
 

@@ -44,6 +44,7 @@ pub struct FileService {
 }
 
 impl FileService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         file_repository: Arc<dyn FileRepositoryPort>,
         file_tour_repository: Arc<dyn FileTourRepositoryPort>,

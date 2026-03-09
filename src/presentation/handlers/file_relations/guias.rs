@@ -190,10 +190,10 @@ pub async fn update_file_guia(
             .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", new_ft_id)))?;
         
         // Verificar duplicado si no cambia el guía
-        if request.id_guia.is_none() {
-            if state.container.file_guia_repository.is_guia_assigned(existing.id_guia, new_ft_id).await? {
-                return Err(ApplicationError::Validation("El guía ya está asignado a este file_tour".to_string()));
-            }
+        if request.id_guia.is_none()
+            && state.container.file_guia_repository.is_guia_assigned(existing.id_guia, new_ft_id).await?
+        {
+            return Err(ApplicationError::Validation("El guía ya está asignado a este file_tour".to_string()));
         }
     }
     

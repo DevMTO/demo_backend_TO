@@ -33,8 +33,8 @@ pub async fn require_auth(
 fn extract_token_from_request(request: &Request, cookie_name: &str) -> Option<String> {
     if let Some(auth_header) = request.headers().get("Authorization") {
         if let Ok(auth_str) = auth_header.to_str() {
-            if auth_str.starts_with("Bearer ") {
-                return Some(auth_str[7..].to_string());
+            if let Some(stripped) = auth_str.strip_prefix("Bearer ") {
+                return Some(stripped.to_string());
             }
         }
     }

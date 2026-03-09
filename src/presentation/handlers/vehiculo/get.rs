@@ -23,7 +23,7 @@ pub async fn list_vehiculos(
     Query(params): Query<VehiculosQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let page = params.page.unwrap_or(1) as i64;
-    let page_size = params.page_size.unwrap_or(10).min(10000).max(1) as i64; // Aumentado de 100 a 10000
+    let page_size = params.page_size.unwrap_or(10).clamp(1, 10000) as i64; // Aumentado de 100 a 10000
     let offset = (page - 1) * page_size;
     
     // Si es transportes, filtrar solo por su id_entidad
