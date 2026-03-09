@@ -35,4 +35,6 @@ pub mod entity_names {
     pub const USERS: &str = "users";
     pub const MOVIMIENTOS: &str = "movimientos";
     pub const PAGOS: &str = "pagos";
+    pub const CADENAS_HOTELERAS: &str = "cadenas_hoteleras";
+    pub const HOTELES: &str = "hoteles";
 }

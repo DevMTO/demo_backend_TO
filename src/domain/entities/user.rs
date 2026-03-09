@@ -24,6 +24,10 @@ pub enum UserRole {
     Guias,
     /// Restaurante - ve reservas de grupos
     Restaurantes,
+    /// Hotel - similar a agencia, puede crear files para su hotel
+    Hoteles,
+    /// Gerente de cadena hotelera - ve info de todos los hoteles de su cadena
+    HotelesGerente,
 }
 
 impl std::fmt::Display for UserRole {
@@ -38,6 +42,8 @@ impl std::fmt::Display for UserRole {
             UserRole::Conductores => write!(f, "conductores"),
             UserRole::Guias => write!(f, "guias"),
             UserRole::Restaurantes => write!(f, "restaurantes"),
+            UserRole::Hoteles => write!(f, "hoteles"),
+            UserRole::HotelesGerente => write!(f, "hoteles_gerente"),
         }
     }
 }
@@ -56,6 +62,8 @@ impl std::str::FromStr for UserRole {
             "conductores" | "conductor" => Ok(UserRole::Conductores),
             "guias" | "guia" | "guide" => Ok(UserRole::Guias),
             "restaurantes" | "restaurante" | "restaurant" => Ok(UserRole::Restaurantes),
+            "hoteles" | "hotel" => Ok(UserRole::Hoteles),
+            "hoteles_gerente" | "gerente_hotel" => Ok(UserRole::HotelesGerente),
             _ => Err(format!("Invalid role: {s}")),
         }
     }

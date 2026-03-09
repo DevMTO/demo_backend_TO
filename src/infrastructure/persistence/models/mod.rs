@@ -19,6 +19,10 @@ pub mod entrada_model;
 pub mod entrada_precio_model;
 pub mod file_model;
 
+// Hotel models
+pub mod cadena_hotelera_model;
+pub mod hotel_model;
+
 // File relation models
 pub mod file_entrada_model;
 pub mod file_guia_model;
@@ -50,6 +54,10 @@ pub use restaurante_model::*;
 pub use entrada_model::*;
 pub use entrada_precio_model::*;
 pub use file_model::*;
+
+// Re-exports - Hotel
+pub use cadena_hotelera_model::*;
+pub use hotel_model::*;
 
 // Re-exports - File relations
 pub use file_entrada_model::*;

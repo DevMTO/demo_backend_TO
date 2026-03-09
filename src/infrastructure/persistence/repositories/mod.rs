@@ -20,6 +20,10 @@ pub mod entrada_precio_repository;
 pub mod file_repository;
 pub mod file_relations_repository;
 
+// Hotel repositories
+pub mod cadena_hotelera_repository;
+pub mod hotel_repository;
+
 // Contabilidad repositories
 pub mod contabilidad_repository;
 
@@ -44,6 +48,10 @@ pub use entrada_repository::*;
 pub use entrada_precio_repository::*;
 pub use file_repository::*;
 pub use file_relations_repository::*;
+
+// Re-exports - Hotel
+pub use cadena_hotelera_repository::*;
+pub use hotel_repository::*;
 
 // Re-exports - Contabilidad
 pub use contabilidad_repository::*;

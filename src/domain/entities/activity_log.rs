@@ -154,6 +154,8 @@ pub enum EntityType {
     Pago,
     Session,
     Notification,
+    CadenaHotelera,
+    Hotel,
     #[default]
     System,
 }
@@ -176,6 +178,8 @@ impl EntityType {
             EntityType::Pago => "pagos",
             EntityType::Session => "sessions",
             EntityType::Notification => "notifications",
+            EntityType::CadenaHotelera => "cadenas_hoteleras",
+            EntityType::Hotel => "hoteles",
             EntityType::System => "system",
         }
     }
@@ -198,6 +202,8 @@ impl From<&str> for EntityType {
             "pagos" | "pago" => EntityType::Pago,
             "sessions" | "session" => EntityType::Session,
             "notifications" | "notification" => EntityType::Notification,
+            "cadenas_hoteleras" | "cadena_hotelera" => EntityType::CadenaHotelera,
+            "hoteles" | "hotel" => EntityType::Hotel,
             _ => EntityType::System,
         }
     }

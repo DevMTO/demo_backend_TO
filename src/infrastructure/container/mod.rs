@@ -18,6 +18,7 @@ use crate::application::ports::{
     FileEntradaRepositoryPort, FileGuiaRepositoryPort, FilePasajeroRepositoryPort,
     FileRestauranteRepositoryPort, FileVehiculoRepositoryPort, FileTourRepositoryPort,
     SessionManagerPort, PasswordHasherPort, CachePort,
+    CadenaHoteleraRepositoryPort, HotelRepositoryPort,
 };
 use crate::application::services::{
     LoggingService, NotificationService, UserService, AgenciaService,
@@ -25,6 +26,7 @@ use crate::application::services::{
     TransporteService, VehiculoService, ConductorService, EntradaService,
     EntradaPrecioService, GuiaService, MyFilesService, ContabilidadService,
     FileAssignmentService, MisPagosService, FileStatusService, SaldoFavorService,
+    CadenaHoteleraService, HotelService,
 };
 use crate::application::use_cases::auth::{LoginUseCase, LogoutUseCase, VerifySessionUseCase};
 use crate::config::AppConfig;
@@ -70,6 +72,8 @@ pub struct DependencyContainer {
     pub file_tour_status_service: Arc<FileStatusService>,
     pub file_status_service: Arc<FileStatusService>,
     pub saldo_favor_service: Arc<SaldoFavorService>,
+    pub cadena_hotelera_service: Arc<CadenaHoteleraService>,
+    pub hotel_service: Arc<HotelService>,
 
     // Object Storage (Tigris) - Opcional
     pub tigris_storage: Option<Arc<crate::infrastructure::storage::TigrisStorage>>,
@@ -96,6 +100,10 @@ pub struct DependencyContainer {
     pub file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
     pub file_vehiculo_repository: Arc<dyn FileVehiculoRepositoryPort>,
     pub file_tour_repository: Arc<dyn FileTourRepositoryPort>,
+
+    // Hotel Repositories
+    pub cadena_hotelera_repository: Arc<dyn CadenaHoteleraRepositoryPort>,
+    pub hotel_repository: Arc<dyn HotelRepositoryPort>,
 
     // Cache
     pub cache: Arc<dyn CachePort>,
@@ -170,6 +178,8 @@ impl DependencyContainer {
             file_tour_status_service: svcs.file_tour_status,
             file_status_service: svcs.file_status,
             saldo_favor_service: svcs.saldo_favor,
+            cadena_hotelera_service: svcs.cadena_hotelera,
+            hotel_service: svcs.hotel,
             // Repositories
             user_repository: repos.user,
             persona_repository: repos.persona,
@@ -191,6 +201,9 @@ impl DependencyContainer {
             file_restaurante_repository: repos.file_restaurante,
             file_vehiculo_repository: repos.file_vehiculo,
             file_tour_repository: repos.file_tour,
+            // Hotel
+            cadena_hotelera_repository: repos.cadena_hotelera,
+            hotel_repository: repos.hotel,
             // Cache
             cache,
             // Cookie config

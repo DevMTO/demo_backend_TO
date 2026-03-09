@@ -23,6 +23,10 @@ pub mod entrada_precio_dto;
 pub mod file_dto;
 pub mod file_relations_dto;
 
+// Hotel DTOs
+pub mod cadena_hotelera_dto;
+pub mod hotel_dto;
+
 // Contabilidad DTOs
 pub mod contabilidad_dto;
 
@@ -56,6 +60,10 @@ pub use user_dto::{
     UpdateUserRequest,
     AdminChangePasswordRequest,
 };
+
+// Re-exports - Hotel
+pub use cadena_hotelera_dto::*;
+pub use hotel_dto::*;
 
 // Re-exports - Contabilidad
 pub use contabilidad_dto::*;

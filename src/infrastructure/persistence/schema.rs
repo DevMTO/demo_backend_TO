@@ -54,6 +54,25 @@ diesel::table! {
 }
 
 diesel::table! {
+    cadenas_hoteleras (id) {
+        id -> Int4,
+        #[max_length = 200]
+        nombre -> Varchar,
+        #[max_length = 20]
+        telefono -> Nullable<Varchar>,
+        #[max_length = 255]
+        correo -> Nullable<Varchar>,
+        media -> Nullable<Jsonb>,
+        encargado -> Nullable<Int4>,
+        is_active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
     conductores (id) {
         id -> Int4,
         id_persona -> Int4,
@@ -247,6 +266,31 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
         is_active -> Bool,
+    }
+}
+
+diesel::table! {
+    hoteles (id) {
+        id -> Int4,
+        id_cadena -> Int4,
+        #[max_length = 200]
+        nombre -> Varchar,
+        #[max_length = 50]
+        categoria -> Nullable<Varchar>,
+        #[max_length = 20]
+        telefono -> Nullable<Varchar>,
+        #[max_length = 255]
+        correo -> Nullable<Varchar>,
+        direccion -> Nullable<Text>,
+        #[max_length = 100]
+        ciudad -> Nullable<Varchar>,
+        media -> Nullable<Jsonb>,
+        encargado -> Nullable<Int4>,
+        is_active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
     }
 }
 
@@ -515,6 +559,7 @@ diesel::table! {
 
 diesel::joinable!(activity_logs -> users (user_id));
 diesel::joinable!(agencias -> personas (encargado));
+diesel::joinable!(cadenas_hoteleras -> personas (encargado));
 diesel::joinable!(conductores -> personas (id_persona));
 diesel::joinable!(conductores -> transportes (id_transporte));
 diesel::joinable!(entrada_precios -> entradas (id_entrada));
@@ -540,6 +585,8 @@ diesel::joinable!(file_vehiculos -> users (created_by));
 diesel::joinable!(file_vehiculos -> vehiculos (id_vehiculo));
 diesel::joinable!(files -> agencias (id_agencia));
 diesel::joinable!(guias -> personas (id_persona));
+diesel::joinable!(hoteles -> cadenas_hoteleras (id_cadena));
+diesel::joinable!(hoteles -> personas (encargado));
 diesel::joinable!(notification_users -> notifications (notification_id));
 diesel::joinable!(notification_users -> users (user_id));
 diesel::joinable!(pagos_files -> agencias (id_agencia));
@@ -562,6 +609,7 @@ diesel::joinable!(vehiculos -> transportes (id_transporte));
 diesel::allow_tables_to_appear_in_same_query!(
     activity_logs,
     agencias,
+    cadenas_hoteleras,
     conductores,
     entrada_precios,
     entradas,
@@ -573,6 +621,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     file_vehiculos,
     files,
     guias,
+    hoteles,
     notification_users,
     notifications,
     pagos_files,

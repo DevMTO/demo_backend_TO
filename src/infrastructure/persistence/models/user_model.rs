@@ -91,6 +91,8 @@ impl<'a> From<&'a User> for NewUserModel<'a> {
                 UserRole::Conductores => "conductores",
                 UserRole::Guias => "guias",
                 UserRole::Restaurantes => "restaurantes",
+                UserRole::Hoteles => "hoteles",
+                UserRole::HotelesGerente => "hoteles_gerente",
             },
             id_entidad: user.id_entidad,
             is_active: user.is_active,

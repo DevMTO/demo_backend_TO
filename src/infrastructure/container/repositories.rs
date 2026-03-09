@@ -11,6 +11,7 @@ use crate::application::ports::{
     NotificationRepositoryPort, FileEntradaRepositoryPort, FileGuiaRepositoryPort,
     FilePasajeroRepositoryPort, FileRestauranteRepositoryPort, FileVehiculoRepositoryPort,
     FileTourRepositoryPort, CachePort,
+    CadenaHoteleraRepositoryPort, HotelRepositoryPort,
     // Contabilidad
     PagoFileRepositoryPort,
     PagoProveedorRepositoryPort,
@@ -26,6 +27,8 @@ use crate::infrastructure::persistence::{
         PostgresNotificationRepository, PostgresFileEntradaRepository, PostgresFileGuiaRepository,
         PostgresFilePasajeroRepository, PostgresFileRestauranteRepository,
         PostgresFileVehiculoRepository, PostgresFileTourRepository,
+        // Hotel
+        PostgresCadenaHoteleraRepository, PostgresHotelRepository,
         // Contabilidad
         PostgresPagoFileRepository,
         PostgresPagoProveedorRepository,
@@ -59,6 +62,9 @@ pub(super) struct Repositories {
     // Contabilidad
     pub pago_file: Arc<dyn PagoFileRepositoryPort>,
     pub pago_proveedor: Arc<dyn PagoProveedorRepositoryPort>,
+    // Hotel
+    pub cadena_hotelera: Arc<dyn CadenaHoteleraRepositoryPort>,
+    pub hotel: Arc<dyn HotelRepositoryPort>,
 }
 
 impl Repositories {
@@ -96,6 +102,10 @@ impl Repositories {
         let pago_file = Arc::new(PostgresPagoFileRepository::new(db_pool.clone())) as Arc<dyn PagoFileRepositoryPort>;
         let pago_proveedor = Arc::new(PostgresPagoProveedorRepository::new(db_pool.clone())) as Arc<dyn PagoProveedorRepositoryPort>;
 
+        // Hotel
+        let cadena_hotelera = Arc::new(PostgresCadenaHoteleraRepository::new(db_pool.clone(), cache.clone())) as Arc<dyn CadenaHoteleraRepositoryPort>;
+        let hotel = Arc::new(PostgresHotelRepository::new(db_pool.clone(), cache.clone())) as Arc<dyn HotelRepositoryPort>;
+
         Self {
             user, session, persona, agencia, tour, transporte, vehiculo,
             conductor, guia, restaurante, entrada, entrada_precio, file,
@@ -103,6 +113,7 @@ impl Repositories {
             file_entrada, file_guia, file_pasajero, file_restaurante,
             file_vehiculo, file_tour,
             pago_file, pago_proveedor,
+            cadena_hotelera, hotel,
         }
     }
 }

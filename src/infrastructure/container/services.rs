@@ -9,6 +9,7 @@ use crate::application::services::{
     MisPagosService, MyFilesService, NotificationService, PersonaService,
     PostgresMisPagosRepository, PostgresMyFilesRepository, RestauranteService, SaldoFavorService,
     TourService, TransporteService, UserService, VehiculoService,
+    CadenaHoteleraService, HotelService,
 };
 use crate::infrastructure::persistence::DatabasePool;
 use crate::infrastructure::sse::NotificationBroadcaster;
@@ -41,6 +42,8 @@ pub(super) struct Services {
     pub file_tour_status: Arc<FileStatusService>,
     pub file_status: Arc<FileStatusService>,
     pub saldo_favor: Arc<SaldoFavorService>,
+    pub cadena_hotelera: Arc<CadenaHoteleraService>,
+    pub hotel: Arc<HotelService>,
 }
 
 impl Services {
@@ -207,6 +210,19 @@ impl Services {
             file_status.clone(),
         ));
 
+        let cadena_hotelera = Arc::new(CadenaHoteleraService::new(
+            repos.cadena_hotelera.clone(),
+            logging.clone(),
+            notify.clone(),
+        ));
+
+        let hotel = Arc::new(HotelService::new(
+            repos.hotel.clone(),
+            repos.cadena_hotelera.clone(),
+            logging.clone(),
+            notify.clone(),
+        ));
+
         Self {
             logging,
             notification,
@@ -229,6 +245,8 @@ impl Services {
             file_tour_status,
             file_status,
             saldo_favor,
+            cadena_hotelera,
+            hotel,
         }
     }
 }

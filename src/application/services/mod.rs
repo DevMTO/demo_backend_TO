@@ -21,6 +21,8 @@ pub mod file_assignment_service;
 pub mod mis_pagos_service;
 pub mod file_status_service;
 pub mod saldo_favor_service;
+pub mod cadena_hotelera_service;
+pub mod hotel_service;
 
 pub use logging_service::LoggingService;
 pub use notification_service::NotificationService;
@@ -42,3 +44,5 @@ pub use file_assignment_service::FileAssignmentService;
 pub use mis_pagos_service::{MisPagosService, PostgresMisPagosRepository};
 pub use file_status_service::FileStatusService;
 pub use saldo_favor_service::SaldoFavorService;
+pub use cadena_hotelera_service::CadenaHoteleraService;
+pub use hotel_service::HotelService;

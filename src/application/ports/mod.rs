@@ -23,6 +23,10 @@ pub mod entrada_repository;
 pub mod entrada_precio_repository;
 pub mod file_repository;
 
+// Hotel ports
+pub mod cadena_hotelera_repository;
+pub mod hotel_repository;
+
 // File relations ports
 pub mod file_relations_repository;
 
@@ -53,6 +57,10 @@ pub use restaurante_repository::RestauranteRepositoryPort;
 pub use entrada_repository::EntradaRepositoryPort;
 pub use entrada_precio_repository::EntradaPrecioRepositoryPort;
 pub use file_repository::FileRepositoryPort;
+
+// Re-exports hotel
+pub use cadena_hotelera_repository::CadenaHoteleraRepositoryPort;
+pub use hotel_repository::HotelRepositoryPort;
 
 // Re-exports file relations
 pub use file_relations_repository::{
