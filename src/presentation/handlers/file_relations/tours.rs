@@ -46,7 +46,7 @@ pub async fn list_file_tours(
             tour_nombre: Some(t.tour_nombre),
             tour_lugar_inicio: t.tour_lugar_inicio,
             tour_lugar_fin: t.tour_lugar_fin,
-            tour_precio_base: Some(t.tour_precio_base),
+            tour_precio_base: None,
             tour_duracion_dias: t.tour_duracion_dias,
             tour_tipo: t.tour_tipo,
             tour_is_active: Some(t.tour_is_active),

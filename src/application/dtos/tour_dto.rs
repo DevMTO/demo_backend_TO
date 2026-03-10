@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use bigdecimal::BigDecimal;
 use ts_rs::TS;
 use validator::Validate;
 
@@ -20,8 +19,6 @@ pub struct TourResponse {
     pub detalles: Option<JsonValue>,
     #[ts(type = "object | null")]
     pub itinerario: Option<JsonValue>,
-    #[ts(type = "string")]
-    pub precio_base: BigDecimal,
     pub duracion_dias: Option<i32>,
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
@@ -51,7 +48,6 @@ impl From<Tour> for TourResponse {
             lugar_fin: t.lugar_fin,
             detalles: t.detalles,
             itinerario: t.itinerario,
-            precio_base: t.precio_base,
             duracion_dias: t.duracion_dias,
             media: t.media,
             tipo_tour: t.tipo_tour,
@@ -85,9 +81,6 @@ pub struct CreateTourRequest {
     
     #[ts(type = "object | null")]
     pub itinerario: Option<JsonValue>,
-    
-    #[validate(range(min = 0.0, message = "Precio debe ser positivo"))]
-    pub precio_base: f64,
     
     #[validate(range(min = 1, message = "Duración mínima 1 día"))]
     pub duracion_dias: Option<i32>,
@@ -125,7 +118,6 @@ impl CreateTourRequest {
             lugar_fin: self.lugar_fin,
             detalles: self.detalles,
             itinerario: self.itinerario,
-            precio_base: BigDecimal::try_from(self.precio_base).unwrap_or_default(),
             duracion_dias: self.duracion_dias,
             media: self.media,
             tipo_tour: self.tipo_tour,
@@ -161,9 +153,6 @@ pub struct UpdateTourRequest {
     
     #[ts(type = "object | null")]
     pub itinerario: Option<JsonValue>,
-    
-    #[validate(range(min = 0.0))]
-    pub precio_base: Option<f64>,
     
     #[validate(range(min = 1))]
     pub duracion_dias: Option<i32>,
@@ -209,9 +198,6 @@ impl UpdateTourRequest {
         }
         if let Some(itinerario) = self.itinerario {
             tour.itinerario = Some(itinerario);
-        }
-        if let Some(precio) = self.precio_base {
-            tour.precio_base = BigDecimal::try_from(precio).unwrap_or_default();
         }
         if let Some(duracion) = self.duracion_dias {
             tour.duracion_dias = Some(duracion);

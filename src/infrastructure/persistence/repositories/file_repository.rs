@@ -237,4 +237,29 @@ impl FileRepositoryPort for PostgresFileRepository {
         Ok(affected > 0)
     }
 
+    async fn find_active_file_codes(&self, id_entidad: i32, entidad: Option<&str>) -> Result<Vec<String>, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+
+        // Statuses terminales: completado, cancelado, anulado, no_show
+        let terminal_statuses = vec!["completado", "cancelado", "anulado", "no_show"];
+
+        let mut query = files::table
+            .filter(files::id_entidad.eq(id_entidad))
+            .filter(files::file_code.is_not_null())
+            .filter(files::status.ne_all(terminal_statuses))
+            .select(files::file_code)
+            .into_boxed();
+
+        if let Some(ent) = entidad {
+            query = query.filter(files::entidad.eq(ent));
+        }
+
+        let results: Vec<Option<String>> = query
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+
+        Ok(results.into_iter().flatten().collect())
+    }
+
 }

@@ -206,6 +206,12 @@ impl TigrisStorage {
         format!("agencias/{}/{}-{}.{}", agencia_id, file_type, timestamp, extension)
     }
     
+    /// Genera un path único para un archivo de cadena hotelera
+    pub fn generate_cadena_path(cadena_id: i32, file_type: &str, extension: &str) -> String {
+        let timestamp = chrono::Utc::now().timestamp();
+        format!("cadenas/{}/{}-{}.{}", cadena_id, file_type, timestamp, extension)
+    }
+
     /// Genera un path único para un archivo de transporte
     /// 
     /// # Arguments

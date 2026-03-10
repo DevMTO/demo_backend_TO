@@ -90,7 +90,6 @@ impl TourRepositoryPort for PostgresTourRepository {
             horarios: Some(tour.horarios.clone()),
             detalles: Some(tour.detalles.clone()),
             itinerario: Some(tour.itinerario.clone()),
-            precio_base: Some(tour.precio_base.clone()),
             duracion_dias: Some(tour.duracion_dias),
             media: Some(tour.media.clone()),
             tipo_tour: Some(tour.tipo_tour.as_deref()),
@@ -266,16 +265,9 @@ impl TourRepositoryPort for PostgresTourRepository {
         Ok(results.into_iter().map(Into::into).collect())
     }
     
-    async fn find_by_precio_range(&self, min: BigDecimal, max: BigDecimal) -> Result<Vec<Tour>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        let results = tours::table
-            .filter(tours::precio_base.ge(min))
-            .filter(tours::precio_base.le(max))
-            .filter(tours::is_active.eq(true))
-            .load::<TourModel>(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(results.into_iter().map(Into::into).collect())
+    async fn find_by_precio_range(&self, _min: BigDecimal, _max: BigDecimal) -> Result<Vec<Tour>, ApplicationError> {
+        // precio_base fue movido a la tabla tarifas
+        Ok(vec![])
     }
     
     async fn find_by_duracion(&self, dias: i32) -> Result<Vec<Tour>, ApplicationError> {

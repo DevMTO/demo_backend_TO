@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use bigdecimal::BigDecimal;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActividadItinerario {
@@ -45,7 +44,6 @@ pub struct Tour {
     pub lugar_fin: Option<String>,
     pub detalles: Option<JsonValue>,
     pub itinerario: Option<JsonValue>,
-    pub precio_base: BigDecimal,
     pub duracion_dias: Option<i32>,
     pub media: Option<JsonValue>,
     pub tipo_tour: Option<String>,
@@ -62,7 +60,7 @@ pub struct Tour {
 }
 
 impl Tour {
-    pub fn new(nombre: String, lugar_inicio: Option<String>, lugar_fin: Option<String>, precio_base: BigDecimal) -> Self {
+    pub fn new(nombre: String, lugar_inicio: Option<String>, lugar_fin: Option<String>) -> Self {
         let now = Utc::now();
         Self {
             id: 0, // Será asignado por la DB (SERIAL)
@@ -71,7 +69,6 @@ impl Tour {
             lugar_fin,
             detalles: Some(serde_json::json!({})),
             itinerario: Some(serde_json::json!([])),
-            precio_base,
             duracion_dias: Some(1),
             media: Some(serde_json::json!({})),
             tipo_tour: Some(String::new()),

@@ -27,6 +27,9 @@ pub mod file_relations_dto;
 pub mod cadena_hotelera_dto;
 pub mod hotel_dto;
 
+// Tarifa DTOs
+pub mod tarifa_dto;
+
 // Contabilidad DTOs
 pub mod contabilidad_dto;
 
@@ -64,6 +67,9 @@ pub use user_dto::{
 // Re-exports - Hotel
 pub use cadena_hotelera_dto::*;
 pub use hotel_dto::*;
+
+// Re-exports - Tarifa
+pub use tarifa_dto::*;
 
 // Re-exports - Contabilidad
 pub use contabilidad_dto::*;

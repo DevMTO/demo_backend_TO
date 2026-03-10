@@ -442,6 +442,22 @@ diesel::table! {
 }
 
 diesel::table! {
+    tarifas (id) {
+        id -> Int4,
+        id_tour -> Int4,
+        #[max_length = 50]
+        tipo_entidad -> Varchar,
+        precio -> Numeric,
+        descripcion -> Nullable<Text>,
+        is_active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        created_by -> Nullable<Int4>,
+        updated_by -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
     tours (id) {
         id -> Int4,
         #[max_length = 200]
@@ -452,7 +468,6 @@ diesel::table! {
         lugar_fin -> Nullable<Varchar>,
         detalles -> Nullable<Jsonb>,
         itinerario -> Nullable<Jsonb>,
-        precio_base -> Numeric,
         duracion_dias -> Nullable<Int4>,
         media -> Nullable<Jsonb>,
         is_active -> Bool,
@@ -603,6 +618,7 @@ diesel::joinable!(pagos_proveedores -> guias (id_guia));
 diesel::joinable!(pagos_proveedores -> restaurantes (id_restaurante));
 diesel::joinable!(pagos_proveedores -> transportes (id_transporte));
 diesel::joinable!(restaurantes -> personas (encargado));
+diesel::joinable!(tarifas -> tours (id_tour));
 diesel::joinable!(transportes -> personas (encargado));
 diesel::joinable!(user_sessions -> users (user_id));
 diesel::joinable!(vehiculos -> transportes (id_transporte));
@@ -629,6 +645,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     pagos_proveedores,
     personas,
     restaurantes,
+    tarifas,
     tours,
     transportes,
     user_sessions,

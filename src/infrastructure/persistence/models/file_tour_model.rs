@@ -104,7 +104,6 @@ pub struct FileTourWithTourModel {
     pub tour_nombre: String,
     pub tour_lugar_inicio: Option<String>,
     pub tour_lugar_fin: Option<String>,
-    pub tour_precio_base: BigDecimal,
     pub tour_duracion_dias: Option<i32>,
     pub tour_tipo: Option<String>,
     pub tour_is_active: bool,

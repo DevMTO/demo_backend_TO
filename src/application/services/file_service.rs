@@ -115,7 +115,7 @@ impl FileService {
             tour_nombre: Some(t.tour_nombre),
             tour_lugar_inicio: t.tour_lugar_inicio,
             tour_lugar_fin: t.tour_lugar_fin,
-            tour_precio_base: Some(t.tour_precio_base),
+            tour_precio_base: None,
             tour_duracion_dias: t.tour_duracion_dias,
             tour_tipo: t.tour_tipo,
             tour_is_active: Some(t.tour_is_active),
@@ -570,6 +570,11 @@ impl FileService {
         Ok(items)
     }
 
+    /// Obtener file_codes de files activos (no completado/cancelado/no_show/anulado) por entidad
+    pub async fn get_active_file_codes(&self, id_entidad: i32, entidad: Option<&str>) -> Result<Vec<String>, ApplicationError> {
+        self.file_repository.find_active_file_codes(id_entidad, entidad).await
+    }
+
     /// Buscar files por rango de fechas
     #[instrument(skip(self))]
     pub async fn search_files_by_date_range(
@@ -746,9 +751,9 @@ impl FileService {
         let mut primera_fecha_vencimiento: Option<NaiveDate> = fecha_vencimiento_anticipado;
 
         for ft in &tours {
-            // Calcular monto del tour: precio_aplicado o tour_precio_base * nro_pasajeros
+            // Calcular monto del tour: precio_aplicado (debe estar seteado desde la tarifa)
             let monto_tour = ft.precio_aplicado.clone()
-                .unwrap_or_else(|| ft.tour_precio_base.clone());
+                .unwrap_or_else(|| BigDecimal::from(0));
 
             // Calcular monto de entradas para este file_tour
             let entradas_ft = self.file_entrada_repository.find_by_file_tour(ft.id).await.unwrap_or_default();

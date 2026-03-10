@@ -27,6 +27,7 @@ pub mod mis_pagos;
 pub mod saldo_favor;
 pub mod cadena_hotelera;
 pub mod hotel;
+pub mod tarifa;
 
 // Re-exports para compatibilidad con rutas existentes
 pub use auth::{login_handler, logout_handler, verify_session_handler, health_check, get_profile_handler, update_profile_handler};

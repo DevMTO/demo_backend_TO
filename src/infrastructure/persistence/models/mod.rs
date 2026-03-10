@@ -23,6 +23,9 @@ pub mod file_model;
 pub mod cadena_hotelera_model;
 pub mod hotel_model;
 
+// Tarifa models
+pub mod tarifa_model;
+
 
 
 // File relation models
@@ -60,6 +63,9 @@ pub use file_model::*;
 // Re-exports - Hotel
 pub use cadena_hotelera_model::*;
 pub use hotel_model::*;
+
+// Re-exports - Tarifa
+pub use tarifa_model::*;
 
 
 

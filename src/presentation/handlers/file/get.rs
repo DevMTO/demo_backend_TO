@@ -147,3 +147,58 @@ pub async fn list_files_pending_payment(
     
     Ok(json_ok(files))
 }
+
+/// Obtener file_codes de files activos (no completado/cancelado/no_show/anulado)
+/// Scoped por entidad del usuario autenticado
+#[instrument(skip(state, auth))]
+pub async fn get_active_file_codes(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> Result<impl IntoResponse, ApplicationError> {
+    let id_entidad = if auth.user.role.is_admin() {
+        return Err(ApplicationError::BadRequest(
+            "Admins deben especificar la entidad via /active-codes/{entidad_id}".to_string()
+        ));
+    } else {
+        auth.user.id_entidad.ok_or_else(|| {
+            ApplicationError::Forbidden("Usuario sin entidad asignada".to_string())
+        })?
+    };
+
+    let entidad_filter = auth.user.role.entidad_type();
+    let codes = state.container.file_service
+        .get_active_file_codes(id_entidad, entidad_filter)
+        .await?;
+
+    Ok(json_ok(codes))
+}
+
+/// Obtener file_codes de files activos para una entidad específica (admin)
+#[instrument(skip(state, auth))]
+pub async fn get_active_file_codes_by_entity(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(entidad_id): Path<i32>,
+    Query(query): Query<EntidadQuery>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    if !auth.user.role.is_admin() {
+        let user_entidad = auth.user.id_entidad.unwrap_or(0);
+        if user_entidad != entidad_id {
+            return Err(ApplicationError::Forbidden(
+                "No tienes permiso para ver file codes de otra entidad".to_string()
+            ));
+        }
+    }
+
+    let entidad_filter = if auth.user.role.is_admin() {
+        query.entidad.as_deref()
+    } else {
+        auth.user.role.entidad_type()
+    };
+
+    let codes = state.container.file_service
+        .get_active_file_codes(entidad_id, entidad_filter)
+        .await?;
+
+    Ok(json_ok(codes))
+}

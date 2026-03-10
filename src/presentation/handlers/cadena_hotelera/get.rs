@@ -53,7 +53,7 @@ pub async fn get_cadena(
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente) {
+    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente | UserRole::Hoteles) {
         return Err(ApplicationError::Forbidden("No tienes permisos para ver esta cadena hotelera".to_string()));
     }
     

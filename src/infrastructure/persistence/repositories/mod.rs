@@ -24,6 +24,9 @@ pub mod file_relations_repository;
 pub mod cadena_hotelera_repository;
 pub mod hotel_repository;
 
+// Tarifa repositories
+pub mod tarifa_repository;
+
 // Contabilidad repositories
 pub mod contabilidad_repository;
 
@@ -52,6 +55,9 @@ pub use file_relations_repository::*;
 // Re-exports - Hotel
 pub use cadena_hotelera_repository::*;
 pub use hotel_repository::*;
+
+// Re-exports - Tarifa
+pub use tarifa_repository::*;
 
 // Re-exports - Contabilidad
 pub use contabilidad_repository::*;

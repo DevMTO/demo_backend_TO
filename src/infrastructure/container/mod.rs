@@ -19,6 +19,7 @@ use crate::application::ports::{
     FileRestauranteRepositoryPort, FileVehiculoRepositoryPort, FileTourRepositoryPort,
     SessionManagerPort, PasswordHasherPort, CachePort,
     CadenaHoteleraRepositoryPort, HotelRepositoryPort,
+    TarifaRepositoryPort,
 };
 use crate::application::services::{
     LoggingService, NotificationService, UserService, AgenciaService,
@@ -27,6 +28,7 @@ use crate::application::services::{
     EntradaPrecioService, GuiaService, MyFilesService, ContabilidadService,
     FileAssignmentService, MisPagosService, FileStatusService, SaldoFavorService,
     CadenaHoteleraService, HotelService,
+    TarifaService,
 };
 use crate::application::use_cases::auth::{LoginUseCase, LogoutUseCase, VerifySessionUseCase};
 use crate::config::AppConfig;
@@ -74,6 +76,7 @@ pub struct DependencyContainer {
     pub saldo_favor_service: Arc<SaldoFavorService>,
     pub cadena_hotelera_service: Arc<CadenaHoteleraService>,
     pub hotel_service: Arc<HotelService>,
+    pub tarifa_service: Arc<TarifaService>,
 
     // Object Storage (Tigris) - Opcional
     pub tigris_storage: Option<Arc<crate::infrastructure::storage::TigrisStorage>>,
@@ -104,6 +107,9 @@ pub struct DependencyContainer {
     // Hotel Repositories
     pub cadena_hotelera_repository: Arc<dyn CadenaHoteleraRepositoryPort>,
     pub hotel_repository: Arc<dyn HotelRepositoryPort>,
+
+    // Tarifa Repositories
+    pub tarifa_repository: Arc<dyn TarifaRepositoryPort>,
 
     // Cache
     pub cache: Arc<dyn CachePort>,
@@ -180,6 +186,7 @@ impl DependencyContainer {
             saldo_favor_service: svcs.saldo_favor,
             cadena_hotelera_service: svcs.cadena_hotelera,
             hotel_service: svcs.hotel,
+            tarifa_service: svcs.tarifa,
             // Repositories
             user_repository: repos.user,
             persona_repository: repos.persona,
@@ -204,6 +211,8 @@ impl DependencyContainer {
             // Hotel
             cadena_hotelera_repository: repos.cadena_hotelera,
             hotel_repository: repos.hotel,
+            // Tarifa
+            tarifa_repository: repos.tarifa,
             // Cache
             cache,
             // Cookie config

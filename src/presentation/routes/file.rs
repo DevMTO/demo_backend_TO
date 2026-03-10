@@ -15,6 +15,8 @@ pub fn file_routes() -> Router<AppState> {
         .route("/upcoming", get(file::list_files_upcoming))
         .route("/pending-payment", get(file::list_files_pending_payment))
         .route("/by-date", get(file::list_files_by_date_range))
+        .route("/active-codes", get(file::get_active_file_codes))
+        .route("/active-codes/{entidad_id}", get(file::get_active_file_codes_by_entity))
         .route("/agencia/{agencia_id}", get(file::list_files_by_agencia))
         // ===== Endpoint de confirmación de reserva =====
         .route("/confirmar", post(file::confirmar_reserva))

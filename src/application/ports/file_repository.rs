@@ -30,4 +30,8 @@ pub trait FileRepositoryPort: Send + Sync {
     
     /// Actualiza solo el estado de un File
     async fn update_status(&self, id: i32, status: &str) -> Result<bool, ApplicationError>;
+
+    /// Obtiene los file_code de files activos (no completado/cancelado/no_show/anulado)
+    /// filtrados por entidad
+    async fn find_active_file_codes(&self, id_entidad: i32, entidad: Option<&str>) -> Result<Vec<String>, ApplicationError>;
 }

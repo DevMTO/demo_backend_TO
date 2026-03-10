@@ -27,6 +27,7 @@ mod my_files;
 mod mis_pagos;
 mod cadena_hotelera;
 mod hotel;
+mod tarifa;
 
 // Re-exportar AppState para uso externo
 pub use state::AppState;
@@ -85,6 +86,7 @@ pub fn create_router(
         .nest("/mis-pagos", mis_pagos::mis_pagos_routes())
         .nest("/cadenas-hoteleras", cadena_hotelera::cadena_hotelera_routes())
         .nest("/hoteles", hotel::hotel_routes())
+        .nest("/tarifas", tarifa::tarifa_routes())
         .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
     // Router principal con capas de seguridad

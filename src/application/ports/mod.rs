@@ -27,6 +27,9 @@ pub mod file_repository;
 pub mod cadena_hotelera_repository;
 pub mod hotel_repository;
 
+// Tarifa ports
+pub mod tarifa_repository;
+
 // File relations ports
 pub mod file_relations_repository;
 
@@ -61,6 +64,9 @@ pub use file_repository::FileRepositoryPort;
 // Re-exports hotel
 pub use cadena_hotelera_repository::CadenaHoteleraRepositoryPort;
 pub use hotel_repository::HotelRepositoryPort;
+
+// Re-exports tarifa
+pub use tarifa_repository::TarifaRepositoryPort;
 
 // Re-exports file relations
 pub use file_relations_repository::{

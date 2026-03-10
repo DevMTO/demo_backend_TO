@@ -1,6 +1,6 @@
 //! Funciones auxiliares para Storage handlers
 
-use crate::application::dtos::{UpdateAgenciaRequest, UpdateTransporteRequest, UpdateTourRequest};
+use crate::application::dtos::{UpdateAgenciaRequest, UpdateCadenaHoteleraRequest, UpdateTransporteRequest, UpdateTourRequest};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use serde_json::json;
@@ -89,6 +89,81 @@ pub async fn clear_agencia_media(
     Ok(())
 }
 
+/// Actualiza el campo media de una cadena hotelera
+pub async fn update_cadena_media(
+    state: &AppState,
+    cadena_id: i32,
+    field: &str,
+    path: &str,
+    updated_by: i32,
+) -> Result<(), ApplicationError> {
+    let cadena = state.container.cadena_hotelera_repository
+        .find_by_id(cadena_id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound("Cadena hotelera no encontrada".to_string()))?;
+    
+    let current_media = cadena.media.clone().unwrap_or(json!({}));
+    let mut media: serde_json::Value = if current_media.is_string() {
+        serde_json::from_str(current_media.as_str().unwrap_or("{}")).unwrap_or(json!({}))
+    } else {
+        current_media
+    };
+    
+    media[field] = json!(path);
+    
+    let request = UpdateCadenaHoteleraRequest {
+        nombre: None,
+        telefono: None,
+        correo: None,
+        media: Some(media),
+        encargado: cadena.encargado,
+        is_active: None,
+        paleta_colores: None,
+    };
+    
+    let updated = request.apply_to(cadena, Some(updated_by));
+    state.container.cadena_hotelera_repository.update(&updated).await?;
+    
+    Ok(())
+}
+
+/// Limpia un campo de media de una cadena hotelera
+pub async fn clear_cadena_media(
+    state: &AppState,
+    cadena_id: i32,
+    field: &str,
+    updated_by: i32,
+) -> Result<(), ApplicationError> {
+    let cadena = state.container.cadena_hotelera_repository
+        .find_by_id(cadena_id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound("Cadena hotelera no encontrada".to_string()))?;
+    
+    let current_media = cadena.media.clone().unwrap_or(json!({}));
+    let mut media: serde_json::Value = if current_media.is_string() {
+        serde_json::from_str(current_media.as_str().unwrap_or("{}")).unwrap_or(json!({}))
+    } else {
+        current_media
+    };
+    
+    media[field] = json!(null);
+    
+    let request = UpdateCadenaHoteleraRequest {
+        nombre: None,
+        telefono: None,
+        correo: None,
+        media: Some(media),
+        encargado: cadena.encargado,
+        is_active: None,
+        paleta_colores: None,
+    };
+    
+    let updated = request.apply_to(cadena, Some(updated_by));
+    state.container.cadena_hotelera_repository.update(&updated).await?;
+    
+    Ok(())
+}
+
 /// Actualiza el campo media de un transporte
 pub async fn update_transporte_media(
     state: &AppState,
@@ -166,7 +241,6 @@ pub async fn update_tour_media(
         lugar_fin: None,
         detalles: None,
         itinerario: None,
-        precio_base: None,
         duracion_dias: None,
         media: Some(media),
         tipo_tour: None,

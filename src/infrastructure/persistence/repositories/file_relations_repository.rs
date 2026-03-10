@@ -900,7 +900,7 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
         let mut conn = self.pool.get_connection().await?;
         
         // INNER JOIN completo entre file_tours y tours
-        let results: Vec<(FileTourModel, (String, Option<String>, Option<String>, BigDecimal, Option<i32>, Option<String>, bool, Option<serde_json::Value>, Option<serde_json::Value>, Option<serde_json::Value>))> = file_tours::table
+        let results: Vec<(FileTourModel, (String, Option<String>, Option<String>, Option<i32>, Option<String>, bool, Option<serde_json::Value>, Option<serde_json::Value>, Option<serde_json::Value>))> = file_tours::table
             .inner_join(tours::table.on(tours::id.eq(file_tours::id_tour)))
             .filter(file_tours::id_file.eq(id_file))
             .order(file_tours::orden.asc())
@@ -910,7 +910,6 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
                     tours::nombre,
                     tours::lugar_inicio,
                     tours::lugar_fin,
-                    tours::precio_base,
                     tours::duracion_dias,
                     tours::tipo_tour,
                     tours::is_active,
@@ -924,7 +923,7 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
             .map_err(|e| ApplicationError::Repository(format!("Error al cargar tours con detalle: {}", e)))?;
         
         // Convertir a modelo con tour info completa (incluyendo fecha_tour y campos de recojo)
-        let with_tour: Vec<FileTourWithTourModel> = results.into_iter().map(|(ft, (nombre, lugar_inicio, lugar_fin, precio, duracion, tipo, is_active, geo_inicio, geo_fin, geo_ruta))| {
+        let with_tour: Vec<FileTourWithTourModel> = results.into_iter().map(|(ft, (nombre, lugar_inicio, lugar_fin, duracion, tipo, is_active, geo_inicio, geo_fin, geo_ruta))| {
             FileTourWithTourModel {
                 id: ft.id,
                 id_file: ft.id_file,
@@ -944,7 +943,6 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
                 tour_nombre: nombre,
                 tour_lugar_inicio: lugar_inicio,
                 tour_lugar_fin: lugar_fin,
-                tour_precio_base: precio,
                 tour_duracion_dias: duracion,
                 tour_tipo: tipo,
                 tour_is_active: is_active,

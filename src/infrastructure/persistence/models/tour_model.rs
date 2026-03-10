@@ -2,7 +2,6 @@ use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use bigdecimal::BigDecimal;
 
 use crate::domain::entities::Tour;
 use crate::infrastructure::persistence::schema::tours;
@@ -17,7 +16,6 @@ pub struct TourModel {
     pub lugar_fin: Option<String>,
     pub detalles: Option<JsonValue>,
     pub itinerario: Option<JsonValue>,
-    pub precio_base: BigDecimal,
     pub duracion_dias: Option<i32>,
     pub media: Option<JsonValue>,
     pub is_active: bool,
@@ -41,7 +39,6 @@ pub struct NewTourModel<'a> {
     pub lugar_fin: Option<&'a str>,
     pub detalles: Option<JsonValue>,
     pub itinerario: Option<JsonValue>,
-    pub precio_base: BigDecimal,
     pub duracion_dias: Option<i32>,
     pub media: Option<JsonValue>,
     pub tipo_tour: Option<&'a str>,
@@ -63,7 +60,6 @@ pub struct UpdateTourModel<'a> {
     pub lugar_fin: Option<Option<&'a str>>,
     pub detalles: Option<Option<JsonValue>>,
     pub itinerario: Option<Option<JsonValue>>,
-    pub precio_base: Option<BigDecimal>,
     pub duracion_dias: Option<Option<i32>>,
     pub media: Option<Option<JsonValue>>,
     pub tipo_tour: Option<Option<&'a str>>,
@@ -85,7 +81,6 @@ impl From<TourModel> for Tour {
             lugar_fin: model.lugar_fin,
             detalles: model.detalles,
             itinerario: model.itinerario,
-            precio_base: model.precio_base,
             duracion_dias: model.duracion_dias,
             media: model.media,
             tipo_tour: model.tipo_tour,
@@ -111,7 +106,6 @@ impl<'a> From<&'a Tour> for NewTourModel<'a> {
             lugar_fin: tour.lugar_fin.as_deref(),
             detalles: tour.detalles.clone(),
             itinerario: tour.itinerario.clone(),
-            precio_base: tour.precio_base.clone(),
             duracion_dias: tour.duracion_dias,
             media: tour.media.clone(),
             tipo_tour: tour.tipo_tour.as_deref(),
