@@ -212,6 +212,7 @@ diesel::table! {
         #[max_length = 30]
         status -> Varchar,
         geo_recojo -> Nullable<Jsonb>,
+        nro_pasajeros -> Nullable<Int4>,
     }
 }
 

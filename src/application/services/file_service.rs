@@ -105,6 +105,7 @@ impl FileService {
             orden: t.orden,
             precio_aplicado: t.precio_aplicado.clone(),
             notas: t.notas,
+            nro_pasajeros: t.nro_pasajeros,
             fecha_tour: t.fecha_tour,
             turno_tour: t.turno_tour,
             lugar_recojo: t.lugar_recojo,
@@ -244,6 +245,7 @@ impl FileService {
                     hora_recojo: t.hora_recojo,
                     status: t.status,
                     geo_recojo: geo_recojo_json,
+                    nro_pasajeros: t.nro_pasajeros,
                 }
             })
             .collect();
@@ -333,6 +335,7 @@ impl FileService {
                         hora_recojo: t.hora_recojo,
                         status: t.status,
                         geo_recojo: geo_recojo_json,
+                        nro_pasajeros: t.nro_pasajeros,
                     }
                 })
                 .collect();

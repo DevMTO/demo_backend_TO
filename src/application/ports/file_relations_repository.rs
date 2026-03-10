@@ -40,6 +40,8 @@ pub struct FileTourInputData {
     pub status: Option<String>,
     /// Coordenadas de geolocalización del punto de recojo
     pub geo_recojo: Option<JsonValue>,
+    /// Cantidad de pasajeros específicos para este tour
+    pub nro_pasajeros: Option<i32>,
 }
 
 /// Repositorio para file_entradas (vinculado a file_tours)

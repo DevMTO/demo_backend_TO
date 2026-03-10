@@ -39,6 +39,9 @@ pub struct FileTourDto {
     /// Estado del file_tour: reservado, confirmado, en_progreso, completado, cancelado
     pub status: String,
     
+    /// Cantidad de pasajeros específicos para este tour (null = todos los del file)
+    pub nro_pasajeros: Option<i32>,
+    
     // === Información del tour (INNER JOIN) ===
     /// Nombre del tour
     pub tour_nombre: Option<String>,
@@ -83,6 +86,8 @@ pub struct FileTourInput {
     pub status: Option<String>,
     /// Geolocalización del punto de recojo
     pub geo_recojo: Option<GeoLocation>,
+    /// Cantidad de pasajeros específicos para este tour (null = todos los del file)
+    pub nro_pasajeros: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -230,6 +235,7 @@ impl CreateFileRequest {
                 hora_recojo: None,
                 status: None,
                 geo_recojo: None,
+                nro_pasajeros: None,
             }]
         } else {
             vec![]
@@ -326,6 +332,7 @@ impl UpdateFileRequest {
                 hora_recojo: None,
                 status: None,
                 geo_recojo: None,
+                nro_pasajeros: None,
             }]);
         }
         None

@@ -29,6 +29,8 @@ pub struct FileTourModel {
     pub status: String,
     /// Coordenadas de geolocalización del punto de recojo
     pub geo_recojo: Option<JsonValue>,
+    /// Cantidad de pasajeros específicos para este tour (null = todos los del file)
+    pub nro_pasajeros: Option<i32>,
 }
 
 /// Modelo para insertar nuevos registros en file_tours
@@ -50,6 +52,8 @@ pub struct NewFileTourModel<'a> {
     pub status: &'a str,
     /// Coordenadas de geolocalización del punto de recojo
     pub geo_recojo: Option<JsonValue>,
+    /// Cantidad de pasajeros específicos para este tour
+    pub nro_pasajeros: Option<i32>,
 }
 
 /// Modelo para actualizar registros en file_tours
@@ -69,6 +73,8 @@ pub struct UpdateFileTourModel<'a> {
     pub status: Option<&'a str>,
     /// Coordenadas de geolocalización del punto de recojo
     pub geo_recojo: Option<Option<JsonValue>>,
+    /// Cantidad de pasajeros específicos para este tour
+    pub nro_pasajeros: Option<Option<i32>>,
 }
 
 /// Modelo para el resultado del JOIN entre file_tours y tours
@@ -92,6 +98,8 @@ pub struct FileTourWithTourModel {
     pub status: String,
     /// Coordenadas de geolocalización del punto de recojo
     pub geo_recojo: Option<JsonValue>,
+    /// Cantidad de pasajeros específicos para este tour
+    pub nro_pasajeros: Option<i32>,
     // Campos del tour (JOIN)
     pub tour_nombre: String,
     pub tour_lugar_inicio: Option<String>,

@@ -867,6 +867,7 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
                 hora_recojo: data.hora_recojo,
                 status: data.status.as_deref().unwrap_or("pendiente"),
                 geo_recojo: data.geo_recojo.clone(),
+                nro_pasajeros: data.nro_pasajeros,
             };
             
             let result = diesel::insert_into(file_tours::table)
@@ -939,6 +940,7 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
                 hora_recojo: ft.hora_recojo,
                 status: ft.status,
                 geo_recojo: ft.geo_recojo,
+                nro_pasajeros: ft.nro_pasajeros,
                 tour_nombre: nombre,
                 tour_lugar_inicio: lugar_inicio,
                 tour_lugar_fin: lugar_fin,

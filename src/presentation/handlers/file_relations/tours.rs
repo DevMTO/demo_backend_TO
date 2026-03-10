@@ -42,6 +42,7 @@ pub async fn list_file_tours(
             // Convertir JsonValue a GeoLocation
             geo_recojo: t.geo_recojo.and_then(|v| serde_json::from_value(v).ok()),
             status: t.status,
+            nro_pasajeros: t.nro_pasajeros,
             tour_nombre: Some(t.tour_nombre),
             tour_lugar_inicio: t.tour_lugar_inicio,
             tour_lugar_fin: t.tour_lugar_fin,
