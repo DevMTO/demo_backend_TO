@@ -72,6 +72,15 @@ pub struct PagoFileResponse {
     pub verificado_at: Option<DateTime<Utc>>,
     pub notas: Option<String>,
     pub created_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    pub created_by_nombre: Option<String>,
+    pub saldo_autorizado_por: Option<i32>,
+    pub saldo_autorizado_por_nombre: Option<String>,
+    pub pagado_por: Option<i32>,
+    pub pagado_por_nombre: Option<String>,
+    pub pagado_at: Option<DateTime<Utc>>,
+    pub updated_by: Option<i32>,
+    pub updated_by_nombre: Option<String>,
     /// ID del file_tour asociado (para deudas por tour)
     pub id_file_tour: Option<i32>,
     /// Nombre del tour (para deudas por tour)

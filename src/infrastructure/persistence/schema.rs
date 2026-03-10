@@ -363,6 +363,9 @@ diesel::table! {
         cuota -> Nullable<Int2>,
         #[max_length = 50]
         entidad -> Nullable<Varchar>,
+        pagado_por -> Nullable<Int4>,
+        pagado_at -> Nullable<Timestamptz>,
+        updated_by -> Nullable<Int4>,
     }
 }
 

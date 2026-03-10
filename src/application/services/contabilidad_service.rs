@@ -486,6 +486,9 @@ impl ContabilidadService {
                         comprobante_url: comprobante_url.as_deref(),
                         comprobante_key: comprobante_key.as_deref(),
                         cuota: Some(Some(1)),
+                        pagado_por: Some(created_by),
+                        pagado_at: Some(Some(Utc::now())),
+                        updated_by: Some(created_by),
                         ..Default::default()
                     };
                     let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
@@ -513,6 +516,8 @@ impl ContabilidadService {
                         entradas: false,
                         entrada_precio: None,
                         cuota: Some(next_cuota),
+                        pagado_por: created_by,
+                        pagado_at: Some(Utc::now()),
                     };
                     let pago = self.pago_file_repository.create(new_pago).await?;
                     if comprobante_url.is_some() || comprobante_key.is_some() {
@@ -566,6 +571,9 @@ impl ContabilidadService {
                     comprobante_url: comprobante_url.as_deref(),
                     comprobante_key: comprobante_key.as_deref(),
                     cuota: Some(Some(1)),
+                    pagado_por: Some(created_by),
+                    pagado_at: Some(Some(Utc::now())),
+                    updated_by: Some(created_by),
                     ..Default::default()
                 };
                 let updated = self.pago_file_repository.update(d.deuda_id, update).await?;
@@ -593,6 +601,8 @@ impl ContabilidadService {
                     entradas: false,
                     entrada_precio: None,
                     cuota: Some(next_cuota),
+                    pagado_por: created_by,
+                    pagado_at: Some(Utc::now()),
                 };
                 let pago = self.pago_file_repository.create(new_pago).await?;
                 if comprobante_url.is_some() || comprobante_key.is_some() {
@@ -1046,6 +1056,15 @@ impl ContabilidadService {
         None
     }
 
+    /// Resuelve user_id → User → Persona → nombre completo
+    async fn resolve_user_full_name(&self, user_id: Option<i32>) -> Option<String> {
+        let uid = user_id?;
+        let user = self.user_repository.find_by_id(uid).await.ok()??;
+        let persona_id = user.id_persona?;
+        let persona = self.persona_repository.find_by_id(persona_id).await.ok()??;
+        Some(format!("{} {}", persona.nombre, persona.apellidos))
+    }
+
     async fn pago_file_to_response(&self, p: PagoFileModel, agencia_nombre: Option<String>) -> PagoFileResponse {
         self.pago_file_to_response_with_calculated_pending(p, agencia_nombre, None).await
     }
@@ -1076,6 +1095,13 @@ impl ContabilidadService {
 
         use bigdecimal::ToPrimitive;
 
+        // Resolver nombres completos de auditoria
+        let verificador_nombre = self.resolve_user_full_name(p.verificado_por).await;
+        let created_by_nombre = self.resolve_user_full_name(p.created_by).await;
+        let saldo_autorizado_por_nombre = self.resolve_user_full_name(p.saldo_autorizado_por).await;
+        let pagado_por_nombre = self.resolve_user_full_name(p.pagado_por).await;
+        let updated_by_nombre = self.resolve_user_full_name(p.updated_by).await;
+
         PagoFileResponse {
             id: p.id,
             id_file: p.id_file,
@@ -1089,10 +1115,19 @@ impl ContabilidadService {
             fecha_vencimiento: p.fecha_vencimiento.map(|d| d.to_string()),
             comprobante_url: p.comprobante_url,
             verificado_por: p.verificado_por,
-            verificador_nombre: None,
+            verificador_nombre,
             verificado_at: p.verificado_at,
             notas: p.notas,
             created_at: p.created_at,
+            created_by: p.created_by,
+            created_by_nombre,
+            saldo_autorizado_por: p.saldo_autorizado_por,
+            saldo_autorizado_por_nombre,
+            pagado_por: p.pagado_por,
+            pagado_por_nombre,
+            pagado_at: p.pagado_at,
+            updated_by: p.updated_by,
+            updated_by_nombre,
             id_file_tour: p.id_file_tour,
             tour_nombre,
             tipo_registro: p.tipo_registro,

@@ -816,6 +816,8 @@ impl FileService {
                 entradas: tiene_entradas,
                 entrada_precio: if tiene_entradas { Some(monto_entradas) } else { None },
                 cuota: Some(0),
+                pagado_por: None,
+                pagado_at: None,
             };
 
             let pago = self.pago_file_repository.create(new_pago).await?;

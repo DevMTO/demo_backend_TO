@@ -12,7 +12,7 @@
 use std::sync::Arc;
 use bigdecimal::BigDecimal;
 use std::str::FromStr;
-use chrono::{NaiveDate, NaiveTime};
+use chrono::{NaiveDate, NaiveTime, Utc};
 use tracing::{info, instrument};
 
 use crate::application::dtos::contabilidad_dto::{
@@ -746,6 +746,8 @@ impl SaldoFavorService {
             entradas: false,
             entrada_precio: None,
             cuota: None,
+            pagado_por: created_by,
+            pagado_at: Some(Utc::now()),
         };
 
         let record = self.pago_file_repo.create(new_record).await?;

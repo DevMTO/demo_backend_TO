@@ -44,6 +44,9 @@ pub struct PagoFileModel {
     pub entrada_precio: Option<BigDecimal>,
     pub cuota: Option<i16>,
     pub entidad: Option<String>,
+    pub pagado_por: Option<i32>,
+    pub pagado_at: Option<DateTime<Utc>>,
+    pub updated_by: Option<i32>,
 }
 
 #[derive(Debug, Insertable)]
@@ -68,6 +71,8 @@ pub struct NewPagoFileModel<'a> {
     pub entradas: bool,
     pub entrada_precio: Option<BigDecimal>,
     pub cuota: Option<i16>,
+    pub pagado_por: Option<i32>,
+    pub pagado_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, AsChangeset, Default)]
@@ -90,6 +95,9 @@ pub struct UpdatePagoFileModel<'a> {
     pub entrada_precio: Option<Option<BigDecimal>>,
     pub tipo_registro: Option<&'a str>,
     pub cuota: Option<Option<i16>>,
+    pub pagado_por: Option<Option<i32>>,
+    pub pagado_at: Option<Option<DateTime<Utc>>>,
+    pub updated_by: Option<Option<i32>>,
 }
 
 // ============================================================================
