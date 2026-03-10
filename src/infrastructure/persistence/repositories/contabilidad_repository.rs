@@ -45,19 +45,26 @@ impl PagoFileRepositoryPort for PostgresPagoFileRepository {
     }
 
     #[instrument(skip(self))]
-    async fn find_by_entidad(&self, id_entidad: i32, limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError> {
+    async fn find_by_entidad(&self, id_entidad: i32, entidad: Option<&str>, limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
-        pagos_files::table.filter(pagos_files::id_entidad.eq(id_entidad))
+        let mut query = pagos_files::table
+            .filter(pagos_files::id_entidad.eq(id_entidad))
+            .into_boxed();
+        if let Some(ent) = entidad {
+            query = query.filter(pagos_files::entidad.eq(ent));
+        }
+        query
             .order(pagos_files::created_at.desc()).limit(limit).offset(offset)
             .load::<PagoFileModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
 
     #[instrument(skip(self))]
-    async fn find_filtered(&self, id_entidad: Option<i32>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>, limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError> {
+    async fn find_filtered(&self, id_entidad: Option<i32>, entidad: Option<&str>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>, limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let mut query = pagos_files::table.into_boxed();
         if let Some(a) = id_entidad { query = query.filter(pagos_files::id_entidad.eq(a)); }
+        if let Some(ent) = entidad { query = query.filter(pagos_files::entidad.eq(ent)); }
         if let Some(e) = estado { query = query.filter(pagos_files::estado.eq(e)); }
         if let Some(d) = fecha_desde { query = query.filter(pagos_files::fecha_vencimiento.ge(d)); }
         if let Some(h) = fecha_hasta { query = query.filter(pagos_files::fecha_vencimiento.le(h)); }
@@ -67,10 +74,11 @@ impl PagoFileRepositoryPort for PostgresPagoFileRepository {
     }
 
     #[instrument(skip(self))]
-    async fn count_filtered(&self, id_entidad: Option<i32>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>) -> Result<i64, ApplicationError> {
+    async fn count_filtered(&self, id_entidad: Option<i32>, entidad: Option<&str>, estado: Option<&str>, fecha_desde: Option<NaiveDate>, fecha_hasta: Option<NaiveDate>) -> Result<i64, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let mut query = pagos_files::table.into_boxed();
         if let Some(a) = id_entidad { query = query.filter(pagos_files::id_entidad.eq(a)); }
+        if let Some(ent) = entidad { query = query.filter(pagos_files::entidad.eq(ent)); }
         if let Some(e) = estado { query = query.filter(pagos_files::estado.eq(e)); }
         if let Some(d) = fecha_desde { query = query.filter(pagos_files::fecha_vencimiento.ge(d)); }
         if let Some(h) = fecha_hasta { query = query.filter(pagos_files::fecha_vencimiento.le(h)); }
@@ -97,12 +105,19 @@ impl PagoFileRepositoryPort for PostgresPagoFileRepository {
     }
 
     #[instrument(skip(self))]
-    async fn find_by_entidad_tipos(&self, id_entidad: i32, tipos: &[&str], limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError> {
+    async fn find_by_entidad_tipos(&self, id_entidad: i32, entidad: Option<&str>, tipos: &[&str], limit: i64, offset: i64) -> Result<Vec<PagoFileModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let tipos_owned: Vec<String> = tipos.iter().map(|t| t.to_string()).collect();
-        pagos_files::table
+        let mut query = pagos_files::table
             .filter(pagos_files::id_entidad.eq(id_entidad))
             .filter(pagos_files::tipo_registro.eq_any(&tipos_owned))
+            .into_boxed();
+        
+        if let Some(ent) = entidad {
+            query = query.filter(pagos_files::entidad.eq(ent));
+        }
+        
+        query
             .order(pagos_files::created_at.desc())
             .limit(limit)
             .offset(offset)

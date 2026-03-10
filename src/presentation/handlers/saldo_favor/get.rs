@@ -19,10 +19,12 @@ fn is_admin(role: &UserRole) -> bool {
     matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
 }
 
-/// Helper: ¿es agencia y pertenece a esta agencia?
+/// Helper: ¿es agencia/hotel y pertenece a esta entidad?
 fn is_own_agencia(auth: &AuthUser, id_entidad: i32) -> bool {
-    matches!(auth.user.role, UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente)
-        && auth.user.id_entidad == Some(id_entidad)
+    matches!(auth.user.role, 
+        UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente |
+        UserRole::Hoteles | UserRole::HotelesGerente
+    ) && auth.user.id_entidad == Some(id_entidad)
 }
 
 // ============================================================================
@@ -43,10 +45,12 @@ pub async fn get_saldo_resumen(
         ));
     }
 
+    let entidad_filter = if is_admin(&auth.user.role) { None } else { auth.user.role.entidad_type() };
+
     let resumen = state
         .container
         .saldo_favor_service
-        .get_saldo_agencia(id_entidad)
+        .get_saldo_agencia(id_entidad, entidad_filter)
         .await?;
 
     Ok(json_ok(resumen))
@@ -66,10 +70,12 @@ pub async fn get_saldo_dashboard(
         ));
     }
 
+    let entidad_filter = if is_admin(&auth.user.role) { None } else { auth.user.role.entidad_type() };
+
     let dashboard = state
         .container
         .saldo_favor_service
-        .get_dashboard(id_entidad)
+        .get_dashboard(id_entidad, entidad_filter)
         .await?;
 
     Ok(json_ok(dashboard))
@@ -115,11 +121,13 @@ pub async fn list_cancelaciones(
         auth.user.id_entidad
     };
 
+    let entidad_filter = if is_admin(&auth.user.role) { None } else { auth.user.role.entidad_type() };
+
     let offset = (params.page - 1) * params.page_size;
     let cancelaciones = state
         .container
         .saldo_favor_service
-        .list_cancelaciones(id_entidad, params.page_size, offset)
+        .list_cancelaciones(id_entidad, entidad_filter, params.page_size, offset)
         .await?;
 
     Ok(json_ok(cancelaciones))
@@ -143,11 +151,13 @@ pub async fn list_no_shows(
         auth.user.id_entidad
     };
 
+    let entidad_filter = if is_admin(&auth.user.role) { None } else { auth.user.role.entidad_type() };
+
     let offset = (params.page - 1) * params.page_size;
     let no_shows = state
         .container
         .saldo_favor_service
-        .list_no_shows(id_entidad, params.page_size, offset)
+        .list_no_shows(id_entidad, entidad_filter, params.page_size, offset)
         .await?;
 
     Ok(json_ok(no_shows))
@@ -171,11 +181,13 @@ pub async fn list_movimientos(
         auth.user.id_entidad
     };
 
+    let entidad_filter = if is_admin(&auth.user.role) { None } else { auth.user.role.entidad_type() };
+
     let offset = (params.page - 1) * params.page_size;
     let movimientos = state
         .container
         .saldo_favor_service
-        .list_movimientos(id_entidad, params.page_size, offset)
+        .list_movimientos(id_entidad, entidad_filter, params.page_size, offset)
         .await?;
 
     Ok(json_ok(movimientos))

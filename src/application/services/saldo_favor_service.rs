@@ -12,6 +12,7 @@
 use std::sync::Arc;
 use bigdecimal::BigDecimal;
 use std::str::FromStr;
+use chrono::{NaiveDate, NaiveTime};
 use tracing::{info, instrument};
 
 use crate::application::dtos::contabilidad_dto::{
@@ -49,6 +50,13 @@ pub struct SaldoFavorService {
     file_status_service: Arc<FileStatusService>,
 }
 
+/// Resultado de aplicar cancelación/no-show a un file_tour
+struct FileTourOperationResult {
+    pago: PagoFileModel,
+    monto_entradas_transferidas: f64,
+    id_file_tour_destino: Option<i32>,
+}
+
 impl SaldoFavorService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -78,6 +86,72 @@ impl SaldoFavorService {
     }
 
     // ========================================================================
+    // VALIDACIÓN TEMPORAL 8:40 AM
+    // ========================================================================
+
+    /// Determina si la operación solicitada es válida según la ventana temporal.
+    /// - Cancelación: antes de las 8:40 AM (hora Perú, UTC-5) del primer tour activo
+    /// - No-show: desde las 8:40 AM hasta antes de medianoche del primer tour activo
+    fn validar_ventana_temporal(
+        all_tours: &[crate::infrastructure::persistence::models::FileTourWithTourModel],
+        operacion: &str,
+    ) -> Result<(), ApplicationError> {
+        let primera_fecha: NaiveDate = all_tours.iter()
+            .filter(|t| t.status != "cancelado" && t.status != "no_show")
+            .filter_map(|t| t.fecha_tour)
+            .min()
+            .ok_or_else(|| ApplicationError::Validation(
+                "No se encontró una fecha de tour activa para validar la ventana temporal".into()
+            ))?;
+
+        // Hora Perú = UTC - 5
+        let now_utc = chrono::Utc::now().naive_utc();
+        let peru_offset = chrono::Duration::hours(5);
+        let now_peru = now_utc - peru_offset;
+        let now_date = now_peru.date();
+        let now_time = now_peru.time();
+
+        let cutoff_840 = NaiveTime::from_hms_opt(8, 40, 0).unwrap();
+
+        match operacion {
+            "cancelacion" => {
+                // Permitir cancelación si estamos antes de las 8:40 AM del día del primer tour
+                if now_date > primera_fecha {
+                    return Err(ApplicationError::Validation(
+                        format!("No se puede cancelar: la fecha del primer tour ({}) ya pasó", primera_fecha)
+                    ));
+                }
+                if now_date == primera_fecha && now_time >= cutoff_840 {
+                    return Err(ApplicationError::Validation(
+                        format!("No se puede cancelar: ya pasaron las 8:40 AM del día del tour ({}). Use no-show.", primera_fecha)
+                    ));
+                }
+                Ok(())
+            }
+            "no_show" => {
+                // Permitir no-show desde las 8:40 AM hasta antes de medianoche del día del primer tour
+                if now_date > primera_fecha {
+                    return Err(ApplicationError::Validation(
+                        format!("No se puede registrar no-show: la fecha del primer tour ({}) ya pasó", primera_fecha)
+                    ));
+                }
+                if now_date == primera_fecha && now_time < cutoff_840 {
+                    return Err(ApplicationError::Validation(
+                        format!("No se puede registrar no-show antes de las 8:40 AM. Use cancelación. Fecha tour: {}", primera_fecha)
+                    ));
+                }
+                if now_date < primera_fecha {
+                    return Err(ApplicationError::Validation(
+                        format!("No se puede registrar no-show antes del día del tour ({}). Use cancelación.", primera_fecha)
+                    ));
+                }
+                Ok(())
+            }
+            _ => Err(ApplicationError::Validation("Operación no válida".into())),
+        }
+    }
+
+    // ========================================================================
     // CANCELACIONES
     // ========================================================================
 
@@ -98,6 +172,10 @@ impl SaldoFavorService {
         if file.status == "no_show" {
             return Err(ApplicationError::Validation(format!("File {} ya está marcado como no-show", request.id_file)));
         }
+
+        // Validar ventana temporal: cancelación solo antes de 8:40 AM del primer tour
+        let all_tours = self.file_tour_repo.find_by_file_with_tour(request.id_file).await?;
+        Self::validar_ventana_temporal(&all_tours, "cancelacion")?;
 
         // Obtener todos los pagos del file (deuda + pagos)
         let all_pagos = self.pago_file_repo.find_all_by_file(request.id_file).await?;
@@ -199,9 +277,13 @@ impl SaldoFavorService {
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
 
         let all_tours = self.file_tour_repo.find_by_file_with_tour(ft.id_file).await?;
+
+        // Validar ventana temporal: cancelación solo antes de 8:40 AM del primer tour
+        Self::validar_ventana_temporal(&all_tours, "cancelacion")?;
+
         let all_pagos = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
 
-        let record = self.aplicar_cancelacion_no_show_file_tour(
+        let result = self.aplicar_cancelacion_no_show_file_tour(
             &ft,
             &file,
             &all_tours,
@@ -215,14 +297,14 @@ impl SaldoFavorService {
             created_by,
         ).await?;
 
-        info!("FileTour {} cancelado. Saldo a favor: {:?}", request.id_file_tour, record.monto_saldo_favor);
+        info!("FileTour {} cancelado. Saldo a favor: {:?}", request.id_file_tour, result.pago.monto_saldo_favor);
 
         // Notificar
         let _ = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
             "FileTour Cancelado",
             &format!("FileTour #{} cancelado. Saldo a favor: S/ {}", request.id_file_tour,
-                record.monto_saldo_favor.as_ref().map(|v| v.to_string()).unwrap_or("0".into())),
+                result.pago.monto_saldo_favor.as_ref().map(|v: &BigDecimal| v.to_string()).unwrap_or("0".into())),
             NotificationType::Warning,
             NotificationCategory::Financial,
             NotificationPriority::High,
@@ -230,7 +312,11 @@ impl SaldoFavorService {
         ).await;
 
 
-        let response = self.pago_to_cancelacion_response(record).await?;
+        let response = self.pago_to_cancelacion_response_with_transfer(
+            result.pago,
+            result.monto_entradas_transferidas,
+            result.id_file_tour_destino,
+        ).await?;
         Ok(response)
     }
 
@@ -239,16 +325,17 @@ impl SaldoFavorService {
     pub async fn list_cancelaciones(
         &self,
         id_entidad: Option<i32>,
+        entidad: Option<&str>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<CancelacionResponse>, ApplicationError> {
         let tipos = &["cancelacion", "cancelacion_tour"];
 
         let records = if let Some(ag_id) = id_entidad {
-            self.pago_file_repo.find_by_entidad_tipos(ag_id, tipos, limit, offset).await?
+            self.pago_file_repo.find_by_entidad_tipos(ag_id, entidad, tipos, limit, offset).await?
         } else {
             // Para admin: obtener todas
-            self.pago_file_repo.find_filtered(None, Some("cancelado"), None, None, limit, offset).await?
+            self.pago_file_repo.find_filtered(None, None, Some("cancelado"), None, None, limit, offset).await?
                 .into_iter()
                 .filter(|p| tipos.contains(&p.tipo_registro.as_str()))
                 .collect()
@@ -282,6 +369,10 @@ impl SaldoFavorService {
         if file.status == "no_show" {
             return Err(ApplicationError::Validation(format!("File {} ya está marcado como no-show", request.id_file)));
         }
+
+        // Validar ventana temporal: no-show solo de 8:40 AM a medianoche del primer tour
+        let all_tours = self.file_tour_repo.find_by_file_with_tour(request.id_file).await?;
+        Self::validar_ventana_temporal(&all_tours, "no_show")?;
 
         // Obtener todas las deudas y pagos del file
         let all_pagos = self.pago_file_repo.find_all_by_file(request.id_file).await?;
@@ -329,7 +420,7 @@ impl SaldoFavorService {
         let file = self.file_repo.find_by_id(request.id_file).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", request.id_file)))?;
         let _ = self.notification_service.notify_roles_for_entity(
-            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente],
+            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::HotelesGerente],
             file.id_entidad,
             "No-Show Registrado",
             &format!("File #{} marcado como no-show.", request.id_file),
@@ -364,9 +455,13 @@ impl SaldoFavorService {
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
 
         let all_tours = self.file_tour_repo.find_by_file_with_tour(ft.id_file).await?;
+
+        // Validar ventana temporal: no-show solo de 8:40 AM a medianoche del primer tour
+        Self::validar_ventana_temporal(&all_tours, "no_show")?;
+
         let all_pagos = self.pago_file_repo.find_all_by_file(ft.id_file).await?;
 
-        let record = self.aplicar_cancelacion_no_show_file_tour(
+        let result = self.aplicar_cancelacion_no_show_file_tour(
             &ft,
             &file,
             &all_tours,
@@ -398,7 +493,7 @@ impl SaldoFavorService {
         let file = self.file_repo.find_by_id(ft.id_file).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
         let _ = self.notification_service.notify_roles_for_entity(
-            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente],
+            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::HotelesGerente],
             file.id_entidad,
             "No-Show Registrado",
             &format!("FileTour #{} marcado como no-show.", request.id_file_tour),
@@ -408,7 +503,7 @@ impl SaldoFavorService {
             created_by,
         ).await;
 
-        self.pago_to_no_show_response(record).await
+        self.pago_to_no_show_response(result.pago).await
     }
 
     /// Listar no-shows de una agencia
@@ -416,15 +511,16 @@ impl SaldoFavorService {
     pub async fn list_no_shows(
         &self,
         id_entidad: Option<i32>,
+        entidad: Option<&str>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<NoShowResponse>, ApplicationError> {
         let tipos = &["no_show", "no_show_tour"];
 
         let records = if let Some(ag_id) = id_entidad {
-            self.pago_file_repo.find_by_entidad_tipos(ag_id, tipos, limit, offset).await?
+            self.pago_file_repo.find_by_entidad_tipos(ag_id, entidad, tipos, limit, offset).await?
         } else {
-            self.pago_file_repo.find_filtered(None, Some("no_show"), None, None, limit, offset).await?
+            self.pago_file_repo.find_filtered(None, None, Some("no_show"), None, None, limit, offset).await?
                 .into_iter()
                 .filter(|p| tipos.contains(&p.tipo_registro.as_str()))
                 .collect()
@@ -477,6 +573,7 @@ impl SaldoFavorService {
     pub async fn get_saldo_agencia(
         &self,
         id_entidad: i32,
+        entidad: Option<&str>,
     ) -> Result<SaldoFavorResumen, ApplicationError> {
         let agencia = self.agencia_repo.find_by_id(id_entidad).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id_entidad)))?;
@@ -485,7 +582,7 @@ impl SaldoFavorService {
 
         // Obtener cancelaciones autorizadas
         let cancelaciones = self.pago_file_repo
-            .find_by_entidad_tipos(id_entidad, &["cancelacion", "cancelacion_tour"], 10000, 0).await?;
+            .find_by_entidad_tipos(id_entidad, entidad, &["cancelacion", "cancelacion_tour"], 10000, 0).await?;
         let saldo_cancelaciones = cancelaciones.iter()
             .filter(|p| p.saldo_autorizado)
             .map(|p| p.monto_saldo_favor.as_ref().unwrap_or(&zero))
@@ -493,7 +590,7 @@ impl SaldoFavorService {
 
         // Obtener no-shows autorizados
         let no_shows = self.pago_file_repo
-            .find_by_entidad_tipos(id_entidad, &["no_show", "no_show_tour"], 10000, 0).await?;
+            .find_by_entidad_tipos(id_entidad, entidad, &["no_show", "no_show_tour"], 10000, 0).await?;
         let saldo_no_shows = no_shows.iter()
             .filter(|p| p.saldo_autorizado)
             .map(|p| p.monto_saldo_favor.as_ref().unwrap_or(&zero))
@@ -503,7 +600,7 @@ impl SaldoFavorService {
 
         // Obtener uso de saldo
         let usos = self.pago_file_repo
-            .find_by_entidad_tipos(id_entidad, &["uso_saldo"], 10000, 0).await?;
+            .find_by_entidad_tipos(id_entidad, entidad, &["uso_saldo"], 10000, 0).await?;
         let saldo_usado = usos.iter()
             .map(|p| &p.monto_pagado)
             .fold(zero.clone(), |acc, m| acc + m);
@@ -526,12 +623,13 @@ impl SaldoFavorService {
     pub async fn get_dashboard(
         &self,
         id_entidad: i32,
+        entidad: Option<&str>,
     ) -> Result<SaldoFavorDashboard, ApplicationError> {
-        let resumen = self.get_saldo_agencia(id_entidad).await?;
+        let resumen = self.get_saldo_agencia(id_entidad, entidad).await?;
 
-        let cancelaciones = self.list_cancelaciones(Some(id_entidad), 10, 0).await?;
-        let no_shows = self.list_no_shows(Some(id_entidad), 10, 0).await?;
-        let movimientos = self.list_movimientos(Some(id_entidad), 20, 0).await?;
+        let cancelaciones = self.list_cancelaciones(Some(id_entidad), entidad, 10, 0).await?;
+        let no_shows = self.list_no_shows(Some(id_entidad), entidad, 10, 0).await?;
+        let movimientos = self.list_movimientos(Some(id_entidad), entidad, 20, 0).await?;
 
         Ok(SaldoFavorDashboard {
             resumen,
@@ -547,7 +645,7 @@ impl SaldoFavorService {
         let agencias = self.agencia_repo.list(1000, 0).await?;
         let mut resumenes = Vec::new();
         for agencia in agencias {
-            if let Ok(resumen) = self.get_saldo_agencia(agencia.id).await {
+            if let Ok(resumen) = self.get_saldo_agencia(agencia.id, None).await {
                 if resumen.total_cancelaciones > 0 || resumen.total_no_shows > 0 {
                     resumenes.push(resumen);
                 }
@@ -561,16 +659,17 @@ impl SaldoFavorService {
     pub async fn list_movimientos(
         &self,
         id_entidad: Option<i32>,
+        entidad: Option<&str>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<MovimientoSaldoResponse>, ApplicationError> {
         let tipos = &["cancelacion", "cancelacion_tour", "no_show", "no_show_tour", "uso_saldo"];
 
         let records = if let Some(ag_id) = id_entidad {
-            self.pago_file_repo.find_by_entidad_tipos(ag_id, tipos, limit, offset).await?
+            self.pago_file_repo.find_by_entidad_tipos(ag_id, entidad, tipos, limit, offset).await?
         } else {
             // Admin: filtrar por tipos de registro relevantes
-            let all = self.pago_file_repo.find_filtered(None, None, None, None, limit * 2, offset).await?;
+            let all = self.pago_file_repo.find_filtered(None, None, None, None, None, limit * 2, offset).await?;
             all.into_iter()
                 .filter(|p| tipos.contains(&p.tipo_registro.as_str()))
                 .take(limit as usize)
@@ -592,7 +691,7 @@ impl SaldoFavorService {
         created_by: Option<i32>,
     ) -> Result<MovimientoSaldoResponse, ApplicationError> {
         // Verificar saldo disponible
-        let resumen = self.get_saldo_agencia(request.id_entidad).await?;
+        let resumen = self.get_saldo_agencia(request.id_entidad, None).await?;
         if request.monto > resumen.saldo_disponible {
             return Err(ApplicationError::Validation(
                 format!("Saldo insuficiente. Disponible: S/ {:.2}, Solicitado: S/ {:.2}",
@@ -613,7 +712,7 @@ impl SaldoFavorService {
         let new_record = NewPagoFileModel {
             id_file: request.id_file,
             id_entidad: request.id_entidad,
-            entidad: None,
+            entidad: file.entidad.as_deref(),
             monto_total: file.monto_total.clone(),
             monto_pagado: monto,
             estado: "pagado",
@@ -663,7 +762,7 @@ impl SaldoFavorService {
         notas: Option<&str>,
         pasar_a_saldo_favor: bool,
         created_by: Option<i32>,
-    ) -> Result<PagoFileModel, ApplicationError> {
+    ) -> Result<FileTourOperationResult, ApplicationError> {
         let zero = BigDecimal::from(0);
         let tolerancia = BigDecimal::from_str("0.01").unwrap();
 
@@ -707,10 +806,12 @@ impl SaldoFavorService {
         }
 
         let mut monto_transferido = zero.clone();
+        let mut id_tour_destino: Option<i32> = None;
 
         // Transferir entradas BTG/BTP al siguiente tour si existe
         if !entradas_btg_btp.is_empty() {
             if let Some(next_tour) = siguiente_tour {
+                id_tour_destino = Some(next_tour.id);
                 // Transferir las entradas al siguiente tour
                 for (fe_id, _costo) in &entradas_btg_btp {
                     let _ = self.file_entrada_repo.transfer_to_file_tour(*fe_id, next_tour.id).await;
@@ -945,10 +1046,37 @@ impl SaldoFavorService {
         updated_file.updated_at = chrono::Utc::now();
         self.file_repo.update(&updated_file).await?;
 
-        Ok(record)
+        // Auto-cancelar el file si todos los tours están cancelados o no_show
+        let all_tours_refreshed = self.file_tour_repo.find_by_file_with_tour(file.id).await?;
+        let all_done = !all_tours_refreshed.is_empty() && all_tours_refreshed.iter()
+            .all(|t| t.status == "cancelado" || t.status == "no_show");
+        if all_done && updated_file.status != "cancelado" && updated_file.status != "no_show" {
+            let final_status = if all_tours_refreshed.iter().all(|t| t.status == "cancelado") {
+                "cancelado"
+            } else {
+                "no_show"
+            };
+            self.file_repo.update_status(file.id, final_status).await?;
+            info!("File {} auto-actualizado a '{}' porque todos los tours están terminados", file.id, final_status);
+        }
+
+        Ok(FileTourOperationResult {
+            pago: record,
+            monto_entradas_transferidas: monto_transferido.to_f64().unwrap_or(0.0),
+            id_file_tour_destino: id_tour_destino,
+        })
     }
 
     async fn pago_to_cancelacion_response(&self, p: PagoFileModel) -> Result<CancelacionResponse, ApplicationError> {
+        self.pago_to_cancelacion_response_with_transfer(p, 0.0, None).await
+    }
+
+    async fn pago_to_cancelacion_response_with_transfer(
+        &self,
+        p: PagoFileModel,
+        monto_entradas_transferidas: f64,
+        id_file_tour_destino: Option<i32>,
+    ) -> Result<CancelacionResponse, ApplicationError> {
         let file_code = self.get_file_code(p.id_file).await;
         let agencia_nombre = self.get_agencia_nombre(p.id_entidad).await;
         let tour_nombre = if let Some(ft_id) = p.id_file_tour {
@@ -976,8 +1104,8 @@ impl SaldoFavorService {
             tipo_cancelacion: p.tipo_registro,
             notas: p.notas,
             created_at: p.created_at,
-            monto_entradas_transferidas: 0.0,
-            id_file_tour_destino: None,
+            monto_entradas_transferidas,
+            id_file_tour_destino,
         })
     }
 

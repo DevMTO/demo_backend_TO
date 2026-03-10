@@ -20,10 +20,12 @@ fn is_admin_or_operador(role: &UserRole) -> bool {
     matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
 }
 
-/// Helper para verificar si el usuario es agencia/contador de agencia y pertenece a esa agencia
+/// Helper para verificar si el usuario es agencia/hotel/contador y pertenece a esa entidad
 fn is_own_agencia(auth: &AuthUser, id_entidad: i32) -> bool {
-    matches!(auth.user.role, UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente)
-        && auth.user.id_entidad == Some(id_entidad)
+    matches!(auth.user.role, 
+        UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente |
+        UserRole::Hoteles | UserRole::HotelesGerente
+    ) && auth.user.id_entidad == Some(id_entidad)
 }
 
 // ============================================================================
@@ -47,10 +49,13 @@ pub async fn get_agencia_dashboard(
         ));
     }
 
+    // Para roles no-admin, filtrar por tipo de entidad
+    let entidad_filter = if is_admin { None } else { auth.user.role.entidad_type() };
+
     let dashboard = state
         .container
         .contabilidad_service
-        .get_agencia_dashboard(id_entidad)
+        .get_agencia_dashboard(id_entidad, entidad_filter)
         .await?;
 
     Ok(json_ok(dashboard))
@@ -70,12 +75,22 @@ pub async fn list_pagos_files(
 ) -> Result<impl IntoResponse, ApplicationError> {
     let id_entidad_filter = if is_admin_or_operador(&auth.user.role) {
         params.id_entidad
-    } else if auth.user.role == UserRole::Agencias || auth.user.role == UserRole::AgenciasGerente {
+    } else if matches!(auth.user.role, 
+        UserRole::Agencias | UserRole::AgenciasGerente | 
+        UserRole::Hoteles | UserRole::HotelesGerente
+    ) {
         auth.user.id_entidad
     } else {
         return Err(ApplicationError::Forbidden(
             "No tienes permiso para ver los pagos de files".to_string(),
         ));
+    };
+
+    // Para roles no-admin, filtrar por tipo de entidad del usuario
+    let entidad_filter = if is_admin_or_operador(&auth.user.role) {
+        None
+    } else {
+        auth.user.role.entidad_type()
     };
 
     let fecha_desde = params
@@ -94,6 +109,7 @@ pub async fn list_pagos_files(
         .contabilidad_service
         .list_pagos_files(
             id_entidad_filter,
+            entidad_filter,
             params.estado.as_deref(),
             fecha_desde,
             fecha_hasta,

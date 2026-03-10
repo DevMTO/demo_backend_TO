@@ -35,7 +35,16 @@ pub async fn registrar_pago_file(
     auth: AuthUser,
     Json(mut request): Json<RegistrarPagoFileRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    // TODO: Verificar que la agencia solo puede registrar pagos de sus propios files
+    // Verificar que el usuario puede registrar pagos (admin o dueño del file)
+    let pago = state.container.contabilidad_service
+        .get_pago_file_by_id(request.id_pago_file).await?;
+    let is_admin = matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin);
+    let is_owner = auth.user.id_entidad.map(|id| id == pago.id_entidad).unwrap_or(false);
+    if !is_admin && !is_owner {
+        return Err(ApplicationError::Forbidden(
+            "Solo puedes registrar pagos de tus propios files".to_string(),
+        ));
+    }
     
     // Procesar comprobante en base64 si viene
     let mut comprobante_url_final: Option<String> = None;

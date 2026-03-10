@@ -99,6 +99,19 @@ impl UserRole {
     pub fn is_proveedor(&self) -> bool {
         matches!(self, UserRole::Transportes | UserRole::Conductores | UserRole::Guias | UserRole::Restaurantes)
     }
+
+    /// Devuelve el tipo de entidad asociado al rol, para filtrar datos por discriminador
+    pub fn entidad_type(&self) -> Option<&'static str> {
+        match self {
+            UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente => Some("agencias"),
+            UserRole::Hoteles | UserRole::HotelesGerente => Some("hoteles"),
+            UserRole::Transportes => Some("transportes"),
+            UserRole::Conductores => Some("conductores"),
+            UserRole::Guias => Some("guias"),
+            UserRole::Restaurantes => Some("restaurantes"),
+            UserRole::SuperAdmin | UserRole::Admin => None, // Admins ven todo
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -233,7 +246,7 @@ impl User {
     
     /// Verifica si puede acceder al panel de administración
     pub fn can_access_management(&self) -> bool {
-        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias | UserRole::AgenciasGerente)
+        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias | UserRole::AgenciasGerente | UserRole::Hoteles | UserRole::HotelesGerente)
     }
     
     /// Verifica si puede gestionar vehículos

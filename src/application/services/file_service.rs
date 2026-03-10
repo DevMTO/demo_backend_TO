@@ -879,11 +879,10 @@ impl FileService {
             warn!("Error al enviar notificación de confirmación: {}", e);
         }
         
-        // 9. Notificar también al contador de la agencia específica (filtrado por id_entidad)
-        // Solo notificará a los usuarios AgenciasContador que pertenezcan a ESTA agencia
+        // 9. Notificar también al contador/gerente de la entidad específica (filtrado por id_entidad)
         if let Err(e) = self.notification_service.notify_roles_for_entity(
-            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente],
-            file.id_entidad, // Filtrar por la agencia del file
+            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::HotelesGerente],
+            file.id_entidad,
             "💰 Nuevo pago pendiente",
             &format!(
                 "Se ha confirmado la reserva #{} con un monto de S/ {}.\nFecha de vencimiento: {}\nPor favor, gestione el pago.",
