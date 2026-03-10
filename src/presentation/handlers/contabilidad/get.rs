@@ -21,11 +21,28 @@ fn is_admin_or_operador(role: &UserRole) -> bool {
 }
 
 /// Helper para verificar si el usuario es agencia/hotel/contador y pertenece a esa entidad
-fn is_own_agencia(auth: &AuthUser, id_entidad: i32) -> bool {
-    matches!(auth.user.role, 
+async fn is_own_agencia(state: &AppState, auth: &AuthUser, id_entidad: i32) -> bool {
+    let role = &auth.user.role;
+    let user_entidad = auth.user.id_entidad;
+
+    // Si es la misma entidad
+    if matches!(role, 
         UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente |
         UserRole::Hoteles | UserRole::HotelesGerente
-    ) && auth.user.id_entidad == Some(id_entidad)
+    ) && user_entidad == Some(id_entidad) {
+        return true;
+    }
+
+    // Si es Gerente de Cadena y busca un hotel de su cadena
+    if *role == UserRole::HotelesGerente {
+        if let Some(id_cadena) = user_entidad {
+            if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(id_entidad).await {
+                return hotel.id_cadena == id_cadena;
+            }
+        }
+    }
+
+    false
 }
 
 // ============================================================================
@@ -41,7 +58,7 @@ pub async fn get_agencia_dashboard(
     Path(id_entidad): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let is_admin = is_admin_or_operador(&auth.user.role);
-    let is_own = is_own_agencia(&auth, id_entidad);
+    let is_own = is_own_agencia(&state, &auth, id_entidad).await;
 
     if !is_admin && !is_own {
         return Err(ApplicationError::Forbidden(
@@ -50,13 +67,14 @@ pub async fn get_agencia_dashboard(
     }
 
     // Para roles no-admin, filtrar por tipo de entidad
-    let entidad_filter = if is_admin { None } else { auth.user.role.entidad_type() };
+    let entidad_filter = if is_admin { None } else if auth.user.role == UserRole::HotelesGerente { Some("hoteles") } else { auth.user.role.entidad_type() };
 
     let dashboard = state
         .container
         .contabilidad_service
         .get_agencia_dashboard(id_entidad, entidad_filter)
         .await?;
+
 
     Ok(json_ok(dashboard))
 }
@@ -73,7 +91,7 @@ pub async fn list_pagos_files(
     auth: AuthUser,
     Query(params): Query<PagosFilesQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let id_entidad_filter = if is_admin_or_operador(&auth.user.role) {
+    let mut id_entidad_filter = if is_admin_or_operador(&auth.user.role) {
         params.id_entidad
     } else if matches!(auth.user.role, 
         UserRole::Agencias | UserRole::AgenciasGerente | 
@@ -86,9 +104,25 @@ pub async fn list_pagos_files(
         ));
     };
 
+    // Si es Gerente de Cadena y se solicita un hotel específico de su cadena
+    if auth.user.role == UserRole::HotelesGerente {
+        if let Some(requested_id) = params.id_entidad {
+            if let Some(id_cadena) = auth.user.id_entidad {
+                if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(requested_id).await {
+                    if hotel.id_cadena == id_cadena {
+                        id_entidad_filter = Some(requested_id);
+                    }
+                }
+            }
+        }
+    }
+
     // Para roles no-admin, filtrar por tipo de entidad del usuario
     let entidad_filter = if is_admin_or_operador(&auth.user.role) {
         None
+    } else if auth.user.role == UserRole::HotelesGerente {
+        // En reportes de contabilidad, la tabla pagos_files guarda 'entidad' (agencias/hoteles)
+        Some("hoteles")
     } else {
         auth.user.role.entidad_type()
     };

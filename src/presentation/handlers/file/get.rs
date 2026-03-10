@@ -87,16 +87,35 @@ pub async fn list_files_by_agencia(
     // Verificar que el usuario es admin o pertenece a la entidad solicitada
     if !auth.user.role.is_admin() {
         let user_entidad = auth.user.id_entidad.unwrap_or(0);
-        if user_entidad != agencia_id {
+        
+        // Excepción para Gerentes de Hotel verificando si el hotel pertenece a la cadena
+        let check_cadena = if auth.user.role == crate::domain::entities::UserRole::HotelesGerente && query.entidad.as_deref() == Some("hoteles") {
+            // Verificar en la BD si el hotel (agencia_id) pertenece a la cadena (user_entidad)
+            if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(agencia_id).await {
+                hotel.id_cadena == user_entidad
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if user_entidad != agencia_id && !check_cadena {
             return Err(ApplicationError::Forbidden(
                 "No tienes permiso para ver files de otra entidad".to_string()
             ));
         }
     }
 
-    // Para non-admin, forzar entidad desde su rol (evitar spoofing del query param)
+    // Para non-admin, forzar entidad desde su rol o permitir la consulta de sujerarquía
     let entidad_filter = if auth.user.role.is_admin() {
         query.entidad.as_deref()
+    } else if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
+        if query.entidad.as_deref() == Some("hoteles") {
+            Some("hoteles")
+        } else {
+            auth.user.role.entidad_type()
+        }
     } else {
         auth.user.role.entidad_type()
     };
