@@ -21,6 +21,7 @@ use crate::infrastructure::persistence::schema::{pagos_files, pagos_proveedores}
 pub struct PagoFileModel {
     pub id: i32,
     pub id_file: i32,
+    pub id_entidad: i32,
     pub monto_total: BigDecimal,
     pub monto_pagado: BigDecimal,
     pub estado: String,
@@ -42,7 +43,6 @@ pub struct PagoFileModel {
     pub entradas: bool,
     pub entrada_precio: Option<BigDecimal>,
     pub cuota: Option<i16>,
-    pub id_entidad: i32,
     pub entidad: Option<String>,
 }
 

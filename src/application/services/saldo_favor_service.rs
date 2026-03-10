@@ -23,7 +23,7 @@ use crate::application::dtos::contabilidad_dto::{
 };
 use crate::application::ports::{
     PagoFileRepositoryPort, FileRepositoryPort, FileTourRepositoryPort,
-    AgenciaRepositoryPort, TourRepositoryPort, NotificationServicePort,
+    AgenciaRepositoryPort, HotelRepositoryPort, TourRepositoryPort, NotificationServicePort,
     FileEntradaRepositoryPort, EntradaPrecioRepositoryPort, EntradaRepositoryPort,
 };
 use crate::domain::errors::ApplicationError;
@@ -42,6 +42,7 @@ pub struct SaldoFavorService {
     file_repo: Arc<dyn FileRepositoryPort>,
     file_tour_repo: Arc<dyn FileTourRepositoryPort>,
     agencia_repo: Arc<dyn AgenciaRepositoryPort>,
+    hotel_repo: Arc<dyn HotelRepositoryPort>,
     tour_repo: Arc<dyn TourRepositoryPort>,
     notification_service: Arc<dyn NotificationServicePort>,
     file_entrada_repo: Arc<dyn FileEntradaRepositoryPort>,
@@ -64,6 +65,7 @@ impl SaldoFavorService {
         file_repo: Arc<dyn FileRepositoryPort>,
         file_tour_repo: Arc<dyn FileTourRepositoryPort>,
         agencia_repo: Arc<dyn AgenciaRepositoryPort>,
+        hotel_repo: Arc<dyn HotelRepositoryPort>,
         tour_repo: Arc<dyn TourRepositoryPort>,
         notification_service: Arc<dyn NotificationServicePort>,
         file_entrada_repo: Arc<dyn FileEntradaRepositoryPort>,
@@ -76,6 +78,7 @@ impl SaldoFavorService {
             file_repo,
             file_tour_repo,
             agencia_repo,
+            hotel_repo,
             tour_repo,
             notification_service,
             file_entrada_repo,
@@ -575,8 +578,15 @@ impl SaldoFavorService {
         id_entidad: i32,
         entidad: Option<&str>,
     ) -> Result<SaldoFavorResumen, ApplicationError> {
-        let agencia = self.agencia_repo.find_by_id(id_entidad).await?
-            .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id_entidad)))?;
+        let nombre_entidad = if entidad == Some("hoteles") {
+            self.hotel_repo.find_by_id(id_entidad).await?
+                .ok_or_else(|| ApplicationError::NotFound(format!("Hotel {} no encontrado", id_entidad)))?
+                .nombre
+        } else {
+            self.agencia_repo.find_by_id(id_entidad).await?
+                .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id_entidad)))?
+                .nombre
+        };
 
         let zero = BigDecimal::from(0);
 
@@ -609,7 +619,7 @@ impl SaldoFavorService {
 
         Ok(SaldoFavorResumen {
             id_entidad,
-            nombre_agencia: agencia.nombre,
+            nombre_agencia: nombre_entidad,
             saldo_generado: saldo_generado.to_f64().unwrap_or(0.0),
             saldo_usado: saldo_usado.to_f64().unwrap_or(0.0),
             saldo_disponible: saldo_disponible.to_f64().unwrap_or(0.0),
@@ -643,9 +653,17 @@ impl SaldoFavorService {
     #[instrument(skip(self))]
     pub async fn list_all_saldos(&self) -> Result<Vec<SaldoFavorResumen>, ApplicationError> {
         let agencias = self.agencia_repo.list(1000, 0).await?;
+        let hoteles = self.hotel_repo.list(1000, 0).await?;
         let mut resumenes = Vec::new();
         for agencia in agencias {
-            if let Ok(resumen) = self.get_saldo_agencia(agencia.id, None).await {
+            if let Ok(resumen) = self.get_saldo_agencia(agencia.id, Some("agencias")).await {
+                if resumen.total_cancelaciones > 0 || resumen.total_no_shows > 0 {
+                    resumenes.push(resumen);
+                }
+            }
+        }
+        for hotel in hoteles {
+            if let Ok(resumen) = self.get_saldo_agencia(hotel.id, Some("hoteles")).await {
                 if resumen.total_cancelaciones > 0 || resumen.total_no_shows > 0 {
                     resumenes.push(resumen);
                 }
@@ -1078,7 +1096,7 @@ impl SaldoFavorService {
         id_file_tour_destino: Option<i32>,
     ) -> Result<CancelacionResponse, ApplicationError> {
         let file_code = self.get_file_code(p.id_file).await;
-        let agencia_nombre = self.get_agencia_nombre(p.id_entidad).await;
+        let agencia_nombre = self.get_entity_nombre(p.id_entidad, p.entidad.as_deref()).await;
         let tour_nombre = if let Some(ft_id) = p.id_file_tour {
             self.get_tour_nombre_by_file_tour(ft_id).await
         } else { None };
@@ -1111,7 +1129,7 @@ impl SaldoFavorService {
 
     async fn pago_to_no_show_response(&self, p: PagoFileModel) -> Result<NoShowResponse, ApplicationError> {
         let file_code = self.get_file_code(p.id_file).await;
-        let agencia_nombre = self.get_agencia_nombre(p.id_entidad).await;
+        let agencia_nombre = self.get_entity_nombre(p.id_entidad, p.entidad.as_deref()).await;
         let tour_nombre = if let Some(ft_id) = p.id_file_tour {
             self.get_tour_nombre_by_file_tour(ft_id).await
         } else { None };
@@ -1178,8 +1196,12 @@ impl SaldoFavorService {
         self.file_repo.find_by_id(id_file).await.ok().flatten().and_then(|f| f.file_code)
     }
 
-    async fn get_agencia_nombre(&self, id_entidad: i32) -> Option<String> {
-        self.agencia_repo.find_by_id(id_entidad).await.ok().flatten().map(|a| a.nombre)
+    async fn get_entity_nombre(&self, id_entidad: i32, entidad: Option<&str>) -> Option<String> {
+        if entidad == Some("hoteles") {
+            self.hotel_repo.find_by_id(id_entidad).await.ok().flatten().map(|h| h.nombre)
+        } else {
+            self.agencia_repo.find_by_id(id_entidad).await.ok().flatten().map(|a| a.nombre)
+        }
     }
 
     async fn get_tour_nombre_by_file_tour(&self, id_file_tour: i32) -> Option<String> {

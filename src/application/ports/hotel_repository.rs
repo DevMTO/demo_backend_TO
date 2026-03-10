@@ -11,7 +11,6 @@ pub trait HotelRepositoryPort: Send + Sync {
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Hotel>, ApplicationError>;
-    async fn count(&self) -> Result<i64, ApplicationError>;
     async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
     async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
     async fn list_by_cadena(&self, id_cadena: i32, limit: i64, offset: i64) -> Result<Vec<Hotel>, ApplicationError>;

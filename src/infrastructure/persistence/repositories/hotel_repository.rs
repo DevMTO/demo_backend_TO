@@ -133,16 +133,6 @@ impl HotelRepositoryPort for PostgresHotelRepository {
         Ok(results.into_iter().map(Into::into).collect())
     }
 
-    async fn count(&self) -> Result<i64, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        hoteles::table
-            .filter(hoteles::is_active.eq(true))
-            .count()
-            .get_result::<i64>(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
-
     async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let affected = diesel::update(hoteles::table.filter(hoteles::id.eq(id)))

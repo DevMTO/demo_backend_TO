@@ -232,6 +232,7 @@ diesel::table! {
 diesel::table! {
     files (id) {
         id -> Int4,
+        id_entidad -> Int4,
         fecha_inicio -> Date,
         fecha_fin -> Date,
         notas -> Nullable<Text>,
@@ -248,7 +249,6 @@ diesel::table! {
         #[max_length = 50]
         file_code -> Nullable<Varchar>,
         deadline_confirmacion -> Nullable<Timestamptz>,
-        id_entidad -> Int4,
         #[max_length = 50]
         entidad -> Nullable<Varchar>,
     }
@@ -336,6 +336,7 @@ diesel::table! {
     pagos_files (id) {
         id -> Int4,
         id_file -> Int4,
+        id_entidad -> Int4,
         monto_total -> Numeric,
         monto_pagado -> Numeric,
         #[max_length = 30]
@@ -359,7 +360,6 @@ diesel::table! {
         entradas -> Bool,
         entrada_precio -> Nullable<Numeric>,
         cuota -> Nullable<Int2>,
-        id_entidad -> Int4,
         #[max_length = 50]
         entidad -> Nullable<Varchar>,
     }

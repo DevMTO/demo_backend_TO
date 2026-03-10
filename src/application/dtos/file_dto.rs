@@ -115,6 +115,10 @@ pub struct FileResponse {
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
+    pub updated_by: Option<i32>,
+    pub created_by_name: Option<String>,
+    pub updated_by_name: Option<String>,
 }
 
 impl FileResponse {
@@ -143,7 +147,18 @@ impl FileResponse {
             is_active: f.is_active,
             created_at: f.created_at,
             updated_at: f.updated_at,
+            created_by: f.created_by,
+            updated_by: f.updated_by,
+            created_by_name: None,
+            updated_by_name: None,
         }
+    }
+
+    /// Sets the user names for created_by and updated_by
+    pub fn with_user_names(mut self, created_by_name: Option<String>, updated_by_name: Option<String>) -> Self {
+        self.created_by_name = created_by_name;
+        self.updated_by_name = updated_by_name;
+        self
     }
 }
 

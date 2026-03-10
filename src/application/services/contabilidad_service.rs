@@ -19,7 +19,7 @@ use crate::application::dtos::contabilidad_dto::{
 };
 use crate::application::ports::{
     PagoFileRepositoryPort, PagoProveedorRepositoryPort,
-    AgenciaRepositoryPort, FileRepositoryPort, NotificationServicePort,
+    AgenciaRepositoryPort, HotelRepositoryPort, FileRepositoryPort, NotificationServicePort,
     FileTourRepositoryPort, TourRepositoryPort,
     TransporteRepositoryPort, RestauranteRepositoryPort, GuiaRepositoryPort,
     UserRepositoryPort, PersonaRepositoryPort, EntradaRepositoryPort,
@@ -43,6 +43,7 @@ pub struct ContabilidadService {
     pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
     pago_proveedor_repository: Arc<dyn PagoProveedorRepositoryPort>,
     agencia_repository: Arc<dyn AgenciaRepositoryPort>,
+    hotel_repository: Arc<dyn HotelRepositoryPort>,
     file_repository: Arc<dyn FileRepositoryPort>,
     notification_service: Arc<dyn NotificationServicePort>,
     file_tour_repository: Arc<dyn FileTourRepositoryPort>,
@@ -61,6 +62,7 @@ impl ContabilidadService {
         pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
         pago_proveedor_repository: Arc<dyn PagoProveedorRepositoryPort>,
         agencia_repository: Arc<dyn AgenciaRepositoryPort>,
+        hotel_repository: Arc<dyn HotelRepositoryPort>,
         file_repository: Arc<dyn FileRepositoryPort>,
         notification_service: Arc<dyn NotificationServicePort>,
         file_tour_repository: Arc<dyn FileTourRepositoryPort>,
@@ -76,6 +78,7 @@ impl ContabilidadService {
             pago_file_repository,
             pago_proveedor_repository,
             agencia_repository,
+            hotel_repository,
             file_repository,
             notification_service,
             file_tour_repository,
@@ -96,11 +99,20 @@ impl ContabilidadService {
     /// Obtiene el dashboard de contabilidad para una agencia
     #[instrument(skip(self))]
     pub async fn get_agencia_dashboard(&self, id_entidad: i32, entidad: Option<&str>) -> Result<AgenciaContabilidadDashboard, ApplicationError> {
-        // Verificar que la agencia existe
-        let agencia = self.agencia_repository
-            .find_by_id(id_entidad)
-            .await?
-            .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id_entidad)))?;
+        // Obtener nombre y política de pago según tipo de entidad
+        let (nombre_entidad, pago_anticipado_val, tipo_vencimiento_val) = if entidad == Some("hoteles") {
+            let hotel = self.hotel_repository
+                .find_by_id(id_entidad)
+                .await?
+                .ok_or_else(|| ApplicationError::NotFound(format!("Hotel {} no encontrado", id_entidad)))?;
+            (hotel.nombre, false, Some("mensual".to_string()))
+        } else {
+            let agencia = self.agencia_repository
+                .find_by_id(id_entidad)
+                .await?
+                .ok_or_else(|| ApplicationError::NotFound(format!("Agencia {} no encontrada", id_entidad)))?;
+            (agencia.nombre.clone(), agencia.pago_anticipado, agencia.tipo_vencimiento)
+        };
         
         // Obtener todos los pagos de files de esta agencia
         let all_pagos = self.pago_file_repository
@@ -173,7 +185,7 @@ impl ContabilidadService {
             
             let response = self.pago_file_to_response_with_calculated_pending(
                 aggregated,
-                Some(agencia.nombre.clone()),
+                Some(nombre_entidad.clone()),
                 Some(monto_pendiente_file.clone()),
             ).await;
             
@@ -190,13 +202,13 @@ impl ContabilidadService {
         
         Ok(AgenciaContabilidadDashboard {
             id_entidad,
-            nombre_agencia: agencia.nombre,
+            nombre_agencia: nombre_entidad,
             total_files: file_groups.len() as i32,
             monto_total_files: global_monto_total,
             monto_pagado: global_monto_pagado,
             monto_pendiente,
-            pago_anticipado: agencia.pago_anticipado,
-            tipo_vencimiento: agencia.tipo_vencimiento,
+            pago_anticipado: pago_anticipado_val,
+            tipo_vencimiento: tipo_vencimiento_val,
             files_pendientes,
             ultimos_pagos,
         })
@@ -280,7 +292,13 @@ impl ContabilidadService {
 
         let mut responses = Vec::new();
         for p in pagos {
-            let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(p.id_entidad).await {
+            let agencia_nombre = if p.entidad.as_deref() == Some("hoteles") {
+                if let Ok(Some(hotel)) = self.hotel_repository.find_by_id(p.id_entidad).await {
+                    Some(hotel.nombre)
+                } else {
+                    None
+                }
+            } else if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(p.id_entidad).await {
                 Some(agencia.nombre)
             } else {
                 None
@@ -617,11 +635,7 @@ impl ContabilidadService {
             id_file, request.monto, nuevo_total_pagado, monto_total_file);
 
         // 7. Preparar respuesta y notificaciones
-        let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(id_entidad).await {
-            Some(agencia.nombre.clone())
-        } else {
-            None
-        };
+        let agencia_nombre = self.resolve_entity_name(id_entidad, pago_original.entidad.as_deref()).await;
         
         let estado_texto = if deuda_saldada { "completo" } else { "parcial" };
         let titulo_notif = if deuda_saldada {
@@ -689,11 +703,7 @@ impl ContabilidadService {
             warn!("Pago de file {} rechazado por verificador {}", request.id_pago_file, verificado_por);
         }
         
-        let agencia_nombre = if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(pago_actualizado.id_entidad).await {
-            Some(agencia.nombre)
-        } else {
-            None
-        };
+        let agencia_nombre = self.resolve_entity_name(pago_actualizado.id_entidad, pago_actualizado.entidad.as_deref()).await;
         
         Ok(self.pago_file_to_response(pago_actualizado, agencia_nombre).await)
     }
@@ -1023,6 +1033,18 @@ impl ContabilidadService {
     // ========================================================================
     // HELPERS - CONVERSION A RESPONSES
     // ========================================================================
+
+    /// Resolve entity name (agencia or hotel) by id_entidad and entidad type
+    async fn resolve_entity_name(&self, id_entidad: i32, entidad: Option<&str>) -> Option<String> {
+        if entidad == Some("hoteles") {
+            if let Ok(Some(hotel)) = self.hotel_repository.find_by_id(id_entidad).await {
+                return Some(hotel.nombre);
+            }
+        } else if let Ok(Some(agencia)) = self.agencia_repository.find_by_id(id_entidad).await {
+            return Some(agencia.nombre);
+        }
+        None
+    }
 
     async fn pago_file_to_response(&self, p: PagoFileModel, agencia_nombre: Option<String>) -> PagoFileResponse {
         self.pago_file_to_response_with_calculated_pending(p, agencia_nombre, None).await

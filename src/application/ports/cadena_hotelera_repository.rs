@@ -11,8 +11,6 @@ pub trait CadenaHoteleraRepositoryPort: Send + Sync {
     async fn update(&self, cadena: &CadenaHotelera) -> Result<CadenaHotelera, ApplicationError>;
     async fn delete(&self, id: i32) -> Result<bool, ApplicationError>;
     async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
-    async fn list(&self, limit: i64, offset: i64) -> Result<Vec<CadenaHotelera>, ApplicationError>;
-    async fn count(&self) -> Result<i64, ApplicationError>;
     async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
     async fn restore(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError>;
     async fn list_with_encargado(&self, limit: i64, offset: i64) -> Result<(Vec<CadenaHoteleraListItemDto>, i64), ApplicationError>;

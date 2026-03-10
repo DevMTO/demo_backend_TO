@@ -21,6 +21,8 @@ use crate::application::dtos::{
 use crate::application::ports::{FileRepositoryPort, PaginationOptions, NotificationServicePort};
 use crate::application::ports::{FileTourRepositoryPort, FileTourInputData, PagoFileRepositoryPort, AgenciaRepositoryPort};
 use crate::application::ports::{FileEntradaRepositoryPort, EntradaPrecioRepositoryPort, FileRestauranteRepositoryPort};
+use crate::application::ports::HotelRepositoryPort;
+use crate::application::ports::UserRepositoryPort;
 use crate::application::services::{LoggingService, ContabilidadService};
 use crate::domain::entities::{
     File, EntityType, UserRole,
@@ -37,6 +39,8 @@ pub struct FileService {
     notification_service: Arc<dyn NotificationServicePort>,
     pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
     agencia_repository: Arc<dyn AgenciaRepositoryPort>,
+    hotel_repository: Arc<dyn HotelRepositoryPort>,
+    user_repository: Arc<dyn UserRepositoryPort>,
     file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
     entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
     file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
@@ -52,6 +56,8 @@ impl FileService {
         notification_service: Arc<dyn NotificationServicePort>,
         pago_file_repository: Arc<dyn PagoFileRepositoryPort>,
         agencia_repository: Arc<dyn AgenciaRepositoryPort>,
+        hotel_repository: Arc<dyn HotelRepositoryPort>,
+        user_repository: Arc<dyn UserRepositoryPort>,
         file_entrada_repository: Arc<dyn FileEntradaRepositoryPort>,
         entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
         file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
@@ -64,11 +70,30 @@ impl FileService {
             notification_service,
             pago_file_repository,
             agencia_repository,
+            hotel_repository,
+            user_repository,
             file_entrada_repository,
             entrada_precio_repository,
             file_restaurante_repository,
             contabilidad_service,
         }
+    }
+
+    /// Resolve username by user ID
+    async fn get_username(&self, user_id: Option<i32>) -> Option<String> {
+        if let Some(id) = user_id {
+            self.user_repository.find_by_id(id).await.ok().flatten().map(|u| u.username)
+        } else {
+            None
+        }
+    }
+
+    /// Build a FileResponse with resolved user names
+    async fn build_file_response(&self, file: File, tours: Vec<FileTourDto>) -> FileResponse {
+        let created_name = self.get_username(file.created_by).await;
+        let updated_name = self.get_username(file.updated_by).await;
+        FileResponse::from_file_with_tours(file, tours)
+            .with_user_names(created_name, updated_name)
     }
 
     /// Carga los tours de un file con información completa del tour (INNER JOIN) y los convierte a DTO
@@ -114,7 +139,7 @@ impl FileService {
         let mut items = Vec::new();
         for file in result.data {
             let tours = self.load_file_tours(file.id).await?;
-            items.push(FileResponse::from_file_with_tours(file, tours));
+            items.push(self.build_file_response(file, tours).await);
         }
         
         info!("Listados {} files (página {}, total: {})", items.len(), current_page, total);
@@ -133,7 +158,7 @@ impl FileService {
         let tours = self.load_file_tours(id).await?;
         let tours_len = tours.len();
         
-        let response = FileResponse::from_file_with_tours(file, tours);
+        let response = self.build_file_response(file, tours).await;
         info!("File encontrado: ID {} con {} tours", id, tours_len);
         
         Ok(response)
@@ -246,7 +271,7 @@ impl FileService {
         
         // NOTE: Deliberadamente se omitido 'Notificación a admins'
         
-        Ok(FileResponse::from_file_with_tours(created, tours_dto))
+        Ok(self.build_file_response(created, tours_dto).await)
     }
 
     /// Actualizar un file existente
@@ -362,7 +387,7 @@ impl FileService {
             }
         }
         
-        Ok(FileResponse::from_file_with_tours(result, tours_dto))
+        Ok(self.build_file_response(result, tours_dto).await)
     }
 
     /// Desactivar un file (soft delete)
@@ -535,7 +560,7 @@ impl FileService {
         let mut items = Vec::new();
         for file in files {
             let tours = self.load_file_tours(file.id).await?;
-            items.push(FileResponse::from_file_with_tours(file, tours));
+            items.push(self.build_file_response(file, tours).await);
         }
         
         info!("{} files encontrados para entidad {} {:?} (con tours cargados)", items.len(), agencia_id, entidad);
@@ -557,7 +582,7 @@ impl FileService {
         let mut items = Vec::new();
         for file in files {
             let tours = self.load_file_tours(file.id).await?;
-            items.push(FileResponse::from_file_with_tours(file, tours));
+            items.push(self.build_file_response(file, tours).await);
         }
         
         info!("{} files encontrados entre {} y {} (con tours cargados)", items.len(), from, to);
@@ -657,13 +682,20 @@ impl FileService {
             ));
         }
         
-        // 3. Obtener info de la agencia
-        let agencia = self.agencia_repository
-            .find_by_id(file.id_entidad)
-            .await?
-            .ok_or_else(|| ApplicationError::NotFound(
-                format!("Agencia {} no encontrada", file.id_entidad)
-            ))?;
+        // 3. Obtener política de pago según tipo de entidad
+        let (pago_anticipado, tipo_vencimiento) = if file.entidad.as_deref() == Some("hoteles") {
+            // Hoteles: sin pago anticipado, vencimiento mensual por defecto
+            (false, Some("mensual".to_string()))
+        } else {
+            // Agencias: usar política de pago configurada
+            let agencia = self.agencia_repository
+                .find_by_id(file.id_entidad)
+                .await?
+                .ok_or_else(|| ApplicationError::NotFound(
+                    format!("Agencia {} no encontrada", file.id_entidad)
+                ))?;
+            (agencia.pago_anticipado, agencia.tipo_vencimiento)
+        };
         
         // 4. Calcular montos y fechas
         let monto_total = request.monto_total
@@ -671,7 +703,7 @@ impl FileService {
             .unwrap_or_else(|| file.monto_total.clone());
         
         // Calcular fecha_vencimiento para pago anticipado (igual para todos los tours)
-        let fecha_vencimiento_anticipado = if agencia.pago_anticipado {
+        let fecha_vencimiento_anticipado = if pago_anticipado {
             let tours_preview = self.file_tour_repository.find_by_file_with_tour(request.file_id).await?;
             let earliest_tour_date = tours_preview.iter()
                 .filter_map(|t| t.fecha_tour)
@@ -680,7 +712,7 @@ impl FileService {
             Some(match earliest_tour_date {
                 Some(fecha) => fecha - chrono::Duration::days(1),
                 None => {
-                    warn!("⚠️ Agencia con pago_anticipado pero file {} sin tours con fecha", request.file_id);
+                    warn!("⚠️ Entidad con pago_anticipado pero file {} sin tours con fecha", request.file_id);
                     (Utc::now() + Duration::days(7)).date_naive()
                 }
             })
@@ -748,7 +780,7 @@ impl FileService {
                 // Calcular según tipo_vencimiento y fecha del tour
                 let fecha_tour = ft.fecha_tour.unwrap_or_else(|| Utc::now().date_naive());
                 calcular_fecha_vencimiento(
-                    agencia.tipo_vencimiento.as_deref().unwrap_or("mensual"),
+                    tipo_vencimiento.as_deref().unwrap_or("mensual"),
                     fecha_tour,
                 )
             };
@@ -778,11 +810,9 @@ impl FileService {
                 cuota: Some(0),
             };
 
-            if tiene_entradas {
-                let pago = self.pago_file_repository.create(new_pago).await?;
-                info!("💰 Deuda por entrada creada: pago_file ID {} para file_tour {} (file {})", pago.id, ft.id, request.file_id);
-                pago_file_ids.push(pago.id);
-            }
+            let pago = self.pago_file_repository.create(new_pago).await?;
+            info!("💰 Deuda creada: pago_file ID {} para file_tour {} (file {}, entradas: {})", pago.id, ft.id, request.file_id, tiene_entradas);
+            pago_file_ids.push(pago.id);
 
             // AUTO-CREAR PAGOS PROVEEDOR (entradas)
             for fe in &entradas_ft {
@@ -859,15 +889,21 @@ impl FileService {
         }
         
         // 8. Notificar a los admins
+        let entity_nombre = if file.entidad.as_deref() == Some("hoteles") {
+            self.hotel_repository.find_by_id(file.id_entidad).await.ok().flatten().map(|h| h.nombre)
+        } else {
+            self.agencia_repository.find_by_id(file.id_entidad).await.ok().flatten().map(|a| a.nombre)
+        }.unwrap_or_else(|| format!("Entidad #{}", file.id_entidad));
+
         if let Err(e) = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
             "📋 Reserva Confirmada",
             &format!(
-                "{} ha confirmado la reserva #{} (File #{}).\nAgencia: {}\nMonto total: S/ {}\nVencimiento de pago: {}",
+                "{} ha confirmado la reserva #{} (File #{}).\nEntidad: {}\nMonto total: S/ {}\nVencimiento de pago: {}",
                 username,
                 updated_file.file_code.clone().unwrap_or_else(|| format!("F-{}", request.file_id)),
                 request.file_id,
-                agencia.nombre,
+                entity_nombre,
                 monto_total,
                 fecha_vencimiento_display
             ),
@@ -908,7 +944,7 @@ impl FileService {
         );
 
         Ok(ConfirmReservaResponse {
-            file: FileResponse::from_file_with_tours(updated_file, tours_dto),
+            file: self.build_file_response(updated_file, tours_dto).await,
             pago_file_ids,
             monto_total,
             fecha_vencimiento: fecha_vencimiento_display.to_string(),

@@ -132,29 +132,6 @@ impl CadenaHoteleraRepositoryPort for PostgresCadenaHoteleraRepository {
         self.delete(id).await
     }
 
-    async fn list(&self, limit: i64, offset: i64) -> Result<Vec<CadenaHotelera>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        let results = cadenas_hoteleras::table
-            .filter(cadenas_hoteleras::is_active.eq(true))
-            .order(cadenas_hoteleras::nombre.asc())
-            .limit(limit)
-            .offset(offset)
-            .load::<CadenaHoteleraModel>(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        Ok(results.into_iter().map(Into::into).collect())
-    }
-
-    async fn count(&self) -> Result<i64, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        cadenas_hoteleras::table
-            .filter(cadenas_hoteleras::is_active.eq(true))
-            .count()
-            .get_result::<i64>(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
-
     async fn soft_delete(&self, id: i32, user_id: i32) -> Result<bool, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let affected = diesel::update(cadenas_hoteleras::table.filter(cadenas_hoteleras::id.eq(id)))
