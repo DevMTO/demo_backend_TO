@@ -12,6 +12,7 @@ use crate::domain::errors::ApplicationError;
 use crate::presentation::extractors::AuthUser;
 use crate::presentation::routes::AppState;
 use crate::presentation::handlers::common::{json_ok, PaginatedResponse, PaginationInfo};
+use crate::presentation::handlers::file::query_params::EntidadQuery;
 
 use super::query_params::{PagosFilesQueryParams, PagosProveedoresQueryParams};
 
@@ -56,6 +57,7 @@ pub async fn get_agencia_dashboard(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(id_entidad): Path<i32>,
+    Query(query): Query<EntidadQuery>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let is_admin = is_admin_or_operador(&auth.user.role);
     let is_own = is_own_agencia(&state, &auth, id_entidad).await;
@@ -67,7 +69,17 @@ pub async fn get_agencia_dashboard(
     }
 
     // Para roles no-admin, filtrar por tipo de entidad
-    let entidad_filter = if is_admin { None } else if auth.user.role == UserRole::HotelesGerente { Some("hoteles") } else { auth.user.role.entidad_type() };
+    let entidad_filter = if is_admin { 
+        None 
+    } else if auth.user.role == UserRole::HotelesGerente {
+        if query.entidad.as_deref() == Some("cadenas_hoteleras") {
+            Some("cadenas_hoteleras")
+        } else {
+            Some("hoteles")
+        }
+    } else { 
+        auth.user.role.entidad_type() 
+    };
 
     let dashboard = state
         .container
@@ -121,8 +133,12 @@ pub async fn list_pagos_files(
     let entidad_filter = if is_admin_or_operador(&auth.user.role) {
         None
     } else if auth.user.role == UserRole::HotelesGerente {
-        // En reportes de contabilidad, la tabla pagos_files guarda 'entidad' (agencias/hoteles)
-        Some("hoteles")
+        if params.entidad.as_deref() == Some("cadenas_hoteleras") {
+            Some("cadenas_hoteleras")
+        } else {
+            // En reportes de contabilidad, la tabla pagos_files guarda 'entidad' (agencias/hoteles)
+            Some("hoteles")
+        }
     } else {
         auth.user.role.entidad_type()
     };

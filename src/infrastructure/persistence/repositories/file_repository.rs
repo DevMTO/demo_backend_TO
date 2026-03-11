@@ -156,18 +156,26 @@ impl FileRepositoryPort for PostgresFileRepository {
     }
     
     async fn find_by_entidad(&self, id_entidad: i32, entidad: Option<&str>) -> Result<Vec<File>, ApplicationError> {
+        use crate::infrastructure::persistence::schema::hoteles;
         let mut conn = self.pool.get_connection().await?;
         
-        let mut query = files::table
-            .filter(files::id_entidad.eq(id_entidad))
-            .order(files::fecha_inicio.desc())
-            .into_boxed();
+        let mut query = files::table.into_boxed();
         
-        if let Some(ent) = entidad {
-            query = query.filter(files::entidad.eq(ent));
+        if entidad == Some("cadenas_hoteleras") {
+            query = query
+                .filter(files::id_entidad.eq_any(
+                    hoteles::table.filter(hoteles::id_cadena.eq(id_entidad)).select(hoteles::id)
+                ))
+                .filter(files::entidad.eq("hoteles"));
+        } else {
+            query = query.filter(files::id_entidad.eq(id_entidad));
+            if let Some(ent) = entidad {
+                query = query.filter(files::entidad.eq(ent));
+            }
         }
         
         let results = query
+            .order(files::fecha_inicio.desc())
             .select(FileModel::as_select())
             .load(&mut conn)
             .await
@@ -238,23 +246,32 @@ impl FileRepositoryPort for PostgresFileRepository {
     }
 
     async fn find_active_file_codes(&self, id_entidad: i32, entidad: Option<&str>) -> Result<Vec<String>, ApplicationError> {
+        use crate::infrastructure::persistence::schema::hoteles;
         let mut conn = self.pool.get_connection().await?;
 
         // Statuses terminales: completado, cancelado, anulado, no_show
         let terminal_statuses = vec!["completado", "cancelado", "anulado", "no_show"];
 
         let mut query = files::table
-            .filter(files::id_entidad.eq(id_entidad))
             .filter(files::file_code.is_not_null())
             .filter(files::status.ne_all(terminal_statuses))
-            .select(files::file_code)
             .into_boxed();
 
-        if let Some(ent) = entidad {
-            query = query.filter(files::entidad.eq(ent));
+        if entidad == Some("cadenas_hoteleras") {
+            query = query
+                .filter(files::id_entidad.eq_any(
+                    hoteles::table.filter(hoteles::id_cadena.eq(id_entidad)).select(hoteles::id)
+                ))
+                .filter(files::entidad.eq("hoteles"));
+        } else {
+            query = query.filter(files::id_entidad.eq(id_entidad));
+            if let Some(ent) = entidad {
+                query = query.filter(files::entidad.eq(ent));
+            }
         }
 
         let results: Vec<Option<String>> = query
+            .select(files::file_code)
             .load(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(e.to_string()))?;

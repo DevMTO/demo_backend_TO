@@ -11,6 +11,7 @@ use crate::domain::errors::ApplicationError;
 use crate::presentation::extractors::AuthUser;
 use crate::presentation::routes::AppState;
 use crate::presentation::handlers::common::json_ok;
+use crate::presentation::handlers::file::query_params::EntidadQuery;
 
 use super::query_params::SaldoFavorQueryParams;
 
@@ -20,11 +21,25 @@ fn is_admin(role: &UserRole) -> bool {
 }
 
 /// Helper: ¿es agencia/hotel y pertenece a esta entidad?
-fn is_own_agencia(auth: &AuthUser, id_entidad: i32) -> bool {
-    matches!(auth.user.role, 
+async fn is_own_agencia(state: &AppState, auth: &AuthUser, id_entidad: i32) -> bool {
+    let role = &auth.user.role;
+    let user_entidad = auth.user.id_entidad;
+
+    if matches!(role, 
         UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente |
         UserRole::Hoteles | UserRole::HotelesGerente
-    ) && auth.user.id_entidad == Some(id_entidad)
+    ) && user_entidad == Some(id_entidad) {
+        return true;
+    }
+
+    if *role == UserRole::HotelesGerente {
+        if let Some(id_cadena) = user_entidad {
+            if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(id_entidad).await {
+                return hotel.id_cadena == id_cadena;
+            }
+        }
+    }
+    false
 }
 
 // ============================================================================
@@ -38,14 +53,25 @@ pub async fn get_saldo_resumen(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(id_entidad): Path<i32>,
+    Query(query): Query<EntidadQuery>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if !is_admin(&auth.user.role) && !is_own_agencia(&auth, id_entidad) {
+    if !is_admin(&auth.user.role) && !is_own_agencia(&state, &auth, id_entidad).await {
         return Err(ApplicationError::Forbidden(
             "No tienes permiso para ver este resumen".to_string(),
         ));
     }
 
-    let entidad_filter = if is_admin(&auth.user.role) { None } else { auth.user.role.entidad_type() };
+    let entidad_filter = if is_admin(&auth.user.role) { 
+        None 
+    } else if auth.user.role == UserRole::HotelesGerente {
+        if query.entidad.as_deref() == Some("cadenas_hoteleras") {
+            Some("cadenas_hoteleras")
+        } else {
+            Some("hoteles")
+        }
+    } else { 
+        auth.user.role.entidad_type() 
+    };
 
     let resumen = state
         .container
@@ -63,14 +89,25 @@ pub async fn get_saldo_dashboard(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(id_entidad): Path<i32>,
+    Query(query): Query<EntidadQuery>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if !is_admin(&auth.user.role) && !is_own_agencia(&auth, id_entidad) {
+    if !is_admin(&auth.user.role) && !is_own_agencia(&state, &auth, id_entidad).await {
         return Err(ApplicationError::Forbidden(
             "No tienes permiso para ver este dashboard".to_string(),
         ));
     }
 
-    let entidad_filter = if is_admin(&auth.user.role) { None } else { auth.user.role.entidad_type() };
+    let entidad_filter = if is_admin(&auth.user.role) { 
+        None 
+    } else if auth.user.role == UserRole::HotelesGerente {
+        if query.entidad.as_deref() == Some("cadenas_hoteleras") {
+            Some("cadenas_hoteleras")
+        } else {
+            Some("hoteles")
+        }
+    } else { 
+        auth.user.role.entidad_type() 
+    };
 
     let dashboard = state
         .container
@@ -115,13 +152,38 @@ pub async fn list_cancelaciones(
     auth: AuthUser,
     Query(params): Query<SaldoFavorQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let id_entidad = if is_admin(&auth.user.role) {
+    let mut id_entidad = if is_admin(&auth.user.role) {
         params.id_entidad
     } else {
         auth.user.id_entidad
     };
+    
+    // Si es Gerente de Cadena y solicita un hotel específico de su cadena
+    if auth.user.role == UserRole::HotelesGerente {
+        if params.entidad.as_deref() == Some("cadenas_hoteleras") {
+            id_entidad = auth.user.id_entidad;
+        } else if let Some(requested_id) = params.id_entidad {
+            if let Some(id_cadena) = auth.user.id_entidad {
+                if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(requested_id).await {
+                    if hotel.id_cadena == id_cadena {
+                        id_entidad = Some(requested_id);
+                    }
+                }
+            }
+        }
+    }
 
-    let entidad_filter = if is_admin(&auth.user.role) { None } else { auth.user.role.entidad_type() };
+    let entidad_filter = if is_admin(&auth.user.role) { 
+        None 
+    } else if auth.user.role == UserRole::HotelesGerente {
+        if params.entidad.as_deref() == Some("cadenas_hoteleras") {
+            Some("cadenas_hoteleras")
+        } else {
+            Some("hoteles")
+        }
+    } else { 
+        auth.user.role.entidad_type() 
+    };
 
     let offset = (params.page - 1) * params.page_size;
     let cancelaciones = state
@@ -145,13 +207,37 @@ pub async fn list_no_shows(
     auth: AuthUser,
     Query(params): Query<SaldoFavorQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let id_entidad = if is_admin(&auth.user.role) {
+    let mut id_entidad = if is_admin(&auth.user.role) {
         params.id_entidad
     } else {
         auth.user.id_entidad
     };
+    
+    if auth.user.role == UserRole::HotelesGerente {
+        if params.entidad.as_deref() == Some("cadenas_hoteleras") {
+            id_entidad = auth.user.id_entidad;
+        } else if let Some(requested_id) = params.id_entidad {
+            if let Some(id_cadena) = auth.user.id_entidad {
+                if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(requested_id).await {
+                    if hotel.id_cadena == id_cadena {
+                        id_entidad = Some(requested_id);
+                    }
+                }
+            }
+        }
+    }
 
-    let entidad_filter = if is_admin(&auth.user.role) { None } else { auth.user.role.entidad_type() };
+    let entidad_filter = if is_admin(&auth.user.role) { 
+        None 
+    } else if auth.user.role == UserRole::HotelesGerente {
+        if params.entidad.as_deref() == Some("cadenas_hoteleras") {
+            Some("cadenas_hoteleras")
+        } else {
+            Some("hoteles")
+        }
+    } else { 
+        auth.user.role.entidad_type() 
+    };
 
     let offset = (params.page - 1) * params.page_size;
     let no_shows = state
@@ -175,13 +261,37 @@ pub async fn list_movimientos(
     auth: AuthUser,
     Query(params): Query<SaldoFavorQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    let id_entidad = if is_admin(&auth.user.role) {
+    let mut id_entidad = if is_admin(&auth.user.role) {
         params.id_entidad
     } else {
         auth.user.id_entidad
     };
+    
+    if auth.user.role == UserRole::HotelesGerente {
+        if params.entidad.as_deref() == Some("cadenas_hoteleras") {
+            id_entidad = auth.user.id_entidad;
+        } else if let Some(requested_id) = params.id_entidad {
+            if let Some(id_cadena) = auth.user.id_entidad {
+                if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(requested_id).await {
+                    if hotel.id_cadena == id_cadena {
+                        id_entidad = Some(requested_id);
+                    }
+                }
+            }
+        }
+    }
 
-    let entidad_filter = if is_admin(&auth.user.role) { None } else { auth.user.role.entidad_type() };
+    let entidad_filter = if is_admin(&auth.user.role) { 
+        None 
+    } else if auth.user.role == UserRole::HotelesGerente {
+        if params.entidad.as_deref() == Some("cadenas_hoteleras") {
+            Some("cadenas_hoteleras")
+        } else {
+            Some("hoteles")
+        }
+    } else { 
+        auth.user.role.entidad_type() 
+    };
 
     let offset = (params.page - 1) * params.page_size;
     let movimientos = state

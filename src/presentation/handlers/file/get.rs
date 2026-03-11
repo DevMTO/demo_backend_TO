@@ -17,7 +17,8 @@ use super::query_params::{DateRangeQuery, EntidadQuery};
 pub async fn list_files(
     State(state): State<AppState>, 
     auth: AuthUser, 
-    Query(params): Query<PaginationParams>
+    Query(params): Query<PaginationParams>,
+    Query(entidad_query): Query<EntidadQuery>
 ) -> Result<impl IntoResponse, ApplicationError> {
     // Si el usuario tiene id_entidad y NO es admin, filtrar por su entidad
     if !auth.user.role.is_admin() {
@@ -85,14 +86,22 @@ pub async fn list_files_by_agencia(
     Query(query): Query<EntidadQuery>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     // Verificar que el usuario es admin o pertenece a la entidad solicitada
+    let mut final_agencia_id = agencia_id;
     if !auth.user.role.is_admin() {
         let user_entidad = auth.user.id_entidad.unwrap_or(0);
         
-        // Excepción para Gerentes de Hotel verificando si el hotel pertenece a la cadena
-        let check_cadena = if auth.user.role == crate::domain::entities::UserRole::HotelesGerente && query.entidad.as_deref() == Some("hoteles") {
-            // Verificar en la BD si el hotel (agencia_id) pertenece a la cadena (user_entidad)
-            if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(agencia_id).await {
-                hotel.id_cadena == user_entidad
+        let check_cadena = if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
+            if query.entidad.as_deref() == Some("cadenas_hoteleras") {
+                // Si la consulta es por cadena completa, validamos la propiedad en el repositorio directo usando user_entidad
+                final_agencia_id = user_entidad;
+                true
+            } else if query.entidad.as_deref() == Some("hoteles") {
+                // Verificar en la BD si el hotel (agencia_id) pertenece a la cadena (user_entidad)
+                if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(agencia_id).await {
+                    hotel.id_cadena == user_entidad
+                } else {
+                    false
+                }
             } else {
                 false
             }
@@ -100,28 +109,28 @@ pub async fn list_files_by_agencia(
             false
         };
 
-        if user_entidad != agencia_id && !check_cadena {
+        if user_entidad != final_agencia_id && !check_cadena {
             return Err(ApplicationError::Forbidden(
                 "No tienes permiso para ver files de otra entidad".to_string()
             ));
         }
     }
 
-    // Para non-admin, forzar entidad desde su rol o permitir la consulta de sujerarquía
+    // Para non-admin, forzar entidad desde su rol o permitir la consulta de su jerarquía
     let entidad_filter = if auth.user.role.is_admin() {
         query.entidad.as_deref()
     } else if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
-        if query.entidad.as_deref() == Some("hoteles") {
-            Some("hoteles")
+        if query.entidad.as_deref() == Some("cadenas_hoteleras") {
+            Some("cadenas_hoteleras")
         } else {
-            auth.user.role.entidad_type()
+            Some("hoteles")
         }
     } else {
         auth.user.role.entidad_type()
     };
 
     let files = state.container.file_service
-        .list_files_by_agencia(agencia_id, entidad_filter)
+        .list_files_by_agencia(final_agencia_id, entidad_filter)
         .await?;
     
     Ok(json_ok(files))
@@ -173,6 +182,7 @@ pub async fn list_files_pending_payment(
 pub async fn get_active_file_codes(
     State(state): State<AppState>,
     auth: AuthUser,
+    Query(query): Query<EntidadQuery>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let id_entidad = if auth.user.role.is_admin() {
         return Err(ApplicationError::BadRequest(
@@ -184,7 +194,15 @@ pub async fn get_active_file_codes(
         })?
     };
 
-    let entidad_filter = auth.user.role.entidad_type();
+    let entidad_filter = if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
+        if query.entidad.as_deref() == Some("cadenas_hoteleras") {
+            Some("cadenas_hoteleras")
+        } else {
+            Some("hoteles")
+        }
+    } else {
+        auth.user.role.entidad_type()
+    };
     let codes = state.container.file_service
         .get_active_file_codes(id_entidad, entidad_filter)
         .await?;
@@ -200,9 +218,28 @@ pub async fn get_active_file_codes_by_entity(
     Path(entidad_id): Path<i32>,
     Query(query): Query<EntidadQuery>,
 ) -> Result<impl IntoResponse, ApplicationError> {
+    let mut final_entidad_id = entidad_id;
     if !auth.user.role.is_admin() {
         let user_entidad = auth.user.id_entidad.unwrap_or(0);
-        if user_entidad != entidad_id {
+        
+        let check_cadena = if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
+            if query.entidad.as_deref() == Some("cadenas_hoteleras") {
+                final_entidad_id = user_entidad;
+                true
+            } else if query.entidad.as_deref() == Some("hoteles") {
+                if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(entidad_id).await {
+                    hotel.id_cadena == user_entidad
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if user_entidad != final_entidad_id && !check_cadena {
             return Err(ApplicationError::Forbidden(
                 "No tienes permiso para ver file codes de otra entidad".to_string()
             ));
@@ -211,12 +248,18 @@ pub async fn get_active_file_codes_by_entity(
 
     let entidad_filter = if auth.user.role.is_admin() {
         query.entidad.as_deref()
+    } else if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
+        if query.entidad.as_deref() == Some("cadenas_hoteleras") {
+            Some("cadenas_hoteleras")
+        } else {
+            Some("hoteles")
+        }
     } else {
         auth.user.role.entidad_type()
     };
 
     let codes = state.container.file_service
-        .get_active_file_codes(entidad_id, entidad_filter)
+        .get_active_file_codes(final_entidad_id, entidad_filter)
         .await?;
 
     Ok(json_ok(codes))

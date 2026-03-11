@@ -6,6 +6,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct PagosFilesQueryParams {
     pub id_entidad: Option<i32>,
+    pub entidad: Option<String>,
     pub estado: Option<String>,
     pub fecha_desde: Option<String>,
     pub fecha_hasta: Option<String>,
