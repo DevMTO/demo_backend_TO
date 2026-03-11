@@ -189,13 +189,33 @@ impl FileService {
     ) -> Result<FileResponse, ApplicationError> {
         // Resolver id_entidad según el rol del usuario
         let id_entidad_resolved = match user_role {
-            UserRole::Agencias | UserRole::Hoteles | UserRole::HotelesGerente => {
+            UserRole::Agencias | UserRole::Hoteles => {
                 // Para agencias/hoteles, usar su id_entidad automáticamente
                 user_id_entidad.ok_or_else(|| {
                     ApplicationError::Validation(
                         "Usuario sin id_entidad configurado".to_string()
                     )
                 })?
+            },
+            UserRole::HotelesGerente => {
+                // Para gerente de cadena, debe proporcionar el id del hotel en el request
+                // Validamos que el hotel proporcionado pertenezca a su cadena
+                let target_hotel_id = request.id_entidad.ok_or_else(|| {
+                    ApplicationError::Validation(
+                        "Debe seleccionar un hotel para crear el file".to_string()
+                    )
+                })?;
+                
+                let id_cadena = user_id_entidad.unwrap_or(0);
+                if let Ok(Some(hotel)) = self.hotel_repository.find_by_id(target_hotel_id).await {
+                    if hotel.id_cadena != id_cadena {
+                        return Err(ApplicationError::Forbidden("El hotel seleccionado no pertenece a tu cadena".to_string()));
+                    }
+                } else {
+                    return Err(ApplicationError::Validation("Hotel inválido".to_string()));
+                }
+                
+                target_hotel_id
             },
             _ => {
                 // Para superadmin/admin, debe venir en el request

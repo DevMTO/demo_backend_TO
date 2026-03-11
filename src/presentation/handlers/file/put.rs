@@ -6,6 +6,7 @@ use validator::Validate;
 
 use crate::application::dtos::UpdateFileRequest;
 use crate::domain::errors::ApplicationError;
+use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use crate::presentation::handlers::common::json_ok;
@@ -19,6 +20,25 @@ pub async fn update_file(
     Json(request): Json<UpdateFileRequest>
 ) -> Result<impl IntoResponse, ApplicationError> {
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    
+    // Validar permisos
+    let file = state.container.file_service.get_file(id).await?;
+    if !auth.user.role.is_admin() {
+        let user_entidad = auth.user.id_entidad.unwrap_or(0);
+        let check_cadena = if auth.user.role == UserRole::HotelesGerente {
+            if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(file.id_entidad).await {
+                hotel.id_cadena == user_entidad
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if file.id_entidad != user_entidad && !check_cadena {
+            return Err(ApplicationError::Forbidden("No tienes permiso para actualizar este file".to_string()));
+        }
+    }
     
     let response = state.container.file_service
         .update_file(

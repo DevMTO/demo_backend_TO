@@ -6,6 +6,7 @@ use validator::Validate;
 
 use crate::application::dtos::{CreateFileRequest, ConfirmReservaRequest};
 use crate::domain::errors::ApplicationError;
+use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use crate::presentation::handlers::common::{json_created, json_ok};
@@ -54,6 +55,26 @@ pub async fn confirmar_reserva(
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
 
     let file_id = request.file_id;
+    
+    // Validar permisos
+    let file = state.container.file_service.get_file(file_id).await?;
+    if !auth.user.role.is_admin() {
+        let user_entidad = auth.user.id_entidad.unwrap_or(0);
+        let check_cadena = if auth.user.role == UserRole::HotelesGerente {
+            if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(file.id_entidad).await {
+                hotel.id_cadena == user_entidad
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if file.id_entidad != user_entidad && !check_cadena {
+            return Err(ApplicationError::Forbidden("No tienes permiso para confirmar este file".to_string()));
+        }
+    }
+
     info!("📋 Confirmando reserva - File ID: {} por usuario: {}", file_id, auth.user.username);
 
     let response = state.container.file_service
