@@ -23,6 +23,7 @@ use crate::application::ports::{FileTourRepositoryPort, FileTourInputData, PagoF
 use crate::application::ports::{FileEntradaRepositoryPort, EntradaPrecioRepositoryPort, FileRestauranteRepositoryPort};
 use crate::application::ports::HotelRepositoryPort;
 use crate::application::ports::UserRepositoryPort;
+use crate::application::ports::PersonaRepositoryPort;
 use crate::application::services::{LoggingService, ContabilidadService};
 use crate::domain::entities::{
     File, EntityType, UserRole,
@@ -45,6 +46,7 @@ pub struct FileService {
     entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
     file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
     contabilidad_service: Arc<ContabilidadService>,
+    persona_repository: Arc<dyn PersonaRepositoryPort>,
 }
 
 impl FileService {
@@ -62,6 +64,7 @@ impl FileService {
         entrada_precio_repository: Arc<dyn EntradaPrecioRepositoryPort>,
         file_restaurante_repository: Arc<dyn FileRestauranteRepositoryPort>,
         contabilidad_service: Arc<ContabilidadService>,
+        persona_repository: Arc<dyn PersonaRepositoryPort>,
     ) -> Self {
         Self {
             file_repository,
@@ -76,22 +79,28 @@ impl FileService {
             entrada_precio_repository,
             file_restaurante_repository,
             contabilidad_service,
+            persona_repository,
         }
     }
 
-    /// Resolve username by user ID
-    async fn get_username(&self, user_id: Option<i32>) -> Option<String> {
-        if let Some(id) = user_id {
-            self.user_repository.find_by_id(id).await.ok().flatten().map(|u| u.username)
-        } else {
-            None
+    /// Resolve user full name by user ID.
+    /// Looks up the user's associated persona (nombre + apellidos).
+    /// Falls back to username if no persona is linked.
+    async fn get_user_full_name(&self, user_id: Option<i32>) -> Option<String> {
+        let id = user_id?;
+        let user = self.user_repository.find_by_id(id).await.ok().flatten()?;
+        if let Some(persona_id) = user.id_persona {
+            if let Ok(Some(persona)) = self.persona_repository.find_by_id(persona_id).await {
+                return Some(persona.nombre_completo());
+            }
         }
+        Some(user.username)
     }
 
-    /// Build a FileResponse with resolved user names
+    /// Build a FileResponse with resolved user full names
     async fn build_file_response(&self, file: File, tours: Vec<FileTourDto>) -> FileResponse {
-        let created_name = self.get_username(file.created_by).await;
-        let updated_name = self.get_username(file.updated_by).await;
+        let created_name = self.get_user_full_name(file.created_by).await;
+        let updated_name = self.get_user_full_name(file.updated_by).await;
         FileResponse::from_file_with_tours(file, tours)
             .with_user_names(created_name, updated_name)
     }
