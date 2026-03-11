@@ -152,6 +152,7 @@ impl UserRepositoryPort for PostgresUserRepository {
                 users::is_active.eq(user.is_active),
                 users::last_login.eq(user.last_login),
                 users::updated_by.eq(user.updated_by),
+                users::turno.eq(&user.turno),
             ))
             .get_result::<UserModel>(&mut conn)
             .await
