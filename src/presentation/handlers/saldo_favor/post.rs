@@ -30,6 +30,41 @@ fn can_manage_contabilidad(role: &UserRole) -> bool {
     matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador | UserRole::Agencias | UserRole::Hoteles | UserRole::HotelesGerente)
 }
 
+/// Helper: Verificar si el usuario es dueño del file o de la cadena del hotel del file
+async fn check_file_ownership(state: &AppState, auth: &AuthUser, file_id: i32) -> Result<(), ApplicationError> {
+    if is_admin(&auth.user.role) { return Ok(()); }
+    
+    let file = state.container.file_repository.find_by_id(file_id).await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+        
+    let user_entidad = auth.user.id_entidad.unwrap_or(0);
+    let check_cadena = if auth.user.role == UserRole::HotelesGerente {
+        if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(file.id_entidad).await {
+            hotel.id_cadena == user_entidad
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    if file.id_entidad != user_entidad && !check_cadena {
+        return Err(ApplicationError::Forbidden("No tienes permiso para operar sobre este file".to_string()));
+    }
+    
+    Ok(())
+}
+
+/// Helper: Verificar si el usuario es dueño del file tour
+async fn check_file_tour_ownership(state: &AppState, auth: &AuthUser, file_tour_id: i32) -> Result<(), ApplicationError> {
+    if is_admin(&auth.user.role) { return Ok(()); }
+    
+    let ft = state.container.file_tour_repository.find_by_id(file_tour_id).await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", file_tour_id)))?;
+        
+    check_file_ownership(state, auth, ft.id_file).await
+}
+
 // ============================================================================
 // CANCELACIONES
 // ============================================================================
@@ -47,6 +82,8 @@ pub async fn cancelar_file(
             "No tienes permiso para cancelar files".to_string(),
         ));
     }
+    
+    check_file_ownership(&state, &auth, request.id_file).await?;
 
     let existing_file = state.container.file_service
         .get_file(request.id_file)
@@ -90,6 +127,8 @@ pub async fn cancelar_file_tour(
             "No tienes permiso para cancelar tours".to_string(),
         ));
     }
+    
+    check_file_tour_ownership(&state, &auth, request.id_file_tour).await?;
 
     let notas = request.notas.clone().unwrap_or_else(|| "{}".to_string());
 
@@ -129,6 +168,8 @@ pub async fn registrar_no_show(
             "No tienes permiso para registrar no-shows".to_string(),
         ));
     }
+    
+    check_file_ownership(&state, &auth, request.id_file).await?;
 
     let result = state
         .container
@@ -152,6 +193,8 @@ pub async fn registrar_no_show_file_tour(
             "No tienes permiso para registrar no-shows".to_string(),
         ));
     }
+    
+    check_file_tour_ownership(&state, &auth, request.id_file_tour).await?;
 
     let result = state
         .container
@@ -201,6 +244,25 @@ pub async fn usar_saldo(
         return Err(ApplicationError::Forbidden(
             "No tienes permiso para aplicar saldos".to_string(),
         ));
+    }
+    
+    check_file_ownership(&state, &auth, request.id_file).await?;
+    
+    if !is_admin(&auth.user.role) {
+        let user_entidad = auth.user.id_entidad.unwrap_or(0);
+        let check_cadena = if auth.user.role == UserRole::HotelesGerente {
+            if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(request.id_entidad).await {
+                hotel.id_cadena == user_entidad
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if request.id_entidad != user_entidad && !check_cadena {
+            return Err(ApplicationError::Forbidden("No tienes permiso para usar saldo de otra entidad".to_string()));
+        }
     }
 
     let result = state

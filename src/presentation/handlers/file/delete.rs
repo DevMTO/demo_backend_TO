@@ -16,6 +16,25 @@ pub async fn delete_file(
     auth: AuthUser, 
     Path(id): Path<i32>
 ) -> Result<impl IntoResponse, ApplicationError> {
+    // Validar permisos
+    let file = state.container.file_service.get_file(id).await?;
+    if !auth.user.role.is_admin() {
+        let user_entidad = auth.user.id_entidad.unwrap_or(0);
+        let check_cadena = if auth.user.role == UserRole::HotelesGerente {
+            if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(file.id_entidad).await {
+                hotel.id_cadena == user_entidad
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if file.id_entidad != user_entidad && !check_cadena {
+            return Err(ApplicationError::Forbidden("No tienes permiso para eliminar este file".to_string()));
+        }
+    }
+
     state.container.file_service
         .delete_file(
             id, 

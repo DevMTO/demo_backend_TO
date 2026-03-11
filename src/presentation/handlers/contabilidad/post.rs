@@ -39,7 +39,19 @@ pub async fn registrar_pago_file(
     let pago = state.container.contabilidad_service
         .get_pago_file_by_id(request.id_pago_file).await?;
     let is_admin = matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin);
-    let is_owner = auth.user.id_entidad.map(|id| id == pago.id_entidad).unwrap_or(false);
+    let mut is_owner = auth.user.id_entidad.map(|id| id == pago.id_entidad).unwrap_or(false);
+    
+    // Si es gerente de hotel, verificar si el hotel del pago pertenece a su cadena
+    if auth.user.role == UserRole::HotelesGerente {
+        if let Some(id_cadena) = auth.user.id_entidad {
+            if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(pago.id_entidad).await {
+                if hotel.id_cadena == id_cadena {
+                    is_owner = true;
+                }
+            }
+        }
+    }
+
     if !is_admin && !is_owner {
         return Err(ApplicationError::Forbidden(
             "Solo puedes registrar pagos de tus propios files".to_string(),
