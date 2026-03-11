@@ -1,6 +1,8 @@
 //! POST handlers para File
 
 use axum::{extract::State, response::IntoResponse, Json};
+use chrono::Utc;
+use serde_json::json;
 use tracing::{info, instrument};
 use validator::Validate;
 
@@ -14,13 +16,23 @@ use crate::presentation::handlers::common::{json_created, json_ok};
 /// 
 /// Si el usuario tiene rol "agencias", se auto-asigna su agencia (id_entidad).
 /// Si el usuario es superadmin/admin, debe proporcionar id_entidad en el request.
+/// 
+/// Las notas se transforman en un JSON con clave being the current datetime.
 #[instrument(skip(state, auth, request))]
 pub async fn create_file(
     State(state): State<AppState>, 
     auth: AuthUser, 
-    Json(request): Json<CreateFileRequest>
+    Json(mut request): Json<CreateFileRequest>
 ) -> Result<impl IntoResponse, ApplicationError> {
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    
+    if let Some(notas) = &request.notas {
+        if !notas.is_empty() {
+            let timestamp = Utc::now().to_rfc3339();
+            let notas_json = json!({ timestamp: notas });
+            request.notas = serde_json::to_string(&notas_json).ok();
+        }
+    }
     
     let response = state.container.file_service
         .create_file(
