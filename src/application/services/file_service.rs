@@ -849,9 +849,11 @@ impl FileService {
                 pagado_at: None,
             };
 
-            let pago = self.pago_file_repository.create(new_pago).await?;
-            info!("💰 Deuda creada: pago_file ID {} para file_tour {} (file {}, entradas: {})", pago.id, ft.id, request.file_id, tiene_entradas);
-            pago_file_ids.push(pago.id);
+            if tiene_entradas {
+                let pago = self.pago_file_repository.create(new_pago).await?;
+                info!("💰 Deuda creada: pago_file ID {} para file_tour {} (file {}, entradas: {})", pago.id, ft.id, request.file_id, tiene_entradas);
+                pago_file_ids.push(pago.id);
+            }
 
             // AUTO-CREAR PAGOS PROVEEDOR (entradas)
             for fe in &entradas_ft {
