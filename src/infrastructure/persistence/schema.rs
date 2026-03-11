@@ -555,6 +555,8 @@ diesel::table! {
         created_by -> Nullable<Int4>,
         updated_by -> Nullable<Int4>,
         is_active -> Bool,
+        #[max_length = 20]
+        turno -> Nullable<Varchar>,
     }
 }
 

@@ -90,6 +90,7 @@ impl VerifySessionUseCase {
             role: user.role.to_string(),
             id_entidad: user.id_entidad,
             is_active: user.is_active,
+            turno: user.turno.clone(),
         };
         
         Ok(SessionVerification {

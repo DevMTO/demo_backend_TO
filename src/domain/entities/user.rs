@@ -142,6 +142,8 @@ pub struct User {
     pub created_by: Option<i32>,
     /// ID del usuario que actualizó este registro
     pub updated_by: Option<i32>,
+    /// Turno asignado: "mañana", "tarde" o None
+    pub turno: Option<String>,
 }
 
 impl User {
@@ -168,6 +170,7 @@ impl User {
             updated_at: now,
             created_by: None,
             updated_by: None,
+            turno: None,
         }
     }
     

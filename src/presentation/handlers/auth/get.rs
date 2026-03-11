@@ -45,6 +45,7 @@ pub async fn verify_session_handler(
         role: auth_user.user.role.to_string(),
         id_entidad: auth_user.user.id_entidad,
         is_active: auth_user.user.is_active,
+        turno: auth_user.user.turno.clone(),
     };
     
     info!("Sesión válida para: {}", auth_user.user.username);
@@ -73,6 +74,7 @@ pub async fn get_profile_handler(
         role: auth_user.user.role.to_string(),
         id_entidad: auth_user.user.id_entidad,
         is_active: auth_user.user.is_active,
+        turno: auth_user.user.turno.clone(),
     };
     
     let persona_info = if let Some(id_persona) = auth_user.user.id_persona {

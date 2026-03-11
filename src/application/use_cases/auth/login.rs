@@ -148,6 +148,7 @@ impl LoginUseCase {
             role: user.role.to_string(),
             id_entidad: user.id_entidad,
             is_active: user.is_active,
+            turno: user.turno.clone(),
         };
         
         let expires_in = created_session.expires_at.timestamp() - chrono::Utc::now().timestamp();

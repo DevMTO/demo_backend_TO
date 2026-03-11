@@ -19,6 +19,7 @@ pub struct UserDetailDto {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_login: Option<DateTime<Utc>>,
+    pub turno: Option<String>,
 }
 
 impl From<User> for UserDetailDto {
@@ -34,6 +35,7 @@ impl From<User> for UserDetailDto {
             created_at: user.created_at,
             updated_at: user.updated_at,
             last_login: user.last_login,
+            turno: user.turno,
         }
     }
 }
@@ -86,6 +88,9 @@ pub struct CreateUserRequest {
     
     /// ID de la entidad asociada (agencia, transporte, etc.)
     pub id_entidad: Option<i32>,
+
+    /// Turno asignado: "mañana", "tarde" o null
+    pub turno: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
@@ -105,6 +110,9 @@ pub struct UpdateUserRequest {
     pub is_active: Option<bool>,
     
     pub id_entidad: Option<i32>,
+
+    /// Turno asignado: "mañana", "tarde" o null
+    pub turno: Option<Option<String>>,
 }
 
 impl UpdateUserRequest {
@@ -130,6 +138,11 @@ impl UpdateUserRequest {
         }
         // id_entidad: siempre actualizar (permite asignar y quitar entidad)
         user.id_entidad = self.id_entidad;
+
+        // turno: siempre actualizar (permite asignar y quitar turno)
+        if let Some(turno) = self.turno {
+            user.turno = turno;
+        }
         
         user.updated_by = updated_by;
         user.updated_at = Utc::now();
@@ -151,6 +164,7 @@ pub struct UserListItemDto {
     pub last_login: Option<DateTime<Utc>>,
     pub id_persona: Option<i32>,
     pub id_entidad: Option<i32>,
+    pub turno: Option<String>,
 }
 
 #[allow(dead_code)]

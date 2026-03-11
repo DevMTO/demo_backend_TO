@@ -139,6 +139,7 @@ impl UserService {
             updated_at: now,
             created_by: Some(created_by),
             updated_by: Some(created_by),
+            turno: request.turno.clone(),
         };
         
         let created = self.user_repository.create(&new_user).await?;

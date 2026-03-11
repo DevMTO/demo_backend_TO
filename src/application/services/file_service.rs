@@ -97,12 +97,22 @@ impl FileService {
         Some(user.username)
     }
 
-    /// Build a FileResponse with resolved user full names
+    /// Resolve user turno by user ID.
+    async fn get_user_turno(&self, user_id: Option<i32>) -> Option<String> {
+        let id = user_id?;
+        let user = self.user_repository.find_by_id(id).await.ok().flatten()?;
+        user.turno
+    }
+
+    /// Build a FileResponse with resolved user full names and turnos
     async fn build_file_response(&self, file: File, tours: Vec<FileTourDto>) -> FileResponse {
         let created_name = self.get_user_full_name(file.created_by).await;
         let updated_name = self.get_user_full_name(file.updated_by).await;
+        let created_turno = self.get_user_turno(file.created_by).await;
+        let updated_turno = self.get_user_turno(file.updated_by).await;
         FileResponse::from_file_with_tours(file, tours)
             .with_user_names(created_name, updated_name)
+            .with_user_turnos(created_turno, updated_turno)
     }
 
     /// Carga los tours de un file con información completa del tour (INNER JOIN) y los convierte a DTO

@@ -124,6 +124,8 @@ pub struct FileResponse {
     pub updated_by: Option<i32>,
     pub created_by_name: Option<String>,
     pub updated_by_name: Option<String>,
+    pub created_by_turno: Option<String>,
+    pub updated_by_turno: Option<String>,
 }
 
 impl FileResponse {
@@ -156,6 +158,8 @@ impl FileResponse {
             updated_by: f.updated_by,
             created_by_name: None,
             updated_by_name: None,
+            created_by_turno: None,
+            updated_by_turno: None,
         }
     }
 
@@ -163,6 +167,13 @@ impl FileResponse {
     pub fn with_user_names(mut self, created_by_name: Option<String>, updated_by_name: Option<String>) -> Self {
         self.created_by_name = created_by_name;
         self.updated_by_name = updated_by_name;
+        self
+    }
+
+    /// Sets the user turnos for created_by and updated_by
+    pub fn with_user_turnos(mut self, created_by_turno: Option<String>, updated_by_turno: Option<String>) -> Self {
+        self.created_by_turno = created_by_turno;
+        self.updated_by_turno = updated_by_turno;
         self
     }
 }

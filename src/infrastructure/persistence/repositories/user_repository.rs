@@ -291,6 +291,7 @@ impl UserRepositoryPort for PostgresUserRepository {
                     last_login: user.last_login,
                     id_persona: user.id_persona,
                     id_entidad: user.id_entidad,
+                    turno: user.turno,
                 }
             })
             .collect();
