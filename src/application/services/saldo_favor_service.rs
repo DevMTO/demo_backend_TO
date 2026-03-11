@@ -189,7 +189,7 @@ impl SaldoFavorService {
 
         // Identificamos las deudas y pagos que suman al total pagado
         let pagos_a_actualizar: Vec<_> = all_pagos.iter()
-            .filter(|p| p.tipo_registro == "pago" || p.tipo_registro == "deuda")
+            .filter(|p| p.tipo_registro == "pago" || p.tipo_registro == "deuda" || p.tipo_registro == "pago_final")
             .collect();
 
         if pagos_a_actualizar.is_empty() {
@@ -386,7 +386,7 @@ impl SaldoFavorService {
         // Obtener todas las deudas y pagos del file
         let all_pagos = self.pago_file_repo.find_all_by_file(request.id_file).await?;
         let pagos_a_actualizar: Vec<_> = all_pagos.iter()
-            .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago")
+            .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "pago_final")
             .collect();
 
         if pagos_a_actualizar.is_empty() {
@@ -801,7 +801,7 @@ impl SaldoFavorService {
             .find(|p| p.id_file_tour == Some(id_file_tour) && p.tipo_registro == "deuda");
 
         let pagos_del_tour: Vec<_> = all_pagos.iter()
-            .filter(|p| p.id_file_tour == Some(id_file_tour) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
+            .filter(|p| p.id_file_tour == Some(id_file_tour) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "pago_final"))
             .collect();
 
         let siguiente_tour = all_tours.iter()
@@ -923,7 +923,7 @@ impl SaldoFavorService {
                 }
 
                 let pagos_tour_sig: Vec<_> = all_pagos.iter()
-                    .filter(|p| p.id_file_tour == Some(tour_sig.id) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
+                    .filter(|p| p.id_file_tour == Some(tour_sig.id) && (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "pago_final"))
                     .collect();
 
                 let _deuda_tour_sig = all_pagos.iter()
@@ -1061,7 +1061,7 @@ impl SaldoFavorService {
             .collect();
         let file_monto_pagado = all_pagos.iter()
             .filter(|p| {
-                (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "uso_saldo")
+                (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "pago_final" || p.tipo_registro == "uso_saldo")
                     && active_tour_ids.contains(&p.id_file_tour)
             })
             .map(|p| &p.monto_pagado)

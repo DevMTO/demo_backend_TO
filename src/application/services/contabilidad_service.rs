@@ -122,7 +122,7 @@ impl ContabilidadService {
         // Excluir pagos de files cancelados/no_show y registros que no sean deuda/pago
         let pagos: Vec<_> = all_pagos.into_iter()
             .filter(|p| p.estado != "cancelado" && p.estado != "no_show"
-                && (p.tipo_registro == "deuda" || p.tipo_registro == "pago"))
+                && (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "pago_final"))
             .collect();
         
         // Agrupar por id_file para calcular totales correctos
@@ -146,7 +146,7 @@ impl ContabilidadService {
             
             // monto_pagado: suma de todos los montos pagados (deudas + pagos)
             let monto_pagado_file = file_pagos.iter()
-                .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago")
+                .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "pago_final")
                 .map(|p| &p.monto_pagado)
                 .fold(zero.clone(), |acc, m| acc + m);
             
@@ -165,9 +165,9 @@ impl ContabilidadService {
             let tolerancia = BigDecimal::from_str("0.01").unwrap();
             let is_fully_paid = monto_pendiente_file <= tolerancia;
             let has_partial = monto_pagado_file > zero;
-            let has_verified = file_pagos.iter().any(|p| p.estado == "verificado");
+            let all_verified = file_pagos.iter().all(|p| p.estado == "verificado");
             
-            let overall_estado = if has_verified {
+            let overall_estado = if is_fully_paid && all_verified {
                 "verificado"
             } else if is_fully_paid {
                 "pagado"
@@ -268,7 +268,7 @@ impl ContabilidadService {
 
                 // monto_pagado global = suma de monto_pagado de deudas + pagos
                 let monto_pagado_total = all_pagos.iter()
-                    .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago")
+                    .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "pago_final")
                     .map(|p| &p.monto_pagado)
                     .fold(BigDecimal::from_str("0").unwrap(), |acc, m| acc + m);
 
@@ -278,7 +278,7 @@ impl ContabilidadService {
                 for deuda in all_pagos.iter().filter(|p| p.tipo_registro == "deuda") {
                     let pagado_en_deuda = deuda.monto_pagado.clone();
                     let pagado_en_pagos: BigDecimal = all_pagos.iter()
-                        .filter(|p| p.tipo_registro == "pago" && p.id_file_tour == deuda.id_file_tour)
+                        .filter(|p| (p.tipo_registro == "pago" || p.tipo_registro == "pago_final") && p.id_file_tour == deuda.id_file_tour)
                         .map(|p| &p.monto_pagado)
                         .fold(BigDecimal::from_str("0").unwrap(), |acc, m| acc + m);
                     let acumulado = &pagado_en_deuda + &pagado_en_pagos;
@@ -378,7 +378,7 @@ impl ContabilidadService {
         
         // Calcular cuánto se ha pagado en total (deudas con monto_pagado>0 + registros tipo pago)
         let monto_pagado_global: BigDecimal = all_records.iter()
-            .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago")
+            .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "pago_final")
             .map(|p| &p.monto_pagado)
             .fold(zero.clone(), |acc, m| acc + m);
         
@@ -404,13 +404,13 @@ impl ContabilidadService {
         
         // Recopilar deudas pendientes y parciales
         let deudas: Vec<_> = all_records.iter()
-            .filter(|p| p.tipo_registro == "deuda")
+            .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago_final")
             .cloned()
             .collect();
         
         // Calcular cuánto se ha acumulado en pagos por cada deuda (por file_tour)
         let pagos_por_tour: Vec<_> = all_records.iter()
-            .filter(|p| p.tipo_registro == "pago")
+            .filter(|p| p.tipo_registro == "pago" || p.tipo_registro == "pago_final")
             .cloned()
             .collect();
         
@@ -485,7 +485,7 @@ impl ContabilidadService {
                         estado: Some(estado),
                         comprobante_url: comprobante_url.as_deref(),
                         comprobante_key: comprobante_key.as_deref(),
-                        cuota: Some(Some(1)),
+                        cuota: Some(Some(next_cuota)),
                         pagado_por: Some(created_by),
                         pagado_at: Some(Some(Utc::now())),
                         updated_by: Some(created_by),
@@ -497,6 +497,7 @@ impl ContabilidadService {
                     // Subsequent payments - create new "pago" entry
                     let pending_after = &d.monto_pendiente - &a_pagar;
                     let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
+                    let tipo_registro = if pending_after <= tolerancia { "pago_final" } else { "pago" };
                     let new_pago = NewPagoFileModel {
                         id_file,
                         id_entidad,
@@ -508,7 +509,7 @@ impl ContabilidadService {
                         notas: request.notas.as_deref(),
                         created_by,
                         id_file_tour: d.id_file_tour,
-                        tipo_registro: "pago",
+                        tipo_registro: tipo_registro,
                         monto_saldo_favor: None,
                         saldo_autorizado: false,
                         saldo_autorizado_por: None,
@@ -570,7 +571,7 @@ impl ContabilidadService {
                     estado: Some(estado),
                     comprobante_url: comprobante_url.as_deref(),
                     comprobante_key: comprobante_key.as_deref(),
-                    cuota: Some(Some(1)),
+                    cuota: Some(Some(next_cuota)),
                     pagado_por: Some(created_by),
                     pagado_at: Some(Some(Utc::now())),
                     updated_by: Some(created_by),
@@ -582,6 +583,7 @@ impl ContabilidadService {
                 // Subsequent payments - create new "pago" entry
                 let pending_after = &d.monto_pendiente - &a_pagar;
                 let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
+                let tipo_registro = if pending_after <= tolerancia { "pago_final" } else { "pago" };
                 let new_pago = NewPagoFileModel {
                     id_file,
                     id_entidad,
@@ -593,7 +595,7 @@ impl ContabilidadService {
                     notas: request.notas.as_deref(),
                     created_by,
                     id_file_tour: d.id_file_tour,
-                    tipo_registro: "pago",
+                    tipo_registro: tipo_registro,
                     monto_saldo_favor: None,
                     saldo_autorizado: false,
                     saldo_autorizado_por: None,
