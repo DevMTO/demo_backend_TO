@@ -126,6 +126,8 @@ pub trait FileTourRepositoryPort: Send + Sync {
     /// Busca tours de un file con información del tour (INNER JOIN)
     async fn find_by_file_with_tour(&self, id_file: i32) -> Result<Vec<FileTourWithTourModel>, ApplicationError>;
     async fn find_by_id(&self, id: i32) -> Result<Option<FileTourModel>, ApplicationError>;
+    /// Actualiza un file_tour completo
+    async fn update(&self, file_tour: &FileTourModel) -> Result<FileTourModel, ApplicationError>;
     /// Actualiza el status de un file_tour
     async fn update_status(&self, id: i32, status: &str) -> Result<FileTourModel, ApplicationError>;
     /// Actualiza la hora de recojo de un file_tour

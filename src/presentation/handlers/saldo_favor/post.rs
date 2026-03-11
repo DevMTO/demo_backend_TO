@@ -5,6 +5,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use serde_json::{self, json, Value as JsonValue};
 use tracing::instrument;
 
 use crate::application::dtos::contabilidad_dto::{
@@ -38,13 +39,19 @@ fn can_manage_contabilidad(role: &UserRole) -> bool {
 pub async fn cancelar_file(
     State(state): State<AppState>,
     auth: AuthUser,
-    Json(request): Json<CancelarFileRequest>,
+    Json(mut request): Json<CancelarFileRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     if !can_manage_contabilidad(&auth.user.role) {
         return Err(ApplicationError::Forbidden(
             "No tienes permiso para cancelar files".to_string(),
         ));
     }
+
+    let notas = request.notas.clone().unwrap_or_else(|| "{}".to_string());
+    let mut notas_json: JsonValue = serde_json::from_str(&notas).unwrap_or(json!({}));
+    notas_json["canceled_by"] = json!(auth.user.id);
+    notas_json["canceled_by_username"] = json!(auth.user.username.clone());
+    request.notas = serde_json::to_string(&notas_json).ok();
 
     let result = state
         .container
@@ -61,13 +68,19 @@ pub async fn cancelar_file(
 pub async fn cancelar_file_tour(
     State(state): State<AppState>,
     auth: AuthUser,
-    Json(request): Json<CancelarFileTourRequest>,
+    Json(mut request): Json<CancelarFileTourRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     if !can_manage_contabilidad(&auth.user.role) {
         return Err(ApplicationError::Forbidden(
             "No tienes permiso para cancelar tours".to_string(),
         ));
     }
+
+    let notas = request.notas.clone().unwrap_or_else(|| "{}".to_string());
+    let mut notas_json: JsonValue = serde_json::from_str(&notas).unwrap_or(json!({}));
+    notas_json["canceled_by"] = json!(auth.user.id);
+    notas_json["canceled_by_username"] = json!(auth.user.username.clone());
+    request.notas = serde_json::to_string(&notas_json).ok();
 
     let result = state
         .container

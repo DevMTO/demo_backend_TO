@@ -966,6 +966,34 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
             .optional()
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
+
+    async fn update(&self, file_tour: &FileTourModel) -> Result<FileTourModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+
+        let result: FileTourModel = diesel::update(file_tours::table.filter(file_tours::id.eq(file_tour.id)))
+            .set((
+                file_tours::id_file.eq(file_tour.id_file),
+                file_tours::id_tour.eq(file_tour.id_tour),
+                file_tours::orden.eq(file_tour.orden),
+                file_tours::precio_aplicado.eq(file_tour.precio_aplicado.as_ref()),
+                file_tours::notas.eq(file_tour.notas.as_deref()),
+                file_tours::created_by.eq(file_tour.created_by),
+                file_tours::fecha_tour.eq(file_tour.fecha_tour),
+                file_tours::turno_tour.eq(file_tour.turno_tour.as_deref()),
+                file_tours::lugar_recojo.eq(file_tour.lugar_recojo.as_deref()),
+                file_tours::hora_recojo.eq(file_tour.hora_recojo),
+                file_tours::status.eq(&file_tour.status),
+                file_tours::geo_recojo.eq(file_tour.geo_recojo.as_ref()),
+                file_tours::nro_pasajeros.eq(file_tour.nro_pasajeros),
+            ))
+            .returning(FileTourModel::as_select())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(format!("Error actualizando file_tour: {}", e)))?;
+
+        info!("FileTour {} actualizado", file_tour.id);
+        Ok(result)
+    }
     
     #[instrument(skip(self))]
     async fn update_status(&self, id: i32, status: &str) -> Result<FileTourModel, ApplicationError> {

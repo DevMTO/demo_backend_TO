@@ -213,7 +213,7 @@ impl SaldoFavorService {
             let update = UpdatePagoFileModel {
                 estado: Some("cancelado"),
                 tipo_registro: Some("cancelacion"),
-                notas: request.notas.as_deref(),
+                // notas: request.notas.as_deref(),   // NOTE: este request.notas es para la tabla `files`
                 monto_saldo_favor,
                 saldo_autorizado: Some(saldo_autorizado),
                 saldo_autorizado_por,
@@ -241,6 +241,7 @@ impl SaldoFavorService {
         updated_file.monto_total = zero.clone();
         updated_file.monto_pagado = zero.clone();
         updated_file.updated_at = chrono::Utc::now();
+        updated_file.notas = request.notas.clone();
         self.file_repo.update(&updated_file).await?;
 
         // Notificar
@@ -295,10 +296,15 @@ impl SaldoFavorService {
             "cancelado",
             "cancelacion_tour",
             "cancelado",
-            request.notas.as_deref(),
+            None, // Don't update notas in pagos_files for file_tour cancellation
             true,
             created_by,
         ).await?;
+
+        // Actualizar notas del file_tour
+        let mut updated_ft = ft.clone();
+        updated_ft.notas = request.notas.clone();
+        self.file_tour_repo.update(&updated_ft).await?;
 
         info!("FileTour {} cancelado. Saldo a favor: {:?}", request.id_file_tour, result.pago.monto_saldo_favor);
 
