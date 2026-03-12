@@ -94,6 +94,8 @@ pub struct PagoFileResponse {
     pub entrada_precio: Option<f64>,
     /// Número de cuota (para indexar pagos de un file_tour)
     pub cuota: Option<i16>,
+    /// Tipo de entidad: "agencias" o "hoteles"
+    pub entidad: Option<String>,
 }
 
 /// Request para registrar pago de file (agencia sube comprobante)

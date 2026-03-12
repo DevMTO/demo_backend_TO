@@ -1146,6 +1146,7 @@ impl ContabilidadService {
             entradas: p.entradas,
             entrada_precio: p.entrada_precio.as_ref().and_then(|v| v.to_f64()),
             cuota: p.cuota,
+            entidad: p.entidad,
         }
     }
 
