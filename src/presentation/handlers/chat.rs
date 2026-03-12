@@ -5,11 +5,13 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 use crate::application::dtos::chat_dto::ChatNoteRequest;
 use crate::application::services::chat_service::ChatUserInfo;
-use crate::domain::entities::UserRole;
+use crate::domain::entities::{
+    NotificationCategory, NotificationPriority, NotificationType, UserRole,
+};
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
@@ -134,10 +136,52 @@ pub async fn chat_file_tour(
     let updated_notas = state.container.chat_service
         .chat_file_tour(
             file_tour_id,
-            Some(request.nota),
+            Some(request.nota.clone()),
             Some(user_info),
         )
         .await?;
+
+    // Notificación SSE — SOLO para notas de file_tours (mensajería)
+    // Las notas de files NO generan notificaciones (es otro apartado)
+    {
+        // Obtener contexto del file_tour y su file para el mensaje
+        let file_tour = state.container.file_tour_repository
+            .find_by_id(file_tour_id)
+            .await?;
+        let file_code = if let Some(ref ft) = file_tour {
+            state.container.file_repository
+                .find_by_id(ft.id_file)
+                .await?
+                .and_then(|f| f.file_code.clone())
+                .unwrap_or_else(|| format!("File #{}", ft.id_file))
+        } else {
+            format!("FileTour #{}", file_tour_id)
+        };
+
+        let nota_preview = if request.nota.len() > 80 {
+            format!("{}...", &request.nota[..80])
+        } else {
+            request.nota.clone()
+        };
+
+        if let Err(e) = state
+            .notify_roles_with_broadcast(
+                vec![UserRole::SuperAdmin, UserRole::Admin],
+                &format!("Nueva nota en {}", file_code),
+                &format!(
+                    "{} agregó una nota al tour #{}: {}",
+                    auth.user.username, file_tour_id, nota_preview
+                ),
+                NotificationType::Info,
+                NotificationCategory::Crud,
+                NotificationPriority::Normal,
+                Some(auth.user.id),
+            )
+            .await
+        {
+            warn!("Error al notificar nota de file_tour: {}", e);
+        }
+    }
 
     Ok(json_ok(serde_json::json!({ "notas": updated_notas })))
 }
