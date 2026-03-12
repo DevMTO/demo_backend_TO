@@ -18,7 +18,7 @@ use super::query_params::{PagosFilesQueryParams, PagosProveedoresQueryParams};
 
 /// Helper para verificar si el usuario tiene rol de admin
 fn is_admin_or_operador(role: &UserRole) -> bool {
-    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador)
+    matches!(role, UserRole::SuperAdmin | UserRole::Admin)
 }
 
 /// Helper para verificar si el usuario es agencia/hotel/contador y pertenece a esa entidad
@@ -106,7 +106,7 @@ pub async fn list_pagos_files(
     let mut id_entidad_filter = if is_admin_or_operador(&auth.user.role) {
         params.id_entidad
     } else if matches!(auth.user.role, 
-        UserRole::Agencias | UserRole::AgenciasGerente | 
+        UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente | 
         UserRole::Hoteles | UserRole::HotelesGerente
     ) {
         auth.user.id_entidad
@@ -193,7 +193,7 @@ pub async fn list_pagos_proveedores(
     auth: AuthUser,
     Query(params): Query<PagosProveedoresQueryParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if !is_admin_or_operador(&auth.user.role) {
+    if !is_admin_or_operador(&auth.user.role) && auth.user.role != UserRole::AgenciasContador {
         return Err(ApplicationError::Forbidden(
             "No tienes permiso para ver los pagos a proveedores".to_string(),
         ));
