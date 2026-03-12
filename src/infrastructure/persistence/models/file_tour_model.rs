@@ -17,7 +17,8 @@ pub struct FileTourModel {
     pub id_tour: i32,
     pub orden: i32,
     pub precio_aplicado: Option<BigDecimal>,
-    pub notas: Option<String>,
+    /// Notas/chat del file_tour en formato JSONB: [{timestamp, nota, user_id, ...}]
+    pub notas: Option<JsonValue>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub fecha_tour: Option<NaiveDate>,
@@ -36,20 +37,21 @@ pub struct FileTourModel {
 /// Modelo para insertar nuevos registros en file_tours
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = file_tours)]
-pub struct NewFileTourModel<'a> {
+pub struct NewFileTourModel {
     pub id_file: i32,
     pub id_tour: i32,
     pub orden: i32,
     pub precio_aplicado: Option<BigDecimal>,
-    pub notas: Option<&'a str>,
+    /// Notas iniciales en JSONB (null o array)
+    pub notas: Option<JsonValue>,
     pub created_by: Option<i32>,
     pub fecha_tour: Option<NaiveDate>,
     // Nuevos campos movidos desde files
-    pub turno_tour: Option<&'a str>,
-    pub lugar_recojo: Option<&'a str>,
+    pub turno_tour: Option<String>,
+    pub lugar_recojo: Option<String>,
     pub hora_recojo: Option<NaiveTime>,
     /// Estado del file_tour (default: reservado)
-    pub status: &'a str,
+    pub status: String,
     /// Coordenadas de geolocalización del punto de recojo
     pub geo_recojo: Option<JsonValue>,
     /// Cantidad de pasajeros específicos para este tour
@@ -59,18 +61,18 @@ pub struct NewFileTourModel<'a> {
 /// Modelo para actualizar registros en file_tours
 #[derive(Debug, Clone, AsChangeset, Default)]
 #[diesel(table_name = file_tours)]
-pub struct UpdateFileTourModel<'a> {
+pub struct UpdateFileTourModel {
     pub id_tour: Option<i32>,
     pub orden: Option<i32>,
     pub precio_aplicado: Option<Option<BigDecimal>>,
-    pub notas: Option<Option<&'a str>>,
+    pub notas: Option<Option<JsonValue>>,
     pub fecha_tour: Option<Option<NaiveDate>>,
     // Nuevos campos movidos desde files
-    pub turno_tour: Option<Option<&'a str>>,
-    pub lugar_recojo: Option<Option<&'a str>>,
+    pub turno_tour: Option<Option<String>>,
+    pub lugar_recojo: Option<Option<String>>,
     pub hora_recojo: Option<Option<NaiveTime>>,
     /// Estado del file_tour
-    pub status: Option<&'a str>,
+    pub status: Option<String>,
     /// Coordenadas de geolocalización del punto de recojo
     pub geo_recojo: Option<Option<JsonValue>>,
     /// Cantidad de pasajeros específicos para este tour
@@ -86,7 +88,8 @@ pub struct FileTourWithTourModel {
     pub id_tour: i32,
     pub orden: i32,
     pub precio_aplicado: Option<BigDecimal>,
-    pub notas: Option<String>,
+    /// Notas/chat del file_tour en formato JSONB
+    pub notas: Option<JsonValue>,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<i32>,
     pub fecha_tour: Option<NaiveDate>,

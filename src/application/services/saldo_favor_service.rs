@@ -301,9 +301,9 @@ impl SaldoFavorService {
             created_by,
         ).await?;
 
-        // Actualizar notas del file_tour
+        // Actualizar notas del file_tour (JSONB)
         let mut updated_ft = ft.clone();
-        updated_ft.notas = request.notas.clone();
+        updated_ft.notas = request.notas.as_ref().map(|n| serde_json::json!(n));
         self.file_tour_repo.update(&updated_ft).await?;
 
         info!("FileTour {} cancelado. Saldo a favor: {:?}", request.id_file_tour, result.pago.monto_saldo_favor);

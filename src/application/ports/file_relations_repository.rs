@@ -31,7 +31,8 @@ pub struct FileTourInputData {
     pub id_tour: i32,
     pub orden: i32,
     pub precio_aplicado: Option<BigDecimal>,
-    pub notas: Option<String>,
+    /// Notas iniciales en JSONB (null o array [{ nota, timestamp }])
+    pub notas: Option<JsonValue>,
     pub fecha_tour: Option<NaiveDate>,
     pub turno_tour: Option<String>,
     pub lugar_recojo: Option<String>,

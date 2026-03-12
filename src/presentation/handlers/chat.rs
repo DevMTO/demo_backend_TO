@@ -7,7 +7,7 @@ use axum::{
 };
 use tracing::{instrument, warn};
 
-use crate::application::dtos::chat_dto::ChatNoteRequest;
+use crate::application::dtos::chat_dto::{ChatNoteRequest, UpdateChatNoteRequest};
 use crate::application::services::chat_service::ChatUserInfo;
 use crate::domain::entities::{
     NotificationCategory, NotificationPriority, NotificationType, UserRole,
@@ -199,4 +199,58 @@ pub async fn get_chat_file_tour(
         .await?;
 
     Ok(json_ok(serde_json::json!({ "notas": notas })))
+}
+
+/// Actualiza una nota específica en un file_tour por note_id
+#[instrument(skip(state, auth, request))]
+pub async fn update_chat_file_tour(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((file_tour_id, note_id)): Path<(i32, String)>,
+    Json(request): Json<UpdateChatNoteRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    check_file_tour_access(&state, &auth, file_tour_id).await?;
+
+    let user_info = ChatUserInfo {
+        user_id: auth.user.id,
+        username: auth.user.username.clone(),
+        is_admin: auth.user.role.is_admin(),
+    };
+
+    let updated_notas = state.container.chat_service
+        .update_note_file_tour(
+            file_tour_id,
+            &note_id,
+            &request.nota,
+            Some(user_info),
+        )
+        .await?;
+
+    Ok(json_ok(serde_json::json!({ "notas": updated_notas })))
+}
+
+/// Elimina una nota específica de un file_tour por note_id
+#[instrument(skip(state, auth))]
+pub async fn delete_chat_file_tour(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((file_tour_id, note_id)): Path<(i32, String)>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    check_file_tour_access(&state, &auth, file_tour_id).await?;
+
+    let user_info = ChatUserInfo {
+        user_id: auth.user.id,
+        username: auth.user.username.clone(),
+        is_admin: auth.user.role.is_admin(),
+    };
+
+    let updated_notas = state.container.chat_service
+        .delete_note_file_tour(
+            file_tour_id,
+            &note_id,
+            Some(user_info),
+        )
+        .await?;
+
+    Ok(json_ok(serde_json::json!({ "notas": updated_notas })))
 }

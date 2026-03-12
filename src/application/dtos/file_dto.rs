@@ -1,5 +1,6 @@
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use bigdecimal::BigDecimal;
 use ts_rs::TS;
 use validator::Validate;
@@ -21,8 +22,9 @@ pub struct FileTourDto {
     /// Precio aplicado (puede ser diferente al precio base del tour)
     #[ts(type = "string | null")]
     pub precio_aplicado: Option<BigDecimal>,
-    /// Notas específicas para este tour en este file
-    pub notas: Option<String>,
+    /// Notas/chat específicas para este tour en formato JSONB
+    #[ts(type = "any | null")]
+    pub notas: Option<JsonValue>,
     /// Fecha específica del tour (puede ser diferente para cada tour del file)
     pub fecha_tour: Option<NaiveDate>,
     

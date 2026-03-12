@@ -200,7 +200,7 @@ diesel::table! {
         id_tour -> Int4,
         orden -> Int4,
         precio_aplicado -> Nullable<Numeric>,
-        notas -> Nullable<Text>,
+        notas -> Nullable<Jsonb>,
         created_at -> Timestamptz,
         created_by -> Nullable<Int4>,
         fecha_tour -> Nullable<Date>,

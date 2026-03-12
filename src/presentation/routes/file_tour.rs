@@ -1,7 +1,7 @@
 //! Rutas de file-tours (relaciones entre files y tours)
 
 use axum::{
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post, put},
     Router,
 };
 
@@ -98,5 +98,9 @@ pub fn file_tour_routes() -> Router<AppState> {
         .route(
             "/{id}/notas",
             get(chat::get_chat_file_tour).post(chat::chat_file_tour),
+        )
+        .route(
+            "/{id}/notas/{note_id}",
+            put(chat::update_chat_file_tour).delete(chat::delete_chat_file_tour),
         )
 }
