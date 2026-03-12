@@ -1,12 +1,11 @@
 //! PUT handlers para File
 
 use axum::{extract::{Path, State}, response::IntoResponse, Json};
-use chrono::Utc;
-use serde_json::{json, Value as JsonValue};
 use tracing::instrument;
 use validator::Validate;
 
 use crate::application::dtos::UpdateFileRequest;
+use crate::application::services::chat_service::ChatUserInfo;
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
@@ -23,24 +22,9 @@ pub async fn update_file(
 ) -> Result<impl IntoResponse, ApplicationError> {
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
 
-    if let Some(new_notas) = &request.notas {
-        if !new_notas.is_empty() {
-            let existing_file = state.container.file_service
-                .get_file(id)
-                .await?;
-
-            let existing_notas: JsonValue = existing_file.notas
-                .as_ref()
-                .and_then(|n| serde_json::from_str(n).ok())
-                .unwrap_or(json!({}));
-
-            let timestamp = Utc::now().to_rfc3339();
-            let mut merged_notas = existing_notas;
-            merged_notas[timestamp.clone()] = json!(new_notas);
-
-            request.notas = serde_json::to_string(&merged_notas).ok();
-        }
-    }
+    let nota = request.notas.clone();
+    
+    request.notas = None;
     
     // Validar permisos
     let file = state.container.file_service.get_file(id).await?;
@@ -69,6 +53,21 @@ pub async fn update_file(
             Some(auth.user.username.clone()),
         )
         .await?;
+
+    if let Some(nota_value) = nota {
+        let user_info = ChatUserInfo {
+            user_id: auth.user.id,
+            username: auth.user.username.clone(),
+            is_admin: auth.user.role.is_admin(),
+        };
+        let _ = state.container.chat_service
+            .chat_file(
+                id,
+                Some(nota_value),
+                Some(user_info),
+            )
+            .await;
+    }
     
     Ok(json_ok(response))
 }

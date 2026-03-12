@@ -29,6 +29,7 @@ use crate::application::services::{
     FileAssignmentService, MisPagosService, FileStatusService, SaldoFavorService,
     CadenaHoteleraService, HotelService,
     TarifaService,
+    ChatService,
 };
 use crate::application::use_cases::auth::{LoginUseCase, LogoutUseCase, VerifySessionUseCase};
 use crate::config::AppConfig;
@@ -77,6 +78,7 @@ pub struct DependencyContainer {
     pub cadena_hotelera_service: Arc<CadenaHoteleraService>,
     pub hotel_service: Arc<HotelService>,
     pub tarifa_service: Arc<TarifaService>,
+    pub chat_service: Arc<ChatService>,
 
     // Object Storage (Tigris) - Opcional
     pub tigris_storage: Option<Arc<crate::infrastructure::storage::TigrisStorage>>,
@@ -187,6 +189,7 @@ impl DependencyContainer {
             cadena_hotelera_service: svcs.cadena_hotelera,
             hotel_service: svcs.hotel,
             tarifa_service: svcs.tarifa,
+            chat_service: svcs.chat_service,
             // Repositories
             user_repository: repos.user,
             persona_repository: repos.persona,

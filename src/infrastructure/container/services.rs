@@ -4,13 +4,12 @@ use std::sync::Arc;
 
 use crate::application::ports::NotificationServicePort;
 use crate::application::services::{
-    AgenciaService, ConductorService, ContabilidadService, EntradaPrecioService, EntradaService,
-    FileAssignmentService, FileService, FileStatusService, GuiaService, LoggingService,
-    MisPagosService, MyFilesService, NotificationService, PersonaService,
-    PostgresMisPagosRepository, PostgresMyFilesRepository, RestauranteService, SaldoFavorService,
-    TourService, TransporteService, UserService, VehiculoService,
-    CadenaHoteleraService, HotelService,
-    TarifaService,
+    AgenciaService, CadenaHoteleraService, ChatService, ConductorService, ContabilidadService,
+    EntradaPrecioService, EntradaService, FileAssignmentService, FileService, FileStatusService,
+    GuiaService, HotelService, LoggingService, MisPagosService, MyFilesService,
+    NotificationService, PersonaService, PostgresMisPagosRepository, PostgresMyFilesRepository,
+    RestauranteService, SaldoFavorService, TarifaService, TourService, TransporteService,
+    UserService, VehiculoService,
 };
 use crate::infrastructure::persistence::DatabasePool;
 use crate::infrastructure::sse::NotificationBroadcaster;
@@ -46,6 +45,7 @@ pub(super) struct Services {
     pub cadena_hotelera: Arc<CadenaHoteleraService>,
     pub hotel: Arc<HotelService>,
     pub tarifa: Arc<TarifaService>,
+    pub chat_service: Arc<ChatService>,
 }
 
 impl Services {
@@ -230,8 +230,11 @@ impl Services {
             notify.clone(),
         ));
 
-        let tarifa = Arc::new(TarifaService::new(
-            repos.tarifa.clone(),
+        let tarifa = Arc::new(TarifaService::new(repos.tarifa.clone()));
+
+        let chat_service = Arc::new(ChatService::new(
+            repos.file.clone(),
+            repos.file_tour.clone(),
         ));
 
         Self {
@@ -259,6 +262,7 @@ impl Services {
             cadena_hotelera,
             hotel,
             tarifa,
+            chat_service,
         }
     }
 }

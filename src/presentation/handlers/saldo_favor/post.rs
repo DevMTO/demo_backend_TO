@@ -5,8 +5,6 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use chrono::Utc;
-use serde_json::{self, json, Value as JsonValue};
 use tracing::instrument;
 
 use crate::application::dtos::contabilidad_dto::{
@@ -14,6 +12,7 @@ use crate::application::dtos::contabilidad_dto::{
     RegistrarNoShowRequest, NoShowFileTourRequest,
     AutorizarNoShowSaldoRequest, UsarSaldoFavorRequest,
 };
+use crate::application::services::chat_service::ChatUserInfo;
 use crate::domain::entities::UserRole;
 use crate::domain::errors::ApplicationError;
 use crate::presentation::extractors::AuthUser;
@@ -85,31 +84,30 @@ pub async fn cancelar_file(
     
     check_file_ownership(&state, &auth, request.id_file).await?;
 
-    let existing_file = state.container.file_service
-        .get_file(request.id_file)
-        .await?;
-
-    let existing_notas: JsonValue = existing_file.notas
-        .as_ref()
-        .and_then(|n| serde_json::from_str(n).ok())
-        .unwrap_or(json!({}));
-
-    let new_notas = request.notas.clone().unwrap_or_else(|| "{}".to_string());
-    let mut new_notas_json: JsonValue = serde_json::from_str(&new_notas).unwrap_or(json!({}));
-    new_notas_json["canceled_by"] = json!(auth.user.id);
-    new_notas_json["canceled_by_username"] = json!(auth.user.username.clone());
-
-    let timestamp = Utc::now().to_rfc3339();
-    let mut merged_notas = existing_notas;
-    merged_notas[timestamp.clone()] = json!(new_notas_json);
-
-    request.notas = serde_json::to_string(&merged_notas).ok();
+    let nota = request.notas.clone();
+    let file_id = request.id_file;
+    request.notas = None;
 
     let result = state
         .container
         .saldo_favor_service
         .cancelar_file(request, Some(auth.user.id))
         .await?;
+
+    if let Some(nota_value) = nota {
+        let user_info = ChatUserInfo {
+            user_id: auth.user.id,
+            username: auth.user.username.clone(),
+            is_admin: auth.user.role.is_admin(),
+        };
+        let _ = state.container.chat_service
+            .chat_file(
+                file_id,
+                Some(nota_value),
+                Some(user_info),
+            )
+            .await;
+    }
 
     Ok(json_ok(result))
 }
@@ -130,23 +128,30 @@ pub async fn cancelar_file_tour(
     
     check_file_tour_ownership(&state, &auth, request.id_file_tour).await?;
 
-    let notas = request.notas.clone().unwrap_or_else(|| "{}".to_string());
-
-    let mut notas_json: JsonValue = serde_json::from_str(&notas).unwrap_or(json!({}));
-    notas_json["canceled_by"] = json!(auth.user.id);
-    notas_json["canceled_by_username"] = json!(auth.user.username.clone());
-
-    let original_notas = serde_json::to_string(&notas_json).unwrap_or_default();
-    let timestamp = Utc::now().to_rfc3339();
-    let notas_with_timestamp = json!({ timestamp: original_notas });
-
-    request.notas = serde_json::to_string(&notas_with_timestamp).ok();
+    let nota = request.notas.clone();
+    let file_tour_id = request.id_file_tour;
+    request.notas = None;
 
     let result = state
         .container
         .saldo_favor_service
         .cancelar_file_tour(request, Some(auth.user.id))
         .await?;
+
+    if let Some(nota_value) = nota {
+        let user_info = ChatUserInfo {
+            user_id: auth.user.id,
+            username: auth.user.username.clone(),
+            is_admin: auth.user.role.is_admin(),
+        };
+        let _ = state.container.chat_service
+            .chat_file_tour(
+                file_tour_id,
+                Some(nota_value),
+                Some(user_info),
+            )
+            .await;
+    }
 
     Ok(json_ok(result))
 }
