@@ -487,8 +487,8 @@ impl ContabilidadService {
                 if d.monto_pagado_original == zero {
                     // First payment on this debt - update existing
                     let nuevo_pagado = &d.monto_pagado_acum + &a_pagar;
-                    let pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
-                    let estado = if pendiente_tras_pago <= tolerancia { "pagado" } else { "parcial" };
+                    let _pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
+                    let estado = "pendiente_verificacion";
                     
                     let update = UpdatePagoFileModel {
                         monto_pagado: Some(nuevo_pagado.clone()),
@@ -506,7 +506,7 @@ impl ContabilidadService {
                 } else {
                     // Subsequent payments - create new "pago" entry
                     let pending_after = &d.monto_pendiente - &a_pagar;
-                    let estado = if pending_after <= tolerancia { "pagado" } else { "parcial" };
+                    let estado = "pendiente_verificacion";
                     let tipo_registro = if pending_after <= tolerancia { "pago_final" } else { "pago" };
                     let new_pago = NewPagoFileModel {
                         id_file,
@@ -573,8 +573,8 @@ impl ContabilidadService {
             if d.monto_pagado_original == zero {
                 // First payment on this debt - update existing (add to existing amount from this payment)
                 let nuevo_pagado = &d.monto_pagado_acum + &a_pagar;
-                let pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
-                let estado = if pendiente_tras_pago <= tolerancia { "pagado" } else { "parcial" };
+                let _pendiente_tras_pago = &d.monto_total - &nuevo_pagado;
+                let estado = "pendiente_verificacion";
                 
                 let update = UpdatePagoFileModel {
                     monto_pagado: Some(nuevo_pagado),
@@ -661,16 +661,16 @@ impl ContabilidadService {
         
         let estado_texto = if deuda_saldada { "completo" } else { "parcial" };
         let titulo_notif = if deuda_saldada {
-            "Pago Completo Registrado"
+            "Pago Completo - Pendiente Verificación"
         } else {
-            "Pago Parcial Registrado"
+            "Pago Parcial - Pendiente Verificación"
         };
         
         if let Err(e) = self.notification_service.notify_roles(
             vec![UserRole::SuperAdmin, UserRole::Admin],
             titulo_notif,
             &format!(
-                "Se ha registrado un pago {} para el file #{}.\nAgencia: {}\nMonto pagado ahora: S/ {}\nMonto total deuda: S/ {}\nNuevo pendiente: S/ {}",
+                "Se ha registrado un pago {} para el file #{}.\nAgencia: {}\nMonto pagado ahora: S/ {}\nMonto total deuda: S/ {}\nNuevo pendiente: S/ {}\n\nEl pago está pendiente de verificación.",
                 estado_texto,
                 id_file,
                 agencia_nombre.clone().unwrap_or_else(|| "Desconocida".to_string()),
@@ -697,12 +697,19 @@ impl ContabilidadService {
         verificado_por: i32,
     ) -> Result<PagoFileResponse, ApplicationError> {
         // Obtener pago actual
-        let _pago = self.pago_file_repository
+        let pago = self.pago_file_repository
             .find_by_id(request.id_pago_file)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Pago {} no encontrado", request.id_pago_file)))?;
+
+        let tolerancia = BigDecimal::from_str("0.01").unwrap();
+        let pendiente = &pago.monto_total - &pago.monto_pagado;
         
-        let estado = if request.aprobado { "verificado" } else { "rechazado" };
+        let estado = if request.aprobado {
+            if pendiente <= tolerancia { "pagado" } else { "parcial" }
+        } else {
+            "rechazado"
+        };
         
         let update = UpdatePagoFileModel {
             estado: Some(estado),
@@ -716,16 +723,60 @@ impl ContabilidadService {
             .update(request.id_pago_file, update)
             .await?;
         
+        let agencia_nombre = self.resolve_entity_name(pago_actualizado.id_entidad, pago_actualizado.entidad.as_deref()).await;
+        
         if request.aprobado {
-            info!("Pago de file {} verificado por {}", request.id_pago_file, verificado_por);
+            info!("Pago de file {} aprobado por {} - estado: {}", request.id_pago_file, verificado_por, estado);
             
             // Propagar pagos a proveedores (lógica centralizada)
             self.propagar_pagos_a_proveedores(pago_actualizado.id_file, Some(verificado_por)).await?;
+            
+            // Notificar a la agencia que su pago fue aprobado
+            let (roles_notif, titulo) = if estado == "pagado" {
+                (vec![UserRole::Agencias, UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::Hoteles, UserRole::HotelesGerente], "Pago aprobado")
+            } else {
+                (vec![UserRole::Agencias, UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::Hoteles, UserRole::HotelesGerente], "Pago parcial aprobado")
+            };
+            
+            if let Err(e) = self.notification_service.notify_roles_for_entity(
+                roles_notif,
+                pago_actualizado.id_entidad,
+                titulo,
+                &format!(
+                    "El pago para el file #{} ha sido aprobado por el administrador.\nMonto: S/ {}\nEstado: {}",
+                    pago_actualizado.id_file,
+                    pago.monto_pagado,
+                    if estado == "pagado" { "Pagado" } else { "Parcial" }
+                ),
+                NotificationType::Success,
+                NotificationCategory::Financial,
+                NotificationPriority::High,
+                Some(verificado_por),
+            ).await {
+                warn!("Error al notificar a la agencia del pago aprobado: {}", e);
+            }
         } else {
             warn!("Pago de file {} rechazado por verificador {}", request.id_pago_file, verificado_por);
+            
+            // Notificar a la agencia que su pago fue rechazado
+            if let Err(e) = self.notification_service.notify_roles_for_entity(
+                vec![UserRole::Agencias, UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::Hoteles, UserRole::HotelesGerente],
+                pago_actualizado.id_entidad,
+                "Pago rechazado",
+                &format!(
+                    "El pago para el file #{} ha sido rechazado por el administrador.\nMonto: S/ {}\nMotivo: {}",
+                    pago_actualizado.id_file,
+                    pago.monto_pagado,
+                    request.notas.as_deref().unwrap_or("Sin motivo especificado")
+                ),
+                NotificationType::Error,
+                NotificationCategory::Financial,
+                NotificationPriority::High,
+                Some(verificado_por),
+            ).await {
+                warn!("Error al notificar a la agencia del pago rechazado: {}", e);
+            }
         }
-        
-        let agencia_nombre = self.resolve_entity_name(pago_actualizado.id_entidad, pago_actualizado.entidad.as_deref()).await;
         
         Ok(self.pago_file_to_response(pago_actualizado, agencia_nombre).await)
     }
