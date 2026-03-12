@@ -1,0 +1,158 @@
+//! Chat handlers - Agregar y obtener notas de files y file_tours
+
+use axum::{
+    extract::{Path, State},
+    response::IntoResponse,
+    Json,
+};
+use tracing::instrument;
+
+use crate::application::dtos::chat_dto::ChatNoteRequest;
+use crate::application::services::chat_service::ChatUserInfo;
+use crate::domain::entities::UserRole;
+use crate::domain::errors::ApplicationError;
+use crate::presentation::routes::AppState;
+use crate::presentation::extractors::AuthUser;
+use crate::presentation::handlers::common::json_ok;
+
+/// Helper: ¿puede acceder a chat? (admin, agencia, hotel)
+fn can_access_chat(role: &UserRole) -> bool {
+    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias | UserRole::Hoteles)
+}
+
+async fn check_file_access(state: &AppState, auth: &AuthUser, file_id: i32) -> Result<(), ApplicationError> {
+    // First check if user has allowed role
+    if !can_access_chat(&auth.user.role) {
+        return Err(ApplicationError::Forbidden("No tienes permiso para acceder al chat".to_string()));
+    }
+
+    // Admin can access any file
+    if auth.user.role.is_admin() {
+        return Ok(());
+    }
+
+    let file = state.container.file_repository
+        .find_by_id(file_id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+
+    let user_entidad = auth.user.id_entidad.unwrap_or(0);
+    
+    if file.id_entidad == user_entidad {
+        return Ok(());
+    }
+
+    Err(ApplicationError::Forbidden("No tienes acceso a este file".to_string()))
+}
+
+async fn check_file_tour_access(state: &AppState, auth: &AuthUser, file_tour_id: i32) -> Result<(), ApplicationError> {
+    // First check if user has allowed role
+    if !can_access_chat(&auth.user.role) {
+        return Err(ApplicationError::Forbidden("No tienes permiso para acceder al chat".to_string()));
+    }
+
+    // Admin can access any file_tour
+    if auth.user.role.is_admin() {
+        return Ok(());
+    }
+
+    let file_tour = state.container.file_tour_repository
+        .find_by_id(file_tour_id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", file_tour_id)))?;
+
+    let file = state.container.file_repository
+        .find_by_id(file_tour.id_file)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound("File no encontrado".to_string()))?;
+
+    let user_entidad = auth.user.id_entidad.unwrap_or(0);
+    
+    if file.id_entidad == user_entidad {
+        return Ok(());
+    }
+
+    Err(ApplicationError::Forbidden("No tienes acceso a este file tour".to_string()))
+}
+
+#[instrument(skip(state, auth, request))]
+pub async fn chat_file(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(file_id): Path<i32>,
+    Json(request): Json<ChatNoteRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    check_file_access(&state, &auth, file_id).await?;
+
+    let user_info = ChatUserInfo {
+        user_id: auth.user.id,
+        username: auth.user.username.clone(),
+        is_admin: auth.user.role.is_admin(),
+    };
+
+    let updated_notas = state.container.chat_service
+        .chat_file(
+            file_id,
+            Some(request.nota),
+            Some(user_info),
+        )
+        .await?;
+
+    Ok(json_ok(serde_json::json!({ "notas": updated_notas })))
+}
+
+#[instrument(skip(state, auth))]
+pub async fn get_chat_file(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(file_id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    check_file_access(&state, &auth, file_id).await?;
+
+    let notas = state.container.chat_service
+        .get_chat_file(file_id)
+        .await?;
+
+    Ok(json_ok(serde_json::json!({ "notas": notas })))
+}
+
+#[instrument(skip(state, auth, request))]
+pub async fn chat_file_tour(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(file_tour_id): Path<i32>,
+    Json(request): Json<ChatNoteRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    check_file_tour_access(&state, &auth, file_tour_id).await?;
+
+    let user_info = ChatUserInfo {
+        user_id: auth.user.id,
+        username: auth.user.username.clone(),
+        is_admin: auth.user.role.is_admin(),
+    };
+
+    let updated_notas = state.container.chat_service
+        .chat_file_tour(
+            file_tour_id,
+            Some(request.nota),
+            Some(user_info),
+        )
+        .await?;
+
+    Ok(json_ok(serde_json::json!({ "notas": updated_notas })))
+}
+
+#[instrument(skip(state, auth))]
+pub async fn get_chat_file_tour(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(file_tour_id): Path<i32>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    check_file_tour_access(&state, &auth, file_tour_id).await?;
+
+    let notas = state.container.chat_service
+        .get_chat_file_tour(file_tour_id)
+        .await?;
+
+    Ok(json_ok(serde_json::json!({ "notas": notas })))
+}

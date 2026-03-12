@@ -166,4 +166,24 @@ impl ChatService {
 
         Ok(updated_notas)
     }
+
+    /// Obtiene las notas de un file
+    pub async fn get_chat_file(&self, file_id: i32) -> Result<Option<String>, ApplicationError> {
+        let file = self.file_repository
+            .find_by_id(file_id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
+
+        Ok(file.notas)
+    }
+
+    /// Obtiene las notas de un file_tour
+    pub async fn get_chat_file_tour(&self, file_tour_id: i32) -> Result<Option<String>, ApplicationError> {
+        let file_tour = self.file_tour_repository
+            .find_by_id(file_tour_id)
+            .await?
+            .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", file_tour_id)))?;
+
+        Ok(file_tour.notas)
+    }
 }
