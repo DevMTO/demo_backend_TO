@@ -58,13 +58,10 @@ impl HotelService {
         id_cadena: i32,
         page: i64,
         page_size: i64,
-    ) -> Result<(Vec<Hotel>, i64), ApplicationError> {
+    ) -> Result<(Vec<HotelListItemDto>, i64), ApplicationError> {
         let offset = (page - 1) * page_size;
-        let items = self.hotel_repository
-            .list_by_cadena(id_cadena, page_size, offset)
-            .await?;
-        let total = self.hotel_repository
-            .count_by_cadena(id_cadena)
+        let (items, total) = self.hotel_repository
+            .list_by_cadena_with_details(id_cadena, page_size, offset)
             .await?;
         info!("Listados {} hoteles de cadena {} de {} total", items.len(), id_cadena, total);
         Ok((items, total))

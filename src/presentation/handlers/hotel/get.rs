@@ -6,7 +6,6 @@ use axum::{
 };
 use tracing::instrument;
 
-use crate::application::dtos::HotelResponse;
 use crate::domain::entities::UserRole;
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
@@ -67,7 +66,6 @@ pub async fn list_hoteles_by_cadena(
         .await?;
     
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as i64;
-    let items: Vec<HotelResponse> = items.into_iter().map(HotelResponse::from).collect();
     let response = PaginatedResponse {
         items,
         pagination: PaginationInfo {

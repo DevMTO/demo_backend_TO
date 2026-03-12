@@ -112,7 +112,7 @@ pub struct UpdateUserRequest {
     pub id_entidad: Option<i32>,
 
     /// Turno asignado: "mañana", "tarde" o null
-    pub turno: Option<Option<String>>,
+    pub turno: Option<String>,
 }
 
 impl UpdateUserRequest {
@@ -140,9 +140,7 @@ impl UpdateUserRequest {
         user.id_entidad = self.id_entidad;
 
         // turno: siempre actualizar (permite asignar y quitar turno)
-        if let Some(turno) = self.turno {
-            user.turno = turno;
-        }
+        user.turno = self.turno;
         
         user.updated_by = updated_by;
         user.updated_at = Utc::now();

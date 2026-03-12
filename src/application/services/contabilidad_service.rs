@@ -23,6 +23,7 @@ use crate::application::ports::{
     FileTourRepositoryPort, TourRepositoryPort,
     TransporteRepositoryPort, RestauranteRepositoryPort, GuiaRepositoryPort,
     UserRepositoryPort, PersonaRepositoryPort, EntradaRepositoryPort,
+    CadenaHoteleraRepositoryPort,
 };
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::{
@@ -54,6 +55,7 @@ pub struct ContabilidadService {
     user_repository: Arc<dyn UserRepositoryPort>,
     persona_repository: Arc<dyn PersonaRepositoryPort>,
     entrada_repository: Arc<dyn EntradaRepositoryPort>,
+    cadena_hotelera_repository: Arc<dyn CadenaHoteleraRepositoryPort>,
 }
 
 impl ContabilidadService {
@@ -73,6 +75,7 @@ impl ContabilidadService {
         user_repository: Arc<dyn UserRepositoryPort>,
         persona_repository: Arc<dyn PersonaRepositoryPort>,
         entrada_repository: Arc<dyn EntradaRepositoryPort>,
+        cadena_hotelera_repository: Arc<dyn CadenaHoteleraRepositoryPort>,
     ) -> Self {
         Self {
             pago_file_repository,
@@ -89,6 +92,7 @@ impl ContabilidadService {
             user_repository,
             persona_repository,
             entrada_repository,
+            cadena_hotelera_repository,
         }
     }
 
@@ -100,7 +104,13 @@ impl ContabilidadService {
     #[instrument(skip(self))]
     pub async fn get_agencia_dashboard(&self, id_entidad: i32, entidad: Option<&str>) -> Result<AgenciaContabilidadDashboard, ApplicationError> {
         // Obtener nombre y política de pago según tipo de entidad
-        let (nombre_entidad, pago_anticipado_val, tipo_vencimiento_val) = if entidad == Some("hoteles") {
+        let (nombre_entidad, pago_anticipado_val, tipo_vencimiento_val) = if entidad == Some("cadenas_hoteleras") {
+            let cadena = self.cadena_hotelera_repository
+                .find_by_id(id_entidad)
+                .await?
+                .ok_or_else(|| ApplicationError::NotFound(format!("Cadena hotelera {} no encontrada", id_entidad)))?;
+            (cadena.nombre, false, Some("mensual".to_string()))
+        } else if entidad == Some("hoteles") {
             let hotel = self.hotel_repository
                 .find_by_id(id_entidad)
                 .await?

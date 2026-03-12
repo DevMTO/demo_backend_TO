@@ -241,4 +241,54 @@ impl HotelRepositoryPort for PostgresHotelRepository {
         info!("[CACHE MISS → DB] hoteles list '{}' ({} items) | {}ms", cache_key, response.0.len(), start.elapsed().as_millis());
         Ok(response)
     }
+
+    #[instrument(skip(self))]
+    async fn list_by_cadena_with_details(&self, id_cadena: i32, limit: i64, offset: i64) -> Result<(Vec<crate::application::dtos::HotelListItemDto>, i64), ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+
+        let total: i64 = hoteles::table
+            .filter(hoteles::id_cadena.eq(id_cadena))
+            .filter(hoteles::is_active.eq(true))
+            .count()
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+
+        let results: Vec<(HotelModel, String)> = hoteles::table
+            .inner_join(cadenas_hoteleras::table.on(hoteles::id_cadena.eq(cadenas_hoteleras::id)))
+            .filter(hoteles::id_cadena.eq(id_cadena))
+            .filter(hoteles::is_active.eq(true))
+            .select((
+                HotelModel::as_select(),
+                cadenas_hoteleras::nombre,
+            ))
+            .order(hoteles::nombre.asc())
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+
+        let items: Vec<crate::application::dtos::HotelListItemDto> = results
+            .into_iter()
+            .map(|(hotel, cadena_nombre)| {
+                crate::application::dtos::HotelListItemDto {
+                    id: hotel.id,
+                    id_cadena: hotel.id_cadena,
+                    cadena_nombre: Some(cadena_nombre),
+                    nombre: hotel.nombre,
+                    categoria: hotel.categoria,
+                    telefono: hotel.telefono,
+                    correo: hotel.correo,
+                    direccion: hotel.direccion,
+                    ciudad: hotel.ciudad,
+                    is_active: hotel.is_active,
+                    created_at: hotel.created_at,
+                    updated_at: hotel.updated_at,
+                }
+            })
+            .collect();
+
+        Ok((items, total))
+    }
 }

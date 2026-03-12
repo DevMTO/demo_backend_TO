@@ -104,7 +104,8 @@ impl UserRole {
     pub fn entidad_type(&self) -> Option<&'static str> {
         match self {
             UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente => Some("agencias"),
-            UserRole::Hoteles | UserRole::HotelesGerente => Some("hoteles"),
+            UserRole::Hoteles => Some("hoteles"),
+            UserRole::HotelesGerente => Some("cadenas_hoteleras"),
             UserRole::Transportes => Some("transportes"),
             UserRole::Conductores => Some("conductores"),
             UserRole::Guias => Some("guias"),

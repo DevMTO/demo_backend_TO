@@ -104,6 +104,7 @@ impl Services {
             repos.user.clone(),
             repos.persona.clone(),
             repos.entrada.clone(),
+            repos.cadena_hotelera.clone(),
         ));
 
         let file = Arc::new(FileService::new(
