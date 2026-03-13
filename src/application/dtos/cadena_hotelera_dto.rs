@@ -153,3 +153,29 @@ impl UpdateCadenaHoteleraRequest {
         cadena
     }
 }
+
+/// Request para actualizar solo la interfaz de la cadena hotelera (logo y paleta de colores)
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateCadenaInterfazRequest {
+    #[ts(type = "object | null | undefined")]
+    pub paleta_colores: Option<JsonValue>,
+    
+    #[ts(type = "object | null | undefined")]
+    pub media: Option<JsonValue>,
+}
+
+impl UpdateCadenaInterfazRequest {
+    pub fn apply_to(self, mut cadena: CadenaHotelera, updated_by: Option<i32>) -> CadenaHotelera {
+        if let Some(paleta) = self.paleta_colores {
+            cadena.paleta_colores = Some(paleta);
+        }
+        if let Some(media) = self.media {
+            cadena.media = Some(media);
+        }
+        cadena.updated_by = updated_by;
+        cadena.updated_at = Utc::now();
+        cadena
+    }
+}
