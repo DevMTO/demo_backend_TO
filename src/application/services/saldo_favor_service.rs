@@ -25,6 +25,7 @@ use crate::application::ports::{
     PagoFileRepositoryPort, FileRepositoryPort, FileTourRepositoryPort,
     AgenciaRepositoryPort, HotelRepositoryPort, TourRepositoryPort, NotificationServicePort,
     FileEntradaRepositoryPort, EntradaPrecioRepositoryPort, EntradaRepositoryPort,
+    TarifaRepositoryPort,
 };
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::{
@@ -50,6 +51,7 @@ pub struct SaldoFavorService {
     file_entrada_repo: Arc<dyn FileEntradaRepositoryPort>,
     entrada_precio_repo: Arc<dyn EntradaPrecioRepositoryPort>,
     entrada_repo: Arc<dyn EntradaRepositoryPort>,
+    tarifa_repo: Arc<dyn TarifaRepositoryPort>,
     file_status_service: Arc<FileStatusService>,
     chat_service: Arc<ChatService>,
 }
@@ -74,6 +76,7 @@ impl SaldoFavorService {
         file_entrada_repo: Arc<dyn FileEntradaRepositoryPort>,
         entrada_precio_repo: Arc<dyn EntradaPrecioRepositoryPort>,
         entrada_repo: Arc<dyn EntradaRepositoryPort>,
+        tarifa_repo: Arc<dyn TarifaRepositoryPort>,
         file_status_service: Arc<FileStatusService>,
         chat_service: Arc<ChatService>,
     ) -> Self {
@@ -88,6 +91,7 @@ impl SaldoFavorService {
             file_entrada_repo,
             entrada_precio_repo,
             entrada_repo,
+            tarifa_repo,
             file_status_service,
             chat_service,
         }
@@ -934,11 +938,34 @@ impl SaldoFavorService {
         // PHASE 4: TRANSFER PAID AMOUNTS TO REMAINING TOURS
         // ========================================================================
 
-        let monto_pagado_transferir: BigDecimal = pagos_del_tour.iter()
+        let monto_pagado_total: BigDecimal = pagos_del_tour.iter()
             .map(|p| &p.monto_pagado)
             .fold(zero.clone(), |acc, m| acc + m);
 
-        let mut monto_restante = monto_pagado_transferir.clone();
+        // For no-show: get base tour price from tarifas table (not precio_aplicado which includes extras)
+        // For cancellation: all paid amount transfers to next tours
+        let precio_base_tour = if pasar_a_saldo_favor {
+            zero.clone()
+        } else {
+            // Get the tariff for this tour and entity type (agencias/hoteles)
+            let tipo_entidad = file.entidad.as_deref().unwrap_or("agencias");
+            self.tarifa_repo
+                .find_by_tour_and_tipo(ft.id_tour, tipo_entidad)
+                .await?
+                .map(|t| t.precio)
+                .unwrap_or_else(|| ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone()))
+        };
+
+        let monto_original = monto_pagado_total.clone();
+        let monto_original_clone = monto_original.clone();
+        let precio_base_tour_clone = precio_base_tour.clone();
+
+        let mut monto_restante = if pasar_a_saldo_favor {
+            monto_pagado_total
+        } else {
+            // Company keeps precio_base_tour, only excess transfers
+            (monto_original - &precio_base_tour).max(zero.clone())
+        };
 
         if monto_restante > zero {
             let mut tours_siguientes: Vec<_> = all_tours.iter()
@@ -1027,6 +1054,13 @@ impl SaldoFavorService {
         let mut record = None;
         let mut saldo_favor_aplicado = false;
 
+        // Pre-calculate monto_a_pagar for no-show (used when BTG/BTP transferred)
+        let monto_a_pagar_para_no_show = if monto_transferido > zero && !pasar_a_saldo_favor {
+            Some(monto_original_clone.min(precio_base_tour_clone))
+        } else {
+            None
+        };
+
         for pago in &pagos_del_tour {
             let dinero_restante = monto_restante.clone();
 
@@ -1038,9 +1072,16 @@ impl SaldoFavorService {
                 ..Default::default()
             };
 
-            // Clear paid amount if BTG/BTP was transferred
+            // Handle monto_pagado when BTG/BTP was transferred
             if monto_transferido > zero {
-                update.monto_pagado = Some(zero.clone());
+                update.monto_pagado = Some(if pasar_a_saldo_favor {
+                    // Cancellation: set to zero (full refund as saldo favor)
+                    zero.clone()
+                } else {
+                    // No-show: company keeps min(monto_pagado, precio_base_tour)
+                    monto_a_pagar_para_no_show.clone().unwrap_or(zero.clone())
+                });
+
                 if let Some(ref entrada_precio) = pago.entrada_precio {
                     let nuevo = (entrada_precio - &monto_transferido).max(zero.clone());
                     update.entrada_precio = Some(Some(nuevo));
@@ -1054,13 +1095,15 @@ impl SaldoFavorService {
                 && pago.id_file_tour == Some(id_file_tour) 
             {
                 if pasar_a_saldo_favor {
+                    // Cancellation: full refund as saldo favor
                     update.monto_pagado = Some(zero.clone());
                     update.monto_saldo_favor = Some(dinero_restante.clone());
                     update.saldo_autorizado = Some(true);
                     update.saldo_autorizado_por = created_by;
                     update.saldo_autorizado_at = Some(chrono::Utc::now());
                 } else {
-                    update.monto_pagado = Some(dinero_restante.clone());
+                    // No-show: keep the excess (dinero_restante) in monto_pagado
+                    // (monto_a_pagar was already set above)
                 }
                 saldo_favor_aplicado = true;
             }
