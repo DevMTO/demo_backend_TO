@@ -47,19 +47,19 @@ impl From<User> for UserDetailDto {
 pub struct CreatePersonaForUserRequest {
     #[validate(length(min = 1, max = 30))]
     pub tipo_documento: String,
-    
+
     #[validate(length(min = 6, max = 20))]
     pub nro_documento: String,
-    
+
     #[validate(length(min = 1, max = 100))]
     pub nombre: String,
-    
+
     #[validate(length(min = 1, max = 100))]
     pub apellidos: String,
-    
+
     #[validate(length(max = 20))]
     pub telefono: Option<String>,
-    
+
     pub fecha_nacimiento: Option<chrono::NaiveDate>,
 }
 
@@ -69,23 +69,27 @@ pub struct CreatePersonaForUserRequest {
 pub struct CreateUserRequest {
     /// ID de la persona ya registrada en el sistema (si se proporciona, no se crea persona nueva)
     pub id_persona: Option<i32>,
-    
+
     /// Datos para crear una nueva persona (solo si id_persona es None)
     #[validate(nested)]
     pub nueva_persona: Option<CreatePersonaForUserRequest>,
-    
-    #[validate(length(min = 3, max = 50, message = "Username must be between 3 and 50 characters"))]
+
+    #[validate(length(
+        min = 3,
+        max = 50,
+        message = "Username must be between 3 and 50 characters"
+    ))]
     pub username: String,
-    
+
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
-    
+
     #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub password: String,
-    
+
     #[validate(length(min = 1, message = "Role is required"))]
     pub role: String,
-    
+
     /// ID de la entidad asociada (agencia, transporte, etc.)
     pub id_entidad: Option<i32>,
 
@@ -98,17 +102,21 @@ pub struct CreateUserRequest {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateUserRequest {
     pub id_persona: Option<i32>,
-    
-    #[validate(length(min = 3, max = 50, message = "Username must be between 3 and 50 characters"))]
+
+    #[validate(length(
+        min = 3,
+        max = 50,
+        message = "Username must be between 3 and 50 characters"
+    ))]
     pub username: Option<String>,
-    
+
     #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
-    
+
     pub role: Option<String>,
-    
+
     pub is_active: Option<bool>,
-    
+
     pub id_entidad: Option<i32>,
 
     /// Turno asignado: "mañana", "tarde" o null
@@ -116,12 +124,16 @@ pub struct UpdateUserRequest {
 }
 
 impl UpdateUserRequest {
-    pub fn apply_to(self, mut user: crate::domain::entities::User, updated_by: Option<i32>) -> crate::domain::entities::User {
+    pub fn apply_to(
+        self,
+        mut user: crate::domain::entities::User,
+        updated_by: Option<i32>,
+    ) -> crate::domain::entities::User {
         use crate::domain::entities::UserRole;
-        
+
         // id_persona: siempre actualizar (permite asignar y quitar persona)
         user.id_persona = self.id_persona;
-        
+
         if let Some(username) = self.username {
             user.username = username;
         }
@@ -141,7 +153,7 @@ impl UpdateUserRequest {
 
         // turno: siempre actualizar (permite asignar y quitar turno)
         user.turno = self.turno;
-        
+
         user.updated_by = updated_by;
         user.updated_at = Utc::now();
         user
@@ -196,7 +208,7 @@ impl UserListResponse {
 pub struct PaginationParams {
     #[serde(default = "default_page")]
     pub page: i64,
-    
+
     #[serde(default = "default_per_page")]
     pub per_page: i64,
 }
@@ -214,7 +226,7 @@ impl PaginationParams {
     pub fn offset(&self) -> i64 {
         (self.page - 1) * self.per_page
     }
-    
+
     pub fn limit(&self) -> i64 {
         self.per_page.min(10000) // Máximo 10000 por página
     }

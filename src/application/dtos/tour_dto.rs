@@ -4,8 +4,8 @@ use serde_json::Value as JsonValue;
 use ts_rs::TS;
 use validator::Validate;
 
-use crate::domain::entities::Tour;
 use super::geo_dto::{GeoLocation, GeoRoutePoint};
+use crate::domain::entities::Tour;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -67,43 +67,47 @@ impl From<Tour> for TourResponse {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateTourRequest {
-    #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
+    #[validate(length(
+        min = 2,
+        max = 200,
+        message = "Nombre debe tener entre 2 y 200 caracteres"
+    ))]
     pub nombre: String,
-    
+
     #[validate(length(max = 200))]
     pub lugar_inicio: Option<String>,
-    
+
     #[validate(length(max = 200))]
     pub lugar_fin: Option<String>,
-    
+
     #[ts(type = "object | null")]
     pub detalles: Option<JsonValue>,
-    
+
     #[ts(type = "object | null")]
     pub itinerario: Option<JsonValue>,
-    
+
     #[validate(range(min = 1, message = "Duración mínima 1 día"))]
     pub duracion_dias: Option<i32>,
-    
+
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
-    
+
     #[validate(length(max = 100))]
     pub tipo_tour: Option<String>,
-    
+
     /// Horarios del tour: { "full": {"start": "HH:MM", "end": "HH:MM"}, "morning": {...}, "afternoon": {...} }
     #[ts(type = "object | null")]
     pub horarios: Option<JsonValue>,
-    
+
     /// Indica si el tour incluye restaurante en su itinerario
     pub tiene_restaurante: Option<bool>,
-    
+
     /// Geolocalización del punto de inicio del tour
     pub geo_inicio: Option<GeoLocation>,
-    
+
     /// Geolocalización del punto de fin del tour
     pub geo_fin: Option<GeoLocation>,
-    
+
     /// Ruta del tour como array de puntos
     pub geo_ruta: Option<Vec<GeoRoutePoint>>,
 }
@@ -123,9 +127,15 @@ impl CreateTourRequest {
             tipo_tour: self.tipo_tour,
             horarios: self.horarios,
             tiene_restaurante: self.tiene_restaurante.unwrap_or(false),
-            geo_inicio: self.geo_inicio.map(|g| serde_json::to_value(g).unwrap_or_default()),
-            geo_fin: self.geo_fin.map(|g| serde_json::to_value(g).unwrap_or_default()),
-            geo_ruta: self.geo_ruta.map(|r| serde_json::to_value(r).unwrap_or_default()),
+            geo_inicio: self
+                .geo_inicio
+                .map(|g| serde_json::to_value(g).unwrap_or_default()),
+            geo_fin: self
+                .geo_fin
+                .map(|g| serde_json::to_value(g).unwrap_or_default()),
+            geo_ruta: self
+                .geo_ruta
+                .map(|r| serde_json::to_value(r).unwrap_or_default()),
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -141,44 +151,44 @@ impl CreateTourRequest {
 pub struct UpdateTourRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
-    
+
     #[validate(length(max = 200))]
     pub lugar_inicio: Option<String>,
-    
+
     #[validate(length(max = 200))]
     pub lugar_fin: Option<String>,
-    
+
     #[ts(type = "object | null")]
     pub detalles: Option<JsonValue>,
-    
+
     #[ts(type = "object | null")]
     pub itinerario: Option<JsonValue>,
-    
+
     #[validate(range(min = 1))]
     pub duracion_dias: Option<i32>,
-    
+
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
-    
+
     #[validate(length(max = 100))]
     pub tipo_tour: Option<String>,
-    
+
     /// Horarios del tour: { "full": {"start": "HH:MM", "end": "HH:MM"}, "morning": {...}, "afternoon": {...} }
     #[ts(type = "object | null")]
     pub horarios: Option<JsonValue>,
-    
+
     /// Indica si el tour incluye restaurante en su itinerario
     pub tiene_restaurante: Option<bool>,
-    
+
     /// Geolocalización del punto de inicio del tour
     pub geo_inicio: Option<GeoLocation>,
-    
+
     /// Geolocalización del punto de fin del tour
     pub geo_fin: Option<GeoLocation>,
-    
+
     /// Ruta del tour como array de puntos
     pub geo_ruta: Option<Vec<GeoRoutePoint>>,
-    
+
     pub is_active: Option<bool>,
 }
 

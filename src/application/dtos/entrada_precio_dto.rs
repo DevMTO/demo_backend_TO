@@ -1,6 +1,6 @@
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use bigdecimal::BigDecimal;
 use ts_rs::TS;
 use validator::Validate;
 
@@ -48,19 +48,23 @@ impl From<EntradaPrecio> for EntradaPrecioResponse {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateEntradaPrecioRequest {
     pub id_entrada: i32,
-    
-    #[validate(length(min = 2, max = 30, message = "Tipo de precio debe tener entre 2 y 30 caracteres"))]
+
+    #[validate(length(
+        min = 2,
+        max = 30,
+        message = "Tipo de precio debe tener entre 2 y 30 caracteres"
+    ))]
     pub tipo_precio: String,
-    
+
     #[validate(range(min = 0, message = "Edad mínima debe ser positiva"))]
     pub edad_minima: i32,
-    
+
     /// None significa sin límite superior (ej: 17+)
     pub edad_maxima: Option<i32>,
-    
+
     #[validate(range(min = 0.0, message = "Precio debe ser positivo o cero"))]
     pub precio: f64,
-    
+
     #[validate(length(max = 100))]
     pub descripcion: Option<String>,
 }
@@ -91,15 +95,15 @@ impl CreateEntradaPrecioRequest {
 pub struct UpdateEntradaPrecioRequest {
     #[validate(length(min = 2, max = 30))]
     pub tipo_precio: Option<String>,
-    
+
     #[validate(range(min = 0))]
     pub edad_minima: Option<i32>,
-    
+
     pub edad_maxima: Option<Option<i32>>,
-    
+
     #[validate(range(min = 0.0))]
     pub precio: Option<f64>,
-    
+
     #[validate(length(max = 100))]
     pub descripcion: Option<String>,
 }
@@ -144,15 +148,15 @@ pub struct BatchCreateEntradaPreciosRequest {
 pub struct PrecioRangoInput {
     #[validate(length(min = 2, max = 30))]
     pub tipo_precio: String,
-    
+
     #[validate(range(min = 0))]
     pub edad_minima: i32,
-    
+
     pub edad_maxima: Option<i32>,
-    
+
     #[validate(range(min = 0.0))]
     pub precio: f64,
-    
+
     #[validate(length(max = 100))]
     pub descripcion: Option<String>,
 }

@@ -33,7 +33,7 @@ impl From<Entrada> for EntradaResponse {
                     .collect()
             })
         });
-        
+
         Self {
             id: e.id,
             nombre: e.nombre,
@@ -51,11 +51,15 @@ impl From<Entrada> for EntradaResponse {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateEntradaRequest {
-    #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
+    #[validate(length(
+        min = 2,
+        max = 200,
+        message = "Nombre debe tener entre 2 y 200 caracteres"
+    ))]
     pub nombre: String,
-    
+
     pub descripcion: Option<String>,
-    
+
     /// Array de IDs de tours asociados. null = disponible para todos los tours.
     #[ts(type = "number[] | null")]
     pub tours_asociados: Option<Vec<i32>>,
@@ -67,9 +71,13 @@ impl CreateEntradaRequest {
     pub fn into_entity(self, created_by: Option<i32>) -> Entrada {
         let now = Utc::now();
         let tours_json = self.tours_asociados.map(|ids| {
-            JsonValue::Array(ids.into_iter().map(|id| JsonValue::Number(id.into())).collect())
+            JsonValue::Array(
+                ids.into_iter()
+                    .map(|id| JsonValue::Number(id.into()))
+                    .collect(),
+            )
         });
-        
+
         Entrada {
             id: 0,
             nombre: self.nombre,
@@ -91,11 +99,11 @@ impl CreateEntradaRequest {
 pub struct UpdateEntradaRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
-    
+
     pub descripcion: Option<String>,
-    
+
     pub is_active: Option<bool>,
-    
+
     /// Array de IDs de tours asociados. null = disponible para todos los tours.
     #[ts(type = "number[] | null")]
     pub tours_asociados: Option<Vec<i32>>,
@@ -116,9 +124,12 @@ impl UpdateEntradaRequest {
             entrada.is_active = is_active;
         }
         if let Some(tours) = self.tours_asociados {
-            entrada.tours_asociados = Some(
-                JsonValue::Array(tours.into_iter().map(|id| JsonValue::Number(id.into())).collect())
-            );
+            entrada.tours_asociados = Some(JsonValue::Array(
+                tours
+                    .into_iter()
+                    .map(|id| JsonValue::Number(id.into()))
+                    .collect(),
+            ));
         }
         if let Some(bt) = self.boleto_turistico {
             entrada.boleto_turistico = bt;

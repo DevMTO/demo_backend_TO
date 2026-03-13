@@ -8,7 +8,7 @@ use axum::{
 use tracing::{instrument, warn};
 
 use crate::application::dtos::chat_dto::{ChatNoteRequest, UpdateChatNoteRequest};
-use crate::application::services::chat_service::ChatUserInfo;
+use crate::application::dtos::AuditInfo;
 use crate::domain::entities::{
     NotificationCategory, NotificationPriority, NotificationType, UserRole,
 };
@@ -109,7 +109,7 @@ pub async fn chat_file(
 ) -> Result<impl IntoResponse, ApplicationError> {
     check_file_access(&state, &auth, file_id).await?;
 
-    let user_info = ChatUserInfo {
+        let user_info = AuditInfo {
         user_id: auth.user.id,
         username: auth.user.username.clone(),
         is_admin: auth.user.role.is_admin(),
@@ -150,7 +150,7 @@ pub async fn chat_file_tour(
 ) -> Result<impl IntoResponse, ApplicationError> {
     check_file_tour_access(&state, &auth, file_tour_id).await?;
 
-    let user_info = ChatUserInfo {
+        let user_info = AuditInfo {
         user_id: auth.user.id,
         username: auth.user.username.clone(),
         is_admin: auth.user.role.is_admin(),
@@ -234,7 +234,7 @@ pub async fn update_chat_file_tour(
 ) -> Result<impl IntoResponse, ApplicationError> {
     check_file_tour_access(&state, &auth, file_tour_id).await?;
 
-    let user_info = ChatUserInfo {
+        let user_info = AuditInfo {
         user_id: auth.user.id,
         username: auth.user.username.clone(),
         is_admin: auth.user.role.is_admin(),
@@ -261,7 +261,7 @@ pub async fn delete_chat_file_tour(
 ) -> Result<impl IntoResponse, ApplicationError> {
     check_file_tour_access(&state, &auth, file_tour_id).await?;
 
-    let user_info = ChatUserInfo {
+        let user_info = AuditInfo {
         user_id: auth.user.id,
         username: auth.user.username.clone(),
         is_admin: auth.user.role.is_admin(),

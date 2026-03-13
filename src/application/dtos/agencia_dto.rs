@@ -76,28 +76,32 @@ pub struct AgenciaListItemDto {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateAgenciaRequest {
-    #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
+    #[validate(length(
+        min = 2,
+        max = 200,
+        message = "Nombre debe tener entre 2 y 200 caracteres"
+    ))]
     pub nombre: String,
-    
+
     #[validate(length(equal = 11, message = "RUC debe tener exactamente 11 dígitos"))]
     pub ruc: String,
-    
+
     #[validate(length(max = 20))]
     pub telefono: Option<String>,
-    
+
     #[validate(email)]
     pub correo: Option<String>,
-    
+
     pub direccion: Option<String>,
-    
+
     #[ts(type = "object | null")]
     pub paleta_colores: Option<JsonValue>,
-    
+
     #[ts(type = "object | null")]
     pub media: Option<JsonValue>,
-    
+
     pub encargado: Option<i32>,
-    
+
     pub pago_anticipado: Option<bool>,
 
     pub tipo_vencimiento: Option<String>,
@@ -118,7 +122,14 @@ impl CreateAgenciaRequest {
             encargado: self.encargado,
             is_active: true,
             pago_anticipado: self.pago_anticipado.unwrap_or(false),
-            tipo_vencimiento: if self.pago_anticipado.unwrap_or(false) { None } else { Some(self.tipo_vencimiento.unwrap_or_else(|| "mensual".to_string())) },
+            tipo_vencimiento: if self.pago_anticipado.unwrap_or(false) {
+                None
+            } else {
+                Some(
+                    self.tipo_vencimiento
+                        .unwrap_or_else(|| "mensual".to_string()),
+                )
+            },
             created_at: now,
             updated_at: now,
             created_by,
@@ -133,28 +144,28 @@ impl CreateAgenciaRequest {
 pub struct UpdateAgenciaRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
-    
+
     #[validate(length(equal = 11))]
     pub ruc: Option<String>,
-    
+
     #[validate(length(max = 20))]
     pub telefono: Option<String>,
-    
+
     #[validate(email)]
     pub correo: Option<String>,
-    
+
     pub direccion: Option<String>,
-    
+
     #[ts(type = "object | null | undefined")]
     pub paleta_colores: Option<JsonValue>,
-    
+
     #[ts(type = "object | null | undefined")]
     pub media: Option<JsonValue>,
-    
+
     pub encargado: Option<i32>,
-    
+
     pub is_active: Option<bool>,
-    
+
     pub pago_anticipado: Option<bool>,
 
     pub tipo_vencimiento: Option<String>,
@@ -194,7 +205,11 @@ impl UpdateAgenciaRequest {
             if pago_anticipado {
                 agencia.tipo_vencimiento = None;
             } else if agencia.tipo_vencimiento.is_none() {
-                agencia.tipo_vencimiento = Some(self.tipo_vencimiento.clone().unwrap_or_else(|| "mensual".to_string()));
+                agencia.tipo_vencimiento = Some(
+                    self.tipo_vencimiento
+                        .clone()
+                        .unwrap_or_else(|| "mensual".to_string()),
+                );
             }
         }
         if let Some(tipo) = self.tipo_vencimiento {
@@ -215,7 +230,7 @@ impl UpdateAgenciaRequest {
 pub struct UpdateAgenciaInterfazRequest {
     #[ts(type = "object | null | undefined")]
     pub paleta_colores: Option<JsonValue>,
-    
+
     #[ts(type = "object | null | undefined")]
     pub media: Option<JsonValue>,
 }

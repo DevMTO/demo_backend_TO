@@ -64,7 +64,11 @@ pub struct HotelListItemDto {
 pub struct CreateHotelRequest {
     pub id_cadena: i32,
 
-    #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
+    #[validate(length(
+        min = 2,
+        max = 200,
+        message = "Nombre debe tener entre 2 y 200 caracteres"
+    ))]
     pub nombre: String,
 
     #[validate(length(max = 50))]

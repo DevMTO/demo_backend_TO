@@ -71,25 +71,29 @@ pub struct TransporteListItemDto {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateTransporteRequest {
-    #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
+    #[validate(length(
+        min = 2,
+        max = 200,
+        message = "Nombre debe tener entre 2 y 200 caracteres"
+    ))]
     pub nombre: String,
-    
+
     #[validate(length(equal = 11, message = "RUC debe tener exactamente 11 dígitos"))]
     pub ruc: String,
-    
+
     #[validate(length(max = 20))]
     pub telefono: Option<String>,
-    
+
     #[validate(email)]
     pub correo: Option<String>,
-    
+
     pub direccion: Option<String>,
-    
+
     pub encargado: Option<i32>,
-    
+
     #[ts(type = "object | null | undefined")]
     pub media: Option<JsonValue>,
-    
+
     #[ts(type = "object | null | undefined")]
     pub paleta_colores: Option<JsonValue>,
 }
@@ -122,26 +126,26 @@ impl CreateTransporteRequest {
 pub struct UpdateTransporteRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
-    
+
     #[validate(length(equal = 11))]
     pub ruc: Option<String>,
-    
+
     #[validate(length(max = 20))]
     pub telefono: Option<String>,
-    
+
     #[validate(email)]
     pub correo: Option<String>,
-    
+
     pub direccion: Option<String>,
-    
+
     pub encargado: Option<i32>,
-    
+
     #[ts(type = "object | null | undefined")]
     pub media: Option<JsonValue>,
-    
+
     #[ts(type = "object | null | undefined")]
     pub paleta_colores: Option<JsonValue>,
-    
+
     pub is_active: Option<bool>,
 }
 
@@ -164,7 +168,7 @@ impl UpdateTransporteRequest {
         }
         // encargado: siempre actualizar (permite asignar y quitar encargado)
         transporte.encargado = self.encargado;
-        
+
         if let Some(media) = self.media {
             transporte.media = Some(media);
         }
@@ -187,7 +191,7 @@ impl UpdateTransporteRequest {
 pub struct UpdateTransporteInterfazRequest {
     #[ts(type = "object | null | undefined")]
     pub paleta_colores: Option<JsonValue>,
-    
+
     #[ts(type = "object | null | undefined")]
     pub media: Option<JsonValue>,
 }

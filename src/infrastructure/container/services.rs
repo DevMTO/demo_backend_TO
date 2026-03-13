@@ -89,6 +89,11 @@ impl Services {
             notify.clone(),
         ));
 
+        let chat_service = Arc::new(ChatService::new(
+            repos.file.clone(),
+            repos.file_tour.clone(),
+        ));
+
         let contabilidad = Arc::new(ContabilidadService::new(
             repos.pago_file.clone(),
             repos.pago_proveedor.clone(),
@@ -105,6 +110,7 @@ impl Services {
             repos.persona.clone(),
             repos.entrada.clone(),
             repos.cadena_hotelera.clone(),
+            chat_service.clone(),
         ));
 
         let file = Arc::new(FileService::new(
@@ -216,6 +222,7 @@ impl Services {
             repos.entrada_precio.clone(),
             repos.entrada.clone(),
             file_status.clone(),
+            chat_service.clone(),
         ));
 
         let cadena_hotelera = Arc::new(CadenaHoteleraService::new(
@@ -232,11 +239,6 @@ impl Services {
         ));
 
         let tarifa = Arc::new(TarifaService::new(repos.tarifa.clone()));
-
-        let chat_service = Arc::new(ChatService::new(
-            repos.file.clone(),
-            repos.file_tour.clone(),
-        ));
 
         Self {
             logging,

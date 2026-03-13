@@ -44,13 +44,13 @@ impl From<Guia> for GuiaResponse {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateGuiaRequest {
     pub id_persona: i32,
-    
+
     #[validate(length(min = 6, max = 30, message = "Número de carnet inválido"))]
     pub nro_carnet: String,
-    
+
     /// Array de idiomas ["español", "inglés", "francés"]
     pub idiomas: Option<Vec<String>>,
-    
+
     /// Array de especialidades ["city tour", "aventura", "histórico"]
     pub especialidades: Option<Vec<String>>,
 }
@@ -79,17 +79,17 @@ impl CreateGuiaRequest {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateGuiaRequest {
     pub id_persona: Option<i32>,
-    
+
     #[validate(length(min = 6, max = 30))]
     pub nro_carnet: Option<String>,
-    
+
     pub idiomas: Option<Vec<String>>,
-    
+
     pub especialidades: Option<Vec<String>>,
-    
+
     #[validate(length(max = 20))]
     pub status: Option<String>,
-    
+
     pub is_active: Option<bool>,
 }
 

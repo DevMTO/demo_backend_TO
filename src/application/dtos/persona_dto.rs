@@ -44,29 +44,43 @@ impl From<Persona> for PersonaResponse {
 pub struct CreatePersonaRequest {
     #[validate(length(min = 2, max = 30, message = "Tipo documento inválido"))]
     pub tipo_documento: String,
-    
-    #[validate(length(min = 6, max = 20, message = "Nro documento debe tener entre 6 y 20 caracteres"))]
+
+    #[validate(length(
+        min = 6,
+        max = 20,
+        message = "Nro documento debe tener entre 6 y 20 caracteres"
+    ))]
     pub nro_documento: String,
-    
-    #[validate(length(min = 2, max = 100, message = "Nombre debe tener entre 2 y 100 caracteres"))]
+
+    #[validate(length(
+        min = 2,
+        max = 100,
+        message = "Nombre debe tener entre 2 y 100 caracteres"
+    ))]
     pub nombre: String,
-    
-    #[validate(length(min = 2, max = 100, message = "Apellidos debe tener entre 2 y 100 caracteres"))]
+
+    #[validate(length(
+        min = 2,
+        max = 100,
+        message = "Apellidos debe tener entre 2 y 100 caracteres"
+    ))]
     pub apellidos: String,
-    
+
     #[validate(length(max = 20, message = "Teléfono muy largo"))]
     pub telefono: Option<String>,
-    
+
     #[validate(email(message = "Correo inválido"))]
     pub correo: Option<String>,
-    
+
     pub fecha_nacimiento: Option<NaiveDate>,
 }
 
 impl CreatePersonaRequest {
     pub fn into_entity(self, created_by: Option<i32>) -> Persona {
         let now = Utc::now();
-        let tipo = self.tipo_documento.parse::<TipoDocumento>()
+        let tipo = self
+            .tipo_documento
+            .parse::<TipoDocumento>()
             .unwrap_or(TipoDocumento::Dni);
         Persona {
             id: 0,
@@ -91,22 +105,22 @@ impl CreatePersonaRequest {
 pub struct UpdatePersonaRequest {
     #[validate(length(min = 2, max = 30))]
     pub tipo_documento: Option<String>,
-    
+
     #[validate(length(min = 6, max = 20))]
     pub nro_documento: Option<String>,
-    
+
     #[validate(length(min = 2, max = 100))]
     pub nombre: Option<String>,
-    
+
     #[validate(length(min = 2, max = 100))]
     pub apellidos: Option<String>,
-    
+
     #[validate(length(max = 20))]
     pub telefono: Option<String>,
-    
+
     #[validate(email)]
     pub correo: Option<String>,
-    
+
     pub fecha_nacimiento: Option<NaiveDate>,
 }
 

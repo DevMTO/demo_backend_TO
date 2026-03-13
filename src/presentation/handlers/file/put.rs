@@ -4,8 +4,7 @@ use axum::{extract::{Path, State}, response::IntoResponse, Json};
 use tracing::instrument;
 use validator::Validate;
 
-use crate::application::dtos::UpdateFileRequest;
-use crate::application::services::chat_service::ChatUserInfo;
+use crate::application::dtos::{AuditInfo, UpdateFileRequest};
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
@@ -55,7 +54,7 @@ pub async fn update_file(
         .await?;
 
     if let Some(nota_value) = nota {
-        let user_info = ChatUserInfo {
+        let user_info = AuditInfo {
             user_id: auth.user.id,
             username: auth.user.username.clone(),
             is_admin: auth.user.role.is_admin(),

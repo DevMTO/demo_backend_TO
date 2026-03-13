@@ -2,23 +2,16 @@
 //! 
 //! IMPORTANTE:
 //! - file_tours.notas = JSONB (con mensajería, CRUD completo, SSE notificaciones)
-//! - files.notas = TEXT (apartado separado, SIN mensajería)
+//! - files.notas = TEXT (apartado separado, SIN notificaciones)
 
 use std::sync::Arc;
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use uuid::Uuid;
 
+use crate::application::dtos::AuditInfo;
 use crate::application::ports::{FileRepositoryPort, FileTourRepositoryPort};
 use crate::domain::errors::ApplicationError;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChatUserInfo {
-    pub user_id: i32,
-    pub username: String,
-    pub is_admin: bool,
-}
 
 pub struct ChatService {
     file_repository: Arc<dyn FileRepositoryPort>,
@@ -62,7 +55,7 @@ impl ChatService {
         &self,
         file_id: i32,
         nota: Option<String>,
-        user_info: Option<ChatUserInfo>,
+        user_info: Option<AuditInfo>,
     ) -> Result<Option<String>, ApplicationError> {
         let nota_value = match nota.as_ref().and_then(|n| Self::parse_nota_input(n)) {
             Some(n) if !n.is_null() => n,
@@ -113,7 +106,7 @@ impl ChatService {
         &self,
         file_tour_id: i32,
         nota: Option<String>,
-        user_info: Option<ChatUserInfo>,
+        user_info: Option<AuditInfo>,
     ) -> Result<Option<JsonValue>, ApplicationError> {
         let nota_value = match nota.as_ref().and_then(|n| Self::parse_nota_input(n)) {
             Some(n) if !n.is_null() => n,
@@ -164,7 +157,7 @@ impl ChatService {
         file_tour_id: i32,
         note_id: &str,
         new_nota: &str,
-        user_info: Option<ChatUserInfo>,
+        user_info: Option<AuditInfo>,
     ) -> Result<Option<JsonValue>, ApplicationError> {
         let existing_file_tour = self.file_tour_repository
             .find_by_id(file_tour_id)
@@ -215,7 +208,7 @@ impl ChatService {
         &self,
         file_tour_id: i32,
         note_id: &str,
-        user_info: Option<ChatUserInfo>,
+        user_info: Option<AuditInfo>,
     ) -> Result<Option<JsonValue>, ApplicationError> {
         let existing_file_tour = self.file_tour_repository
             .find_by_id(file_tour_id)
