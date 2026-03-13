@@ -1039,6 +1039,7 @@ impl SaldoFavorService {
                 && pago.tipo_registro == "deuda" && pago.id_file_tour == Some(id_file_tour)
             {
                 if pasar_a_saldo_favor {
+                    update.monto_pagado = Some(zero.clone());
                     update.monto_saldo_favor = Some(dinero_restante.clone());
                     update.saldo_autorizado = Some(true);
                     update.saldo_autorizado_por = created_by;
