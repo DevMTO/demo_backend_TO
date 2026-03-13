@@ -176,9 +176,12 @@ impl ContabilidadService {
             let is_fully_paid = monto_pendiente_file <= tolerancia;
             let has_partial = monto_pagado_file > zero;
             let all_verified = file_pagos.iter().all(|p| p.estado == "verificado");
-            
+            let has_pending_verification = file_pagos.iter().any(|p| p.estado == "pendiente_verificacion");
+
             let overall_estado = if is_fully_paid && all_verified {
                 "verificado"
+            } else if has_pending_verification {
+                "pendiente_verificacion"
             } else if is_fully_paid {
                 "pagado"
             } else if has_partial {
@@ -199,7 +202,7 @@ impl ContabilidadService {
                 Some(monto_pendiente_file.clone()),
             ).await;
             
-            if overall_estado == "pendiente" || overall_estado == "parcial" || overall_estado == "vencido" {
+            if overall_estado == "pendiente" || overall_estado == "parcial" || overall_estado == "vencido" || overall_estado == "pendiente_verificacion" {
                 files_pendientes.push(response);
             } else {
                 if ultimos_pagos.len() < 10 {
