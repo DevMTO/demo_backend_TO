@@ -273,3 +273,16 @@ pub fn extension_from_content_type(content_type: &str) -> &str {
         _ => "bin",
     }
 }
+
+/// Infer content type from filename extension when the multipart field
+/// doesn't provide one (common with some browsers/proxies for PNG etc.)
+pub fn infer_content_type_from_filename(filename: &str) -> Option<String> {
+    let lower = filename.to_lowercase();
+    if lower.ends_with(".png") { Some("image/png".into()) }
+    else if lower.ends_with(".jpg") || lower.ends_with(".jpeg") { Some("image/jpeg".into()) }
+    else if lower.ends_with(".webp") { Some("image/webp".into()) }
+    else if lower.ends_with(".gif") { Some("image/gif".into()) }
+    else if lower.ends_with(".avif") { Some("image/avif".into()) }
+    else if lower.ends_with(".svg") { Some("image/svg+xml".into()) }
+    else { None }
+}

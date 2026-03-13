@@ -12,6 +12,7 @@ use crate::presentation::extractors::AuthUser;
 use crate::infrastructure::storage::{
     validate_content_type, 
     extension_from_content_type, 
+    infer_content_type_from_filename,
     TigrisStorage,
     MAX_FILE_SIZE,
 };
@@ -81,6 +82,9 @@ pub async fn upload_agencia_logo(
     })? {
         let content_type = field.content_type()
             .map(|ct| ct.to_string())
+            .or_else(|| {
+                field.file_name().and_then(|name| infer_content_type_from_filename(name))
+            })
             .unwrap_or_default();
         
         // Validar tipo de archivo
@@ -202,6 +206,9 @@ pub async fn upload_agencia_banner(
     })? {
         let content_type = field.content_type()
             .map(|ct| ct.to_string())
+            .or_else(|| {
+                field.file_name().and_then(|name| infer_content_type_from_filename(name))
+            })
             .unwrap_or_default();
         
         if let Err(e) = validate_content_type(&content_type) {

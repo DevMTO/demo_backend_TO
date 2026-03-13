@@ -17,9 +17,13 @@ use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
 use crate::presentation::handlers::common::json_ok;
 
-/// Helper: ¿puede acceder a chat? (admin, agencia, hotel)
+/// Helper: ¿puede acceder a chat? (admin, agencia, hotel, gerentes, contadores)
 fn can_access_chat(role: &UserRole) -> bool {
-    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias | UserRole::Hoteles)
+    matches!(role, 
+        UserRole::SuperAdmin | UserRole::Admin | 
+        UserRole::Agencias | UserRole::AgenciasGerente | UserRole::AgenciasContador |
+        UserRole::Hoteles | UserRole::HotelesGerente
+    )
 }
 
 async fn check_file_access(state: &AppState, auth: &AuthUser, file_id: i32) -> Result<(), ApplicationError> {
@@ -42,6 +46,15 @@ async fn check_file_access(state: &AppState, auth: &AuthUser, file_id: i32) -> R
     
     if file.id_entidad == user_entidad {
         return Ok(());
+    }
+
+    // HotelesGerente: verificar si el file pertenece a un hotel de su cadena
+    if auth.user.role == UserRole::HotelesGerente {
+        if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(file.id_entidad).await {
+            if hotel.id_cadena == user_entidad {
+                return Ok(());
+            }
+        }
     }
 
     Err(ApplicationError::Forbidden("No tienes acceso a este file".to_string()))
@@ -69,9 +82,19 @@ async fn check_file_tour_access(state: &AppState, auth: &AuthUser, file_tour_id:
         .ok_or_else(|| ApplicationError::NotFound("File no encontrado".to_string()))?;
 
     let user_entidad = auth.user.id_entidad.unwrap_or(0);
-    
+
+    // Acceso directo por entidad
     if file.id_entidad == user_entidad {
         return Ok(());
+    }
+
+    // HotelesGerente: verificar si el file pertenece a un hotel de su cadena
+    if auth.user.role == UserRole::HotelesGerente {
+        if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(file.id_entidad).await {
+            if hotel.id_cadena == user_entidad {
+                return Ok(());
+            }
+        }
     }
 
     Err(ApplicationError::Forbidden("No tienes acceso a este file tour".to_string()))
