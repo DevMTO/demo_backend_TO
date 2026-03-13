@@ -488,7 +488,7 @@ pub struct LiquidacionPrecioDetalle {
     pub rango_label: String,
 }
 
-/// Respuesta completa con todos los datos agrupados para generar PDF/Excel 
+/// Respuesta completa con todos los datos agrupados para generar PDF/Excel
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]

@@ -12,7 +12,7 @@ use crate::application::dtos::contabilidad_dto::{
     RegistrarNoShowRequest, NoShowFileTourRequest,
     AutorizarNoShowSaldoRequest, UsarSaldoFavorRequest,
 };
-use crate::application::services::chat_service::ChatUserInfo;
+use crate::application::dtos::AuditInfo;
 use crate::domain::entities::UserRole;
 use crate::domain::errors::ApplicationError;
 use crate::presentation::extractors::AuthUser;
@@ -95,7 +95,7 @@ pub async fn cancelar_file(
         .await?;
 
     if let Some(nota_value) = nota {
-        let user_info = ChatUserInfo {
+        let user_info = AuditInfo {
             user_id: auth.user.id,
             username: auth.user.username.clone(),
             is_admin: auth.user.role.is_admin(),
@@ -139,7 +139,7 @@ pub async fn cancelar_file_tour(
         .await?;
 
     if let Some(nota_value) = nota {
-        let user_info = ChatUserInfo {
+        let user_info = AuditInfo {
             user_id: auth.user.id,
             username: auth.user.username.clone(),
             is_admin: auth.user.role.is_admin(),
@@ -176,10 +176,15 @@ pub async fn registrar_no_show(
     
     check_file_ownership(&state, &auth, request.id_file).await?;
 
+    let user_info = AuditInfo {
+        user_id: auth.user.id,
+        username: auth.user.username.clone(),
+        is_admin: auth.user.role.is_admin(),
+    };
     let result = state
         .container
         .saldo_favor_service
-        .registrar_no_show(request, Some(auth.user.id))
+        .registrar_no_show(request, Some(user_info))
         .await?;
 
     Ok(json_ok(result))
@@ -201,10 +206,15 @@ pub async fn registrar_no_show_file_tour(
     
     check_file_tour_ownership(&state, &auth, request.id_file_tour).await?;
 
+    let user_info = AuditInfo {
+        user_id: auth.user.id,
+        username: auth.user.username.clone(),
+        is_admin: auth.user.role.is_admin(),
+    };
     let result = state
         .container
         .saldo_favor_service
-        .registrar_no_show_file_tour(request, Some(auth.user.id))
+        .registrar_no_show_file_tour(request, Some(user_info))
         .await?;
 
     Ok(json_ok(result))

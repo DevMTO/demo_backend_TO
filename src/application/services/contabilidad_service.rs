@@ -17,6 +17,8 @@ use crate::application::dtos::contabilidad_dto::{
     RegistrarPagoFileRequest, VerificarPagoFileRequest,
     CreatePagoProveedorRequest, MarcarPagoProveedorPagadoRequest,
 };
+use crate::application::dtos::AuditInfo;
+use crate::application::services::chat_service::ChatService;
 use crate::application::ports::{
     PagoFileRepositoryPort, PagoProveedorRepositoryPort,
     AgenciaRepositoryPort, HotelRepositoryPort, FileRepositoryPort, NotificationServicePort,
@@ -56,6 +58,7 @@ pub struct ContabilidadService {
     persona_repository: Arc<dyn PersonaRepositoryPort>,
     entrada_repository: Arc<dyn EntradaRepositoryPort>,
     cadena_hotelera_repository: Arc<dyn CadenaHoteleraRepositoryPort>,
+    chat_service: Arc<ChatService>,
 }
 
 impl ContabilidadService {
@@ -76,6 +79,7 @@ impl ContabilidadService {
         persona_repository: Arc<dyn PersonaRepositoryPort>,
         entrada_repository: Arc<dyn EntradaRepositoryPort>,
         cadena_hotelera_repository: Arc<dyn CadenaHoteleraRepositoryPort>,
+        chat_service: Arc<ChatService>,
     ) -> Self {
         Self {
             pago_file_repository,
@@ -93,6 +97,7 @@ impl ContabilidadService {
             persona_repository,
             entrada_repository,
             cadena_hotelera_repository,
+            chat_service,
         }
     }
 
@@ -694,8 +699,10 @@ impl ContabilidadService {
     pub async fn verificar_pago_file(
         &self,
         request: VerificarPagoFileRequest,
-        verificado_por: i32,
+        user_info: AuditInfo,
     ) -> Result<PagoFileResponse, ApplicationError> {
+        let verificado_por = user_info.user_id;
+        
         // Obtener pago actual
         let pago = self.pago_file_repository
             .find_by_id(request.id_pago_file)
@@ -715,7 +722,6 @@ impl ContabilidadService {
             estado: Some(estado),
             verificado_por: Some(verificado_por),
             verificado_at: Some(Utc::now()),
-            notas: request.notas.as_deref(),
             ..Default::default()
         };
         
@@ -776,6 +782,14 @@ impl ContabilidadService {
             ).await {
                 warn!("Error al notificar a la agencia del pago rechazado: {}", e);
             }
+        }
+        
+        if let Some(nota) = request.notas {
+            let _ = self.chat_service.chat_file(
+                pago_actualizado.id_file,
+                Some(nota),
+                Some(user_info),
+            ).await;
         }
         
         Ok(self.pago_file_to_response(pago_actualizado, agencia_nombre).await)

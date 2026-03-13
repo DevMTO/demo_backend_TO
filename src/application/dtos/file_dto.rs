@@ -1,12 +1,12 @@
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use bigdecimal::BigDecimal;
 use ts_rs::TS;
 use validator::Validate;
 
-use crate::domain::entities::File;
 use super::geo_dto::GeoLocation;
+use crate::domain::entities::File;
 
 /// DTO para un tour dentro de un file (relación N:M) con información del tour
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -27,7 +27,7 @@ pub struct FileTourDto {
     pub notas: Option<JsonValue>,
     /// Fecha específica del tour (puede ser diferente para cada tour del file)
     pub fecha_tour: Option<NaiveDate>,
-    
+
     // === Campos de recojo por tour ===
     /// Turno del tour: manana, tarde, noche
     pub turno_tour: Option<String>,
@@ -37,13 +37,13 @@ pub struct FileTourDto {
     pub hora_recojo: Option<NaiveTime>,
     /// Geolocalización del punto de recojo
     pub geo_recojo: Option<GeoLocation>,
-    
+
     /// Estado del file_tour: reservado, confirmado, en_progreso, completado, cancelado
     pub status: String,
-    
+
     /// Cantidad de pasajeros específicos para este tour (null = todos los del file)
     pub nro_pasajeros: Option<i32>,
-    
+
     // === Información del tour (INNER JOIN) ===
     /// Nombre del tour
     pub tour_nombre: Option<String>,
@@ -166,14 +166,22 @@ impl FileResponse {
     }
 
     /// Sets the user names for created_by and updated_by
-    pub fn with_user_names(mut self, created_by_name: Option<String>, updated_by_name: Option<String>) -> Self {
+    pub fn with_user_names(
+        mut self,
+        created_by_name: Option<String>,
+        updated_by_name: Option<String>,
+    ) -> Self {
         self.created_by_name = created_by_name;
         self.updated_by_name = updated_by_name;
         self
     }
 
     /// Sets the user turnos for created_by and updated_by
-    pub fn with_user_turnos(mut self, created_by_turno: Option<String>, updated_by_turno: Option<String>) -> Self {
+    pub fn with_user_turnos(
+        mut self,
+        created_by_turno: Option<String>,
+        updated_by_turno: Option<String>,
+    ) -> Self {
         self.created_by_turno = created_by_turno;
         self.updated_by_turno = updated_by_turno;
         self
@@ -195,32 +203,31 @@ pub struct CreateFileRequest {
     /// Cada tour puede tener su propio turno_tour, lugar_recojo, hora_recojo
     /// Opcional si se usa id_tour (compatibilidad)
     pub tours: Option<Vec<FileTourInput>>,
-    
+
     /// ID de tour único (para compatibilidad con código existente)
     /// Si se especifica, se ignora si también se especifica `tours`
     pub id_tour: Option<i32>,
-    
+
     /// ID de la entidad (agencia u hotel) - Opcional si el usuario tiene rol vinculado (se auto-asigna)
     /// Requerido si el usuario es superadmin/admin
     pub id_entidad: Option<i32>,
-    
+
     pub fecha_inicio: NaiveDate,
-    
+
     pub fecha_fin: NaiveDate,
-    
+
     // Nota: lugar_recojo, hora_recojo, turno_tour ahora están en FileTourInput (por tour)
-    
     pub notas: Option<String>,
-    
+
     #[validate(range(min = 0.0, message = "Monto debe ser positivo"))]
     pub monto_total: f64,
-    
+
     #[validate(range(min = 0, message = "Número de pasajeros debe ser positivo"))]
     pub nro_pasajeros: Option<i32>,
-    
+
     #[validate(length(max = 50))]
     pub file_code: Option<String>,
-    
+
     /// Fecha límite para confirmar el file (opcional)
     pub deadline_confirmacion: Option<DateTime<Utc>>,
 }
@@ -254,7 +261,7 @@ impl CreateFileRequest {
             vec![]
         }
     }
-    
+
     /// Convierte el request en una entidad File
     /// `id_entidad_resolved` es el ID de entidad ya resuelto (puede venir del request o del usuario)
     pub fn into_entity(self, created_by: Option<i32>, id_entidad_resolved: i32) -> File {
@@ -290,37 +297,36 @@ pub struct UpdateFileRequest {
     /// Si se especifica, reemplaza todos los tours existentes
     /// Cada tour puede tener su propio turno_tour, lugar_recojo, hora_recojo
     pub tours: Option<Vec<FileTourInput>>,
-    
+
     /// ID de tour único (para compatibilidad) - se ignora si se especifica `tours`
     pub id_tour: Option<i32>,
-    
+
     pub id_entidad: Option<i32>,
-    
+
     pub fecha_inicio: Option<NaiveDate>,
-    
+
     pub fecha_fin: Option<NaiveDate>,
-    
+
     // Nota: lugar_recojo, hora_recojo, turno_tour ahora están en FileTourInput (por tour)
-    
     pub notas: Option<String>,
-    
+
     #[validate(length(max = 30))]
     pub status: Option<String>,
-    
+
     #[validate(range(min = 0.0))]
     pub monto_total: Option<f64>,
-    
+
     #[validate(range(min = 0.0))]
     pub monto_pagado: Option<f64>,
-    
+
     #[validate(range(min = 0))]
     pub nro_pasajeros: Option<i32>,
-    
+
     #[validate(length(max = 50))]
     pub file_code: Option<String>,
-    
+
     pub deadline_confirmacion: Option<DateTime<Utc>>,
-    
+
     pub is_active: Option<bool>,
 }
 
@@ -350,7 +356,7 @@ impl UpdateFileRequest {
         }
         None
     }
-    
+
     pub fn apply_to(self, mut file: File, updated_by: Option<i32>) -> File {
         // Nota: tours se manejan aparte en el servicio
         if let Some(id_entidad) = self.id_entidad {
@@ -398,7 +404,7 @@ impl UpdateFileRequest {
 // =============================================================================
 
 /// Request para confirmar una reserva (file)
-/// 
+///
 /// Al confirmar una reserva:
 /// - El status del file pasa a "confirmado"
 /// - Se crea un pago_file pendiente para el contador de la agencia
@@ -410,14 +416,14 @@ impl UpdateFileRequest {
 pub struct ConfirmReservaRequest {
     /// ID del file a confirmar
     pub file_id: i32,
-    
+
     /// Monto total confirmado (puede ser diferente al estimado inicial)
     pub monto_total: Option<f64>,
-    
+
     /// Días de plazo para el vencimiento del pago (default: 7 días)
     #[validate(range(min = 1, max = 90))]
     pub dias_vencimiento: Option<i32>,
-    
+
     /// Notas adicionales para la confirmación
     #[validate(length(max = 500))]
     pub notas: Option<String>,
@@ -430,17 +436,17 @@ pub struct ConfirmReservaRequest {
 pub struct ConfirmReservaResponse {
     /// File actualizado
     pub file: FileResponse,
-    
+
     /// IDs de los pagos pendientes generados (uno por file_tour)
     pub pago_file_ids: Vec<i32>,
-    
+
     /// Monto total a pagar
     #[ts(type = "string")]
     pub monto_total: BigDecimal,
-    
+
     /// Fecha de vencimiento del pago
     pub fecha_vencimiento: String,
-    
+
     /// Mensaje de confirmación
     pub mensaje: String,
 }
@@ -501,4 +507,3 @@ pub struct UpdateFileTourRecojoResponse {
     /// La nueva geolocalización de recojo
     pub new_geo_recojo: Option<GeoLocation>,
 }
-

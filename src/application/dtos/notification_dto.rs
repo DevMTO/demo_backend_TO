@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use ts_rs::TS;
 
-use crate::domain::entities::{NotificationWithReadStatus};
+use crate::domain::entities::NotificationWithReadStatus;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -55,9 +55,17 @@ pub struct CreateNotificationRequest {
     pub notification_type: String,
     #[serde(default = "default_category")]
     pub category: String,
-    #[validate(length(min = 1, max = 200, message = "El título debe tener entre 1 y 200 caracteres"))]
+    #[validate(length(
+        min = 1,
+        max = 200,
+        message = "El título debe tener entre 1 y 200 caracteres"
+    ))]
     pub title: String,
-    #[validate(length(min = 1, max = 2000, message = "El mensaje debe tener entre 1 y 2000 caracteres"))]
+    #[validate(length(
+        min = 1,
+        max = 2000,
+        message = "El mensaje debe tener entre 1 y 2000 caracteres"
+    ))]
     pub message: String,
     pub entity_type: Option<String>,
     pub entity_id: Option<i32>,
@@ -71,9 +79,15 @@ pub struct CreateNotificationRequest {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-fn default_notification_type() -> String { "info".to_string() }
-fn default_category() -> String { "system".to_string() }
-fn default_priority() -> String { "normal".to_string() }
+fn default_notification_type() -> String {
+    "info".to_string()
+}
+fn default_category() -> String {
+    "system".to_string()
+}
+fn default_priority() -> String {
+    "normal".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]

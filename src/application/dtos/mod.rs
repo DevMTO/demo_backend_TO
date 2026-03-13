@@ -36,12 +36,18 @@ pub mod contabilidad_dto;
 // Chat DTOs
 pub mod chat_dto;
 
+// Common DTOs
+pub mod common;
+
 // Re-exports - Auth
 // auth_dto y user_dto se usan internamente
 
 // Re-exports - System
 pub use activity_log_dto::*;
 pub use notification_dto::*;
+
+// Re-exports - Common
+pub use common::*;
 
 // Re-exports - Geo
 pub use geo_dto::*;

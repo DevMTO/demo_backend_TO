@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use validator::Validate;
 
-use crate::domain::entities::{Vehiculo, StatusVehiculo};
+use crate::domain::entities::{StatusVehiculo, Vehiculo};
 
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
@@ -61,16 +61,20 @@ pub struct VehiculoListItemDto {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateVehiculoRequest {
     pub id_transporte: i32,
-    
-    #[validate(length(min = 2, max = 100, message = "Nombre debe tener entre 2 y 100 caracteres"))]
+
+    #[validate(length(
+        min = 2,
+        max = 100,
+        message = "Nombre debe tener entre 2 y 100 caracteres"
+    ))]
     pub nombre: String,
-    
+
     #[validate(length(max = 50))]
     pub modelo: Option<String>,
-    
+
     #[validate(length(min = 6, max = 10, message = "Placa inválida"))]
     pub placa: String,
-    
+
     #[validate(range(min = 1, max = 100, message = "Capacidad entre 1 y 100"))]
     pub capacidad: i32,
 }
@@ -100,22 +104,22 @@ impl CreateVehiculoRequest {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateVehiculoRequest {
     pub id_transporte: Option<i32>,
-    
+
     #[validate(length(min = 2, max = 100))]
     pub nombre: Option<String>,
-    
+
     #[validate(length(max = 50))]
     pub modelo: Option<String>,
-    
+
     #[validate(length(min = 6, max = 10))]
     pub placa: Option<String>,
-    
+
     #[validate(range(min = 1, max = 100))]
     pub capacidad: Option<i32>,
-    
+
     #[validate(length(max = 20))]
     pub status: Option<String>,
-    
+
     pub is_active: Option<bool>,
 }
 

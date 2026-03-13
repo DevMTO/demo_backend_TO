@@ -1,13 +1,13 @@
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use validator::Validate;
-use bigdecimal::BigDecimal;
 
 use crate::infrastructure::persistence::models::{
-    FileEntradaModel, FileGuiaModel, FileGuiaWithPersonaModel, FilePasajeroModel, 
+    FileEntradaModel, FileGuiaModel, FileGuiaWithPersonaModel, FilePasajeroModel,
     FilePasajeroWithPersonaModel, FileRestauranteModel, FileVehiculoModel,
-    FileVehiculoWithPersonaModel
+    FileVehiculoWithPersonaModel,
 };
 
 // ==================== FILE ENTRADA ====================
@@ -270,34 +270,46 @@ pub struct CreatePasajeroWithPersonaRequest {
     // Datos de la persona
     #[validate(length(min = 2, max = 30, message = "Tipo documento inválido"))]
     pub tipo_documento: String,
-    
-    #[validate(length(min = 6, max = 20, message = "Nro documento debe tener entre 6 y 20 caracteres"))]
+
+    #[validate(length(
+        min = 6,
+        max = 20,
+        message = "Nro documento debe tener entre 6 y 20 caracteres"
+    ))]
     pub nro_documento: String,
-    
-    #[validate(length(min = 2, max = 100, message = "Nombre debe tener entre 2 y 100 caracteres"))]
+
+    #[validate(length(
+        min = 2,
+        max = 100,
+        message = "Nombre debe tener entre 2 y 100 caracteres"
+    ))]
     pub nombre: String,
-    
-    #[validate(length(min = 2, max = 100, message = "Apellidos debe tener entre 2 y 100 caracteres"))]
+
+    #[validate(length(
+        min = 2,
+        max = 100,
+        message = "Apellidos debe tener entre 2 y 100 caracteres"
+    ))]
     pub apellidos: String,
-    
+
     #[validate(length(max = 20, message = "Teléfono muy largo"))]
     pub telefono: Option<String>,
-    
+
     #[validate(email(message = "Correo inválido"))]
     pub correo: Option<String>,
-    
+
     pub fecha_nacimiento: Option<chrono::NaiveDate>,
-    
+
     // Datos específicos de pasajero
     #[validate(length(max = 10))]
     pub asiento: Option<String>,
-    
+
     #[validate(length(max = 30))]
     pub tipo_pasajero: Option<String>, // "adulto", "niño", "infante"
-    
+
     #[validate(length(max = 60))]
     pub nacionalidad: Option<String>,
-    
+
     pub notas: Option<String>,
 }
 
@@ -630,7 +642,7 @@ pub struct MyFileAsGuiaDto {
     pub rol_guia: Option<String>,
     pub asignado_at: DateTime<Utc>,
     // Estado de confirmación de la asignación
-    pub estado_confirmacion: String,  // "pendiente", "aceptado", "rechazado"
+    pub estado_confirmacion: String, // "pendiente", "aceptado", "rechazado"
     pub confirmado_at: Option<DateTime<Utc>>,
     pub motivo_rechazo: Option<String>,
 }
@@ -669,7 +681,7 @@ pub struct MyFileAsConductorDto {
     pub vehiculo_capacidad: i32,
     pub asignado_at: DateTime<Utc>,
     // Estado de confirmación de la asignación
-    pub estado_confirmacion: String,  // "pendiente", "aceptado", "rechazado"
+    pub estado_confirmacion: String, // "pendiente", "aceptado", "rechazado"
     pub confirmado_at: Option<DateTime<Utc>>,
     pub motivo_rechazo: Option<String>,
 }
@@ -730,7 +742,11 @@ pub struct ConfirmAssignmentResponse {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateRelationStatusRequest {
     /// Estado: pendiente, reservado, asignado, confirmado, en_curso, completado, cancelado, anulado
-    #[validate(length(min = 1, max = 20, message = "El status debe tener entre 1 y 20 caracteres"))]
+    #[validate(length(
+        min = 1,
+        max = 20,
+        message = "El status debe tener entre 1 y 20 caracteres"
+    ))]
     pub status: String,
 }
 

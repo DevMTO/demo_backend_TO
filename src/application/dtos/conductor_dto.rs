@@ -60,12 +60,12 @@ pub struct ConductorListItemDto {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateConductorRequest {
     pub id_persona: i32,
-    
+
     pub id_transporte: Option<i32>,
-    
+
     #[validate(length(min = 6, max = 20, message = "Número de brevete inválido"))]
     pub nro_brevete: String,
-    
+
     pub tiene_soat: bool,
 }
 
@@ -93,17 +93,17 @@ impl CreateConductorRequest {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateConductorRequest {
     pub id_persona: Option<i32>,
-    
+
     pub id_transporte: Option<i32>,
-    
+
     #[validate(length(min = 6, max = 20))]
     pub nro_brevete: Option<String>,
-    
+
     pub tiene_soat: Option<bool>,
-    
+
     #[validate(length(max = 20))]
     pub status: Option<String>,
-    
+
     pub is_active: Option<bool>,
 }
 

@@ -9,10 +9,10 @@ use validator::Validate;
 pub struct LoginRequest {
     #[validate(length(min = 1, message = "Identifier is required"))]
     pub identifier: String,
-    
+
     #[validate(length(min = 1, message = "Password is required"))]
     pub password: String,
-    
+
     #[serde(default)]
     pub remember_me: bool,
 }
@@ -23,23 +23,27 @@ pub struct LoginRequest {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct RegisterRequest {
     pub id_persona: Option<i32>,
-    
-    #[validate(length(min = 3, max = 50, message = "Username must be between 3 and 50 characters"))]
+
+    #[validate(length(
+        min = 3,
+        max = 50,
+        message = "Username must be between 3 and 50 characters"
+    ))]
     pub username: String,
-    
+
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
-    
+
     #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub password: String,
-    
+
     #[validate(must_match(other = "password", message = "Passwords do not match"))]
     pub password_confirm: String,
-    
+
     pub role: Option<String>,
-    
+
     pub id_entidad: Option<i32>,
-    
+
     pub nombre_entidad: Option<String>,
 }
 
@@ -54,7 +58,12 @@ pub struct AuthResponse {
 }
 
 impl AuthResponse {
-    pub fn new(user: AuthUserInfo, session_id: i32, expires_in: i64, extended_session: bool) -> Self {
+    pub fn new(
+        user: AuthUserInfo,
+        session_id: i32,
+        expires_in: i64,
+        extended_session: bool,
+    ) -> Self {
         Self {
             user,
             session_id,
@@ -116,21 +125,29 @@ pub struct UserProfileResponse {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct UpdateProfileRequest {
     /// Nombre (de la persona)
-    #[validate(length(min = 2, max = 100, message = "Nombre debe tener entre 2 y 100 caracteres"))]
+    #[validate(length(
+        min = 2,
+        max = 100,
+        message = "Nombre debe tener entre 2 y 100 caracteres"
+    ))]
     pub nombre: Option<String>,
-    
+
     /// Apellidos (de la persona)
-    #[validate(length(min = 2, max = 100, message = "Apellidos debe tener entre 2 y 100 caracteres"))]
+    #[validate(length(
+        min = 2,
+        max = 100,
+        message = "Apellidos debe tener entre 2 y 100 caracteres"
+    ))]
     pub apellidos: Option<String>,
-    
+
     /// Teléfono (de la persona)
     #[validate(length(max = 20, message = "Teléfono muy largo"))]
     pub telefono: Option<String>,
-    
+
     /// Correo electrónico personal (de la persona, diferente al email de login)
     #[validate(email(message = "Correo inválido"))]
     pub correo: Option<String>,
-    
+
     /// Fecha de nacimiento
     pub fecha_nacimiento: Option<NaiveDate>,
 }

@@ -1,6 +1,6 @@
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use bigdecimal::BigDecimal;
 use ts_rs::TS;
 use validator::Validate;
 
@@ -42,7 +42,11 @@ impl From<Tarifa> for TarifaResponse {
 pub struct CreateTarifaRequest {
     pub id_tour: i32,
 
-    #[validate(length(min = 1, max = 50, message = "tipo_entidad debe tener entre 1 y 50 caracteres"))]
+    #[validate(length(
+        min = 1,
+        max = 50,
+        message = "tipo_entidad debe tener entre 1 y 50 caracteres"
+    ))]
     pub tipo_entidad: String,
 
     #[validate(range(min = 0.0, message = "Precio debe ser positivo"))]

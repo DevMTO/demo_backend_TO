@@ -34,6 +34,8 @@ use crate::infrastructure::persistence::models::{
     NewPagoFileModel, UpdatePagoFileModel, PagoFileModel,
 };
 use crate::application::services::file_status_service::FileStatusService;
+use crate::application::services::chat_service::ChatService;
+use crate::application::dtos::AuditInfo;
 
 use bigdecimal::ToPrimitive;
 
@@ -49,6 +51,7 @@ pub struct SaldoFavorService {
     entrada_precio_repo: Arc<dyn EntradaPrecioRepositoryPort>,
     entrada_repo: Arc<dyn EntradaRepositoryPort>,
     file_status_service: Arc<FileStatusService>,
+    chat_service: Arc<ChatService>,
 }
 
 /// Resultado de aplicar cancelación/no-show a un file_tour
@@ -72,6 +75,7 @@ impl SaldoFavorService {
         entrada_precio_repo: Arc<dyn EntradaPrecioRepositoryPort>,
         entrada_repo: Arc<dyn EntradaRepositoryPort>,
         file_status_service: Arc<FileStatusService>,
+        chat_service: Arc<ChatService>,
     ) -> Self {
         Self {
             pago_file_repo,
@@ -85,6 +89,7 @@ impl SaldoFavorService {
             entrada_precio_repo,
             entrada_repo,
             file_status_service,
+            chat_service,
         }
     }
 
@@ -238,7 +243,6 @@ impl SaldoFavorService {
         let mut updated_file = file.clone();
         updated_file.status = "cancelado".to_string();
         updated_file.updated_at = chrono::Utc::now();
-        updated_file.notas = request.notas.clone();
         self.file_repo.update(&updated_file).await?;
 
         // Notificar
@@ -297,11 +301,6 @@ impl SaldoFavorService {
             true,
             created_by,
         ).await?;
-
-        // Actualizar notas del file_tour (JSONB)
-        let mut updated_ft = ft.clone();
-        updated_ft.notas = request.notas.as_ref().map(|n| serde_json::json!(n));
-        self.file_tour_repo.update(&updated_ft).await?;
 
         info!("FileTour {} cancelado. Saldo a favor: {:?}", request.id_file_tour, result.pago.monto_saldo_favor);
 
@@ -363,8 +362,9 @@ impl SaldoFavorService {
     pub async fn registrar_no_show(
         &self,
         request: RegistrarNoShowRequest,
-        created_by: Option<i32>,
+        user_info: Option<AuditInfo>,
     ) -> Result<NoShowResponse, ApplicationError> {
+        let created_by = user_info.as_ref().map(|u| u.user_id);
         let file = self.file_repo.find_by_id(request.id_file).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", request.id_file)))?;
 
@@ -396,7 +396,6 @@ impl SaldoFavorService {
             let update = UpdatePagoFileModel {
                 estado: Some("no_show"),
                 tipo_registro: Some("no_show"),
-                notas: request.notas.as_deref(),
                 ..Default::default()
             };
             let updated = self.pago_file_repo.update(pago.id, update).await?;
@@ -436,6 +435,14 @@ impl SaldoFavorService {
             created_by,
         ).await;
 
+        if let Some(nota) = request.notas {
+            let _ = self.chat_service.chat_file(
+                request.id_file,
+                Some(nota),
+                user_info,
+            ).await;
+        }
+
         self.pago_to_no_show_response(record).await
     }
 
@@ -445,8 +452,9 @@ impl SaldoFavorService {
     pub async fn registrar_no_show_file_tour(
         &self,
         request: NoShowFileTourRequest,
-        created_by: Option<i32>,
+        user_info: Option<AuditInfo>,
     ) -> Result<NoShowResponse, ApplicationError> {
+        let created_by = user_info.as_ref().map(|u| u.user_id);
         let ft = self.file_tour_repo.find_by_id(request.id_file_tour).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("FileTour {} no encontrado", request.id_file_tour)))?;
 
@@ -476,7 +484,7 @@ impl SaldoFavorService {
             "no_show",
             "no_show_tour",
             "no_show",
-            request.notas.as_deref(),
+            None,
             false,
             created_by,
         ).await?;
@@ -508,6 +516,14 @@ impl SaldoFavorService {
             NotificationPriority::High,
             created_by,
         ).await;
+
+        if let Some(nota) = request.notas {
+            let _ = self.chat_service.chat_file_tour(
+                request.id_file_tour,
+                Some(nota),
+                user_info,
+            ).await;
+        }
 
         self.pago_to_no_show_response(result.pago).await
     }

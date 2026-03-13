@@ -9,7 +9,7 @@ use base64::{Engine as _, engine::general_purpose};
 use tracing::{instrument, info, error, warn};
 
 use crate::application::dtos::{
-    RegistrarPagoFileRequest, VerificarPagoFileRequest,
+    AuditInfo, RegistrarPagoFileRequest, VerificarPagoFileRequest,
     CreatePagoProveedorRequest, MarcarPagoProveedorPagadoRequest,
 };
 use crate::domain::entities::UserRole;
@@ -135,10 +135,15 @@ pub async fn verificar_pago_file(
         ));
     }
 
+    let user_info = AuditInfo {
+        user_id: auth.user.id,
+        username: auth.user.username.clone(),
+        is_admin: auth.user.role.is_admin(),
+    };
     let response = state
         .container
         .contabilidad_service
-        .verificar_pago_file(request, auth.user.id)
+        .verificar_pago_file(request, user_info)
         .await?;
 
     Ok(json_ok(response))

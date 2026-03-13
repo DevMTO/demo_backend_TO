@@ -1,7 +1,7 @@
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use bigdecimal::BigDecimal;
 use ts_rs::TS;
 use validator::Validate;
 
@@ -77,31 +77,35 @@ pub struct RestauranteListItemDto {
 #[ts(export)]
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct CreateRestauranteRequest {
-    #[validate(length(min = 2, max = 200, message = "Nombre debe tener entre 2 y 200 caracteres"))]
+    #[validate(length(
+        min = 2,
+        max = 200,
+        message = "Nombre debe tener entre 2 y 200 caracteres"
+    ))]
     pub nombre: String,
-    
+
     #[validate(length(min = 5, message = "Dirección muy corta"))]
     pub direccion: String,
-    
+
     #[validate(length(max = 20))]
     pub telefono: Option<String>,
-    
+
     #[validate(email)]
     pub correo: Option<String>,
-    
+
     /// Array de tipos: ["desayuno", "almuerzo", "cena", "box lunch"]
     pub tipo_atencion: Option<Vec<String>>,
-    
+
     #[validate(range(min = 0.0, message = "Precio debe ser positivo"))]
     pub precio_promedio: Option<f64>,
-    
+
     #[validate(range(min = 1, message = "Capacidad mínima 1"))]
     pub capacidad: Option<i32>,
-    
+
     /// {"lunes": "8:00-22:00", "martes": "8:00-22:00", ...}
     #[ts(type = "object | null")]
     pub horario: Option<JsonValue>,
-    
+
     pub encargado: Option<i32>,
 }
 
@@ -115,7 +119,9 @@ impl CreateRestauranteRequest {
             telefono: self.telefono,
             correo: self.correo,
             tipo_atencion: self.tipo_atencion.map(|t| serde_json::json!(t)),
-            precio_promedio: self.precio_promedio.map(|p| BigDecimal::try_from(p).unwrap_or_default()),
+            precio_promedio: self
+                .precio_promedio
+                .map(|p| BigDecimal::try_from(p).unwrap_or_default()),
             capacidad: self.capacidad,
             horario: self.horario,
             encargado: self.encargado,
@@ -134,29 +140,29 @@ impl CreateRestauranteRequest {
 pub struct UpdateRestauranteRequest {
     #[validate(length(min = 2, max = 200))]
     pub nombre: Option<String>,
-    
+
     #[validate(length(min = 5))]
     pub direccion: Option<String>,
-    
+
     #[validate(length(max = 20))]
     pub telefono: Option<String>,
-    
+
     #[validate(email)]
     pub correo: Option<String>,
-    
+
     pub tipo_atencion: Option<Vec<String>>,
-    
+
     #[validate(range(min = 0.0))]
     pub precio_promedio: Option<f64>,
-    
+
     #[validate(range(min = 1))]
     pub capacidad: Option<i32>,
-    
+
     #[ts(type = "object | null")]
     pub horario: Option<JsonValue>,
-    
+
     pub encargado: Option<i32>,
-    
+
     pub is_active: Option<bool>,
 }
 
@@ -188,7 +194,7 @@ impl UpdateRestauranteRequest {
         }
         // encargado: siempre actualizar (permite asignar y quitar encargado)
         restaurante.encargado = self.encargado;
-        
+
         if let Some(is_active) = self.is_active {
             restaurante.is_active = is_active;
         }
