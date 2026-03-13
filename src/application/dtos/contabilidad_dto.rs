@@ -494,18 +494,13 @@ pub struct LiquidacionPrecioDetalle {
 #[ts(export_to = "../../frontend/src/domain/contracts/")]
 pub struct LiquidacionDetalleResponse {
     /// Tours por file_id: { "file_id": [tours] }
-    #[ts(type = "Record<number, LiquidacionTourDetalle[]>")]
     pub tours_by_file: HashMap<i32, Vec<LiquidacionTourDetalle>>,
     /// Entradas por file_tour_id: { "ft_id": [entradas] }
-    #[ts(type = "Record<number, LiquidacionEntradaDetalle[]>")]
     pub entradas_by_file_tour: HashMap<i32, Vec<LiquidacionEntradaDetalle>>,
     /// Restaurantes por file_tour_id: { "ft_id": [restaurantes] }
-    #[ts(type = "Record<number, LiquidacionRestauranteDetalle[]>")]
     pub restaurantes_by_file_tour: HashMap<i32, Vec<LiquidacionRestauranteDetalle>>,
     /// Precios de entrada por id: { "precio_id": precio }
-    #[ts(type = "Record<number, LiquidacionPrecioDetalle>")]
     pub precios_by_id: HashMap<i32, LiquidacionPrecioDetalle>,
     /// Número de pasajeros por file_id: { "file_id": nro }
-    #[ts(type = "Record<number, number>")]
     pub nro_pasajeros_by_file: HashMap<i32, i32>,
 }
