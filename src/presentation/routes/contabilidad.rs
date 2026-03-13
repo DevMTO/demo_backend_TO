@@ -21,6 +21,8 @@ pub fn contabilidad_routes() -> Router<AppState> {
         // Pagos a proveedores (operador -> transportes/restaurantes/guias)
         .route("/pagos-proveedores", get(contabilidad::list_pagos_proveedores).post(contabilidad::create_pago_proveedor))
         .route("/pagos-proveedores/{id}/pagar", post(contabilidad::marcar_pago_proveedor_pagado))
+        // Liquidación - detalle bulk (reemplaza 100+ requests individuales)
+        .route("/liquidacion-detalle", post(contabilidad::get_liquidacion_detalle))
         // Saldo a Favor - Consultas
         .route("/saldos-favor/resumen/{id_entidad}", get(saldo_favor::get_saldo_resumen))
         .route("/saldos-favor/dashboard/{id_entidad}", get(saldo_favor::get_saldo_dashboard))

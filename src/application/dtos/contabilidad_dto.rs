@@ -413,3 +413,99 @@ pub struct UsarSaldoFavorRequest {
     pub monto: f64,
     pub concepto: Option<String>,
 }
+
+// ============================================================================
+// LIQUIDACIÓN DETALLE (BULK)
+// ============================================================================
+
+use std::collections::HashMap;
+
+/// Request para obtener detalle bulk de liquidación
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct LiquidacionDetalleRequest {
+    pub file_ids: Vec<i32>,
+}
+
+/// Tour detalle con info del tour (nombre, precio, fecha, etc.)
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct LiquidacionTourDetalle {
+    pub id: i32,
+    pub id_file: i32,
+    pub id_tour: i32,
+    pub orden: i32,
+    pub precio_aplicado: Option<String>,
+    pub fecha_tour: Option<String>,
+    pub turno_tour: Option<String>,
+    pub status: String,
+    pub nro_pasajeros: Option<i32>,
+    pub tour_nombre: Option<String>,
+    pub tour_precio_base: Option<String>,
+}
+
+/// Entrada con nombre y precio resuelto
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct LiquidacionEntradaDetalle {
+    pub id: i32,
+    pub id_file_tour: i32,
+    pub id_entrada: i32,
+    pub cantidad: i32,
+    pub id_entrada_precio: Option<i32>,
+    pub status: String,
+    pub entrada_nombre: Option<String>,
+    pub entrada_precio: Option<String>,
+}
+
+/// Restaurante con nombre resuelto
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct LiquidacionRestauranteDetalle {
+    pub id: i32,
+    pub id_file_tour: i32,
+    pub id_restaurante: i32,
+    pub precio: Option<String>,
+    pub status: String,
+    pub restaurante_nombre: Option<String>,
+}
+
+/// Precio de entrada detallado
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct LiquidacionPrecioDetalle {
+    pub id: i32,
+    pub id_entrada: i32,
+    pub tipo_precio: String,
+    pub edad_minima: i32,
+    pub edad_maxima: Option<i32>,
+    pub precio: String,
+    pub rango_label: String,
+}
+
+/// Respuesta completa con todos los datos agrupados para generar PDF/Excel 
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct LiquidacionDetalleResponse {
+    /// Tours por file_id: { "file_id": [tours] }
+    #[ts(type = "Record<number, LiquidacionTourDetalle[]>")]
+    pub tours_by_file: HashMap<i32, Vec<LiquidacionTourDetalle>>,
+    /// Entradas por file_tour_id: { "ft_id": [entradas] }
+    #[ts(type = "Record<number, LiquidacionEntradaDetalle[]>")]
+    pub entradas_by_file_tour: HashMap<i32, Vec<LiquidacionEntradaDetalle>>,
+    /// Restaurantes por file_tour_id: { "ft_id": [restaurantes] }
+    #[ts(type = "Record<number, LiquidacionRestauranteDetalle[]>")]
+    pub restaurantes_by_file_tour: HashMap<i32, Vec<LiquidacionRestauranteDetalle>>,
+    /// Precios de entrada por id: { "precio_id": precio }
+    #[ts(type = "Record<number, LiquidacionPrecioDetalle>")]
+    pub precios_by_id: HashMap<i32, LiquidacionPrecioDetalle>,
+    /// Número de pasajeros por file_id: { "file_id": nro }
+    #[ts(type = "Record<number, number>")]
+    pub nro_pasajeros_by_file: HashMap<i32, i32>,
+}
