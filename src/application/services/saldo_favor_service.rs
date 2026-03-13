@@ -235,11 +235,8 @@ impl SaldoFavorService {
         let _ = self.file_status_service.update_file_status(request.id_file, "cancelado").await?;
         info!("File {} y sus relaciones actualizados a status 'cancelado'", request.id_file);
 
-        // Actualizar monto_total del file a 0 (todo cancelado)
         let mut updated_file = file.clone();
         updated_file.status = "cancelado".to_string();
-        updated_file.monto_total = zero.clone();
-        updated_file.monto_pagado = zero.clone();
         updated_file.updated_at = chrono::Utc::now();
         updated_file.notas = request.notas.clone();
         self.file_repo.update(&updated_file).await?;
