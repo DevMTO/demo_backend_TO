@@ -944,6 +944,9 @@ impl SaldoFavorService {
             info!("BTG/BTP transferred from tour {} to {}. Amount: {}", id_file_tour, next_tour.id, monto_transferido);
         }
 
+        // Refresh all_pagos after Phase 3 updates (database was modified)
+        let all_pagos = self.pago_file_repo.find_all_by_file(file.id).await?;
+
         // ========================================================================
         // PHASE 4: TRANSFER PAID AMOUNTS TO REMAINING TOURS
         // ========================================================================
@@ -951,6 +954,9 @@ impl SaldoFavorService {
         let monto_pagado_total: BigDecimal = pagos_del_tour.iter()
             .map(|p| &p.monto_pagado)
             .fold(zero.clone(), |acc, m| acc + m);
+
+        // Get number of passengers for this tour
+        let nro_pasajeros = ft.nro_pasajeros.unwrap_or(0);
 
         // For no-show: get base tour price from tarifas table (not precio_aplicado which includes extras)
         // For cancellation: all paid amount transfers to next tours
@@ -966,15 +972,17 @@ impl SaldoFavorService {
                 .unwrap_or_else(|| ft.precio_aplicado.clone().unwrap_or_else(|| zero.clone()))
         };
 
+        // Multiply by number of passengers to get total tour price
+        let precio_base_tour_total = precio_base_tour * BigDecimal::from(nro_pasajeros);
+
         let monto_original = monto_pagado_total.clone();
         let monto_original_clone = monto_original.clone();
-        let precio_base_tour_clone = precio_base_tour.clone();
+        let precio_base_tour_total_clone = precio_base_tour_total.clone();
 
         let mut monto_restante = if pasar_a_saldo_favor {
             monto_pagado_total
         } else {
-            // Company keeps precio_base_tour, only excess transfers
-            (monto_original - &precio_base_tour).max(zero.clone())
+            monto_transferido.clone()
         };
 
         if monto_restante > zero {
@@ -1018,11 +1026,8 @@ impl SaldoFavorService {
 
                 if let Some(deuda) = deuda {
                     let base_pagado = deuda.monto_pagado.clone();
-                    let base_total = if Some(tour_sig.id) == siguiente_tour.map(|t| t.id) {
-                        &deuda.monto_total + &monto_transferido
-                    } else {
-                        deuda.monto_total.clone()
-                    };
+                    // Note: deuda.monto_total already includes monto_transferido from Phase 3
+                    let base_total = deuda.monto_total.clone();
 
                     let nuevo_pagado = &base_pagado + &a_transferir;
                     let estado_deuda_nuevo = if &base_total - &nuevo_pagado <= tolerancia {
@@ -1065,8 +1070,10 @@ impl SaldoFavorService {
         let mut saldo_favor_aplicado = false;
 
         // Pre-calculate monto_a_pagar for no-show (used when BTG/BTP transferred)
+        // Priority: 1) Pay BTG/BTP tickets, 2) Company keeps up to precio_base_tour_total
         let monto_a_pagar_para_no_show = if monto_transferido > zero && !pasar_a_saldo_favor {
-            Some(monto_original_clone.min(precio_base_tour_clone))
+            let monto_despues_btgbttp = (monto_original_clone - &monto_transferido).max(zero.clone());
+            Some(monto_despues_btgbttp.min(precio_base_tour_total_clone))
         } else {
             None
         };
