@@ -108,6 +108,10 @@ impl SaldoFavorService {
         all_tours: &[crate::infrastructure::persistence::models::FileTourWithTourModel],
         operacion: &str,
     ) -> Result<(), ApplicationError> {
+        if Self::is_debug_mode() {
+            return Ok(());
+        }
+
         let primera_fecha: NaiveDate = all_tours.iter()
             .filter(|t| t.status != "cancelado" && t.status != "no_show")
             .filter_map(|t| t.fecha_tour)
@@ -161,6 +165,12 @@ impl SaldoFavorService {
             }
             _ => Err(ApplicationError::Validation("Operación no válida".into())),
         }
+    }
+
+    fn is_debug_mode() -> bool {
+        std::env::var("DEBUG")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(false)
     }
 
     // ========================================================================
