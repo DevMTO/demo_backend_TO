@@ -14,7 +14,7 @@ use crate::infrastructure::persistence::models::{
     NewPagoFileModel, NewPagoProveedorModel,
     UpdatePagoFileModel, UpdatePagoProveedorModel,
 };
-use crate::infrastructure::persistence::schema::{file_tours, pagos_files, pagos_proveedores};
+use crate::infrastructure::persistence::schema::{pagos_files, pagos_proveedores};
 
 pub struct PostgresPagoFileRepository {
     pool: DatabasePool,
@@ -247,50 +247,6 @@ impl PagoProveedorRepositoryPort for PostgresPagoProveedorRepository {
         pagos_proveedores::table
             .filter(pagos_proveedores::id_file_tour.eq(id_file_tour))
             .load::<PagoProveedorModel>(&mut conn).await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))
-    }
-
-    #[instrument(skip(self))]
-    async fn find_by_tipo_tour_fecha(&self, tipo_proveedor: &str, provider_id: i32, tour_id: i32, fecha_tour: NaiveDate, exclude_id: Option<i32>) -> Result<Vec<PagoProveedorModel>, ApplicationError> {
-        let mut conn = self.pool.get_connection().await?;
-        
-        let file_tour_ids: Vec<i32> = file_tours::table
-            .filter(file_tours::id_tour.eq(tour_id))
-            .filter(file_tours::fecha_tour.eq(fecha_tour))
-            .select(file_tours::id)
-            .load::<i32>(&mut conn).await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        
-        if file_tour_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-        
-        let mut query = pagos_proveedores::table
-            .filter(pagos_proveedores::tipo_proveedor.eq(tipo_proveedor))
-            .filter(pagos_proveedores::id_file_tour.eq_any(file_tour_ids))
-            .into_boxed();
-        
-        match tipo_proveedor {
-            "transporte" => {
-                query = query.filter(pagos_proveedores::id_transporte.eq(provider_id));
-            },
-            "restaurante" => {
-                query = query.filter(pagos_proveedores::id_restaurante.eq(provider_id));
-            },
-            "guia" => {
-                query = query.filter(pagos_proveedores::id_guia.eq(provider_id));
-            },
-            "entrada" => {
-                query = query.filter(pagos_proveedores::id_entrada.eq(provider_id));
-            },
-            _ => {},
-        }
-        
-        if let Some(id) = exclude_id {
-            query = query.filter(pagos_proveedores::id.ne(id));
-        }
-        
-        query.load::<PagoProveedorModel>(&mut conn).await
             .map_err(|e| ApplicationError::Repository(e.to_string()))
     }
 
