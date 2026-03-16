@@ -96,6 +96,10 @@ pub struct PagoFileResponse {
     pub cuota: Option<i16>,
     /// Tipo de entidad: "agencias" o "hoteles"
     pub entidad: Option<String>,
+    /// Fecha de inicio del file (fecha de operación/salida)
+    pub fecha_inicio: Option<String>,
+    /// Fecha de fin del file
+    pub fecha_fin: Option<String>,
 }
 
 /// Request para registrar pago de file (agencia sube comprobante)

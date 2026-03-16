@@ -992,12 +992,11 @@ impl ContabilidadService {
         agencia_nombre: Option<String>,
         calculated_monto_pendiente: Option<BigDecimal>,
     ) -> PagoFileResponse {
-        // Obtener codigo del file
-        let file_code = if let Ok(Some(file)) = self.file_repository.find_by_id(p.id_file).await {
-            file.file_code
-        } else {
-            None
-        };
+        // Obtener datos del file (codigo, fecha_inicio, fecha_fin)
+        let file_data = self.file_repository.find_by_id(p.id_file).await.ok().flatten();
+        let file_code = file_data.as_ref().and_then(|f| f.file_code.clone());
+        let fecha_inicio = file_data.as_ref().map(|f| f.fecha_inicio.to_string());
+        let fecha_fin = file_data.as_ref().map(|f| f.fecha_fin.to_string());
 
         let monto_pendiente = calculated_monto_pendiente.unwrap_or_else(|| &p.monto_total - &p.monto_pagado);
 
@@ -1052,6 +1051,8 @@ impl ContabilidadService {
             entrada_precio: p.entrada_precio.as_ref().and_then(|v| v.to_f64()),
             cuota: p.cuota,
             entidad: p.entidad,
+            fecha_inicio,
+            fecha_fin,
         }
     }
 
