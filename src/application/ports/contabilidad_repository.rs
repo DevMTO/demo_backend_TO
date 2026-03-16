@@ -37,6 +37,5 @@ pub trait PagoProveedorRepositoryPort: Send + Sync {
     async fn update(&self, id: i32, data: UpdatePagoProveedorModel<'_>) -> Result<PagoProveedorModel, ApplicationError>;
     async fn find_by_file_relation(&self, tipo_proveedor: &str, id_file_vehiculo: Option<i32>, id_file_restaurante: Option<i32>, id_file_guia: Option<i32>, id_file_entrada: Option<i32>) -> Result<Option<PagoProveedorModel>, ApplicationError>;
     async fn find_by_file_tour(&self, id_file_tour: i32) -> Result<Vec<PagoProveedorModel>, ApplicationError>;
-    async fn find_by_tipo_tour_fecha(&self, tipo_proveedor: &str, provider_id: i32, tour_id: i32, fecha_tour: chrono::NaiveDate, exclude_id: Option<i32>) -> Result<Vec<PagoProveedorModel>, ApplicationError>;
     async fn update_status(&self, id: i32, estado: &str) -> Result<PagoProveedorModel, ApplicationError>;
 }

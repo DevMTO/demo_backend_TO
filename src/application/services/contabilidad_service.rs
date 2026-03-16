@@ -9,7 +9,7 @@ use std::sync::Arc;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, Utc};
 use std::str::FromStr;
-use tracing::{error, info, instrument, warn};
+use tracing::{info, instrument, warn};
 
 use crate::application::dtos::contabilidad_dto::{
     AgenciaContabilidadDashboard,
@@ -651,9 +651,6 @@ impl ContabilidadService {
         self.file_repository.update(&file).await?;
         info!("File {} monto_pagado actualizado a S/ {}", id_file, nuevo_total_pagado);
 
-        // 5.1. Distribuir monto_pagado a pagos_proveedores (lógica centralizada)
-        self.propagar_pagos_a_proveedores(id_file, None).await?;
-
         // 6. Obtener el último registro afectado para respuesta
         let pago_id = ultimo_pago_id.unwrap_or(pago_original.id);
         let pago_registrado = self.pago_file_repository.find_by_id(pago_id).await?
@@ -736,9 +733,6 @@ impl ContabilidadService {
         
         if request.aprobado {
             info!("Pago de file {} aprobado por {} - estado: {}", request.id_pago_file, verificado_por, estado);
-            
-            // Propagar pagos a proveedores (lógica centralizada)
-            self.propagar_pagos_a_proveedores(pago_actualizado.id_file, Some(verificado_por)).await?;
             
             // Notificar a la agencia que su pago fue aprobado
             let (roles_notif, titulo) = if estado == "pagado" {
@@ -930,194 +924,37 @@ impl ContabilidadService {
         request: MarcarPagoProveedorPagadoRequest,
         pagado_by: i32,
     ) -> Result<PagoProveedorResponse, ApplicationError> {
-        let zero = BigDecimal::from_str("0").unwrap();
-        let tolerancia = BigDecimal::from_str("0.01").unwrap();
-        
         let pago = self.pago_proveedor_repository
             .find_by_id(id_pago_proveedor)
             .await?
             .ok_or_else(|| ApplicationError::NotFound(format!("Pago {} no encontrado", id_pago_proveedor)))?;
-        
+
         if pago.estado == "pagado" {
             return Err(ApplicationError::Validation("El pago ya fue marcado como pagado".to_string()));
         }
-        
-        let monto_original = pago.monto_pagado.clone().unwrap_or(zero.clone());
-        let monto_final = request.monto.clone().unwrap_or(pago.monto_total.clone());
-        let monto_pagado_final = request.monto_pagado.clone().or(Some(monto_final.clone()));
-        
-        let extra_monto = &monto_final - &monto_original;
-        
-        let comprobante_url: Option<&str> = request.comprobante_url.as_deref();
-        let comprobante_key: Option<&str> = None;
-        
-        if extra_monto > zero.clone() {
-            if let Some(id_file_tour) = pago.id_file_tour {
-                if let Ok(Some(file_tour)) = self.file_tour_repository.find_by_id(id_file_tour).await {
-                    let tour_id = file_tour.id_tour;
-                    if let Some(fecha_tour) = file_tour.fecha_tour {
-                        let provider_id = match pago.tipo_proveedor.as_str() {
-                            "transporte" => pago.id_transporte.unwrap_or(0),
-                            "restaurante" => pago.id_restaurante.unwrap_or(0),
-                            "guia" => pago.id_guia.unwrap_or(0),
-                            "entrada" => pago.id_entrada.unwrap_or(0),
-                            _ => 0,
-                        };
-                        
-                        if provider_id > 0 {
-                            let related_pagos = self.pago_proveedor_repository
-                                .find_by_tipo_tour_fecha(
-                                    &pago.tipo_proveedor,
-                                    provider_id,
-                                    tour_id,
-                                    fecha_tour,
-                                    Some(id_pago_proveedor),
-                                )
-                                .await?;
-                            
-                            if !related_pagos.is_empty() {
-                                let total_monto_related: BigDecimal = related_pagos.iter()
-                                    .map(|p| &p.monto_total)
-                                    .fold(zero.clone(), |acc, m| acc + m);
-                                
-                                for related in &related_pagos {
-                                    let proporcion = if total_monto_related > zero {
-                                        &related.monto_total / &total_monto_related
-                                    } else {
-                                        zero.clone()
-                                    };
-                                    
-                                    let monto_extra_related = &extra_monto * &proporcion;
-                                    let monto_pagado_related = related.monto_pagado.clone().unwrap_or(zero.clone());
-                                    let nuevo_monto_pagado = &monto_pagado_related + &monto_extra_related;
-                                    
-                                    let nuevo_estado = if &related.monto_total - &nuevo_monto_pagado <= tolerancia {
-                                        "pagado"
-                                    } else if nuevo_monto_pagado > zero {
-                                        "parcial"
-                                    } else {
-                                        "pendiente"
-                                    };
-                                    
-                                    let update = UpdatePagoProveedorModel {
-                                        monto_total: None,
-                                        estado: Some(nuevo_estado),
-                                        fecha_pago: if nuevo_estado == "pagado" { Some(Utc::now()) } else { None },
-                                        comprobante_url: None,
-                                        comprobante_key: None,
-                                        notas: None,
-                                        pagado_by: Some(pagado_by),
-                                        monto_pagado: Some(nuevo_monto_pagado),
-                                    };
-                                    
-                                    if let Err(e) = self.pago_proveedor_repository.update(related.id, update).await {
-                                        error!("Error actualizando pago proveedor relacionado {}: {}", related.id, e);
-                                    } else {
-                                        info!("Pago proveedor relacionado {} actualizado: monto_pagado += {}, estado={}", 
-                                            related.id, monto_extra_related, nuevo_estado);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
+
+        let monto_pagado_final = request.monto_pagado.clone()
+            .or(request.monto.clone())
+            .unwrap_or(pago.monto_total.clone());
+
         let update = UpdatePagoProveedorModel {
             monto_total: request.monto.clone(),
             estado: Some("pagado"),
             fecha_pago: Some(Utc::now()),
-            comprobante_url,
-            comprobante_key,
+            comprobante_url: request.comprobante_url.as_deref(),
+            comprobante_key: None,
             notas: request.notas.as_deref(),
             pagado_by: Some(pagado_by),
-            monto_pagado: monto_pagado_final,
+            monto_pagado: Some(monto_pagado_final),
         };
-        
+
         let pago_actualizado = self.pago_proveedor_repository
             .update(id_pago_proveedor, update)
             .await?;
-        
+
         info!("Pago a proveedor {} marcado como pagado por {}", id_pago_proveedor, pagado_by);
-        
+
         Ok(self.pago_proveedor_to_response(pago_actualizado).await)
-    }
-
-    // ========================================================================
-    // HELPERS — PROPAGACIÓN A PROVEEDORES
-    // ========================================================================
-
-    /// Propaga pagos proporcionalmente a pagos_proveedores de cada file_tour.
-    /// Usado por registrar_pago_file y verificar_pago_file.
-    async fn propagar_pagos_a_proveedores(
-        &self,
-        id_file: i32,
-        pagado_by: Option<i32>,
-    ) -> Result<(), ApplicationError> {
-        let all_records = self.pago_file_repository.find_all_by_file(id_file).await?;
-        let zero = BigDecimal::from_str("0").unwrap();
-        let tolerancia = BigDecimal::from_str("0.01").unwrap();
-
-        let file_tours = self.file_tour_repository.find_by_file_with_tour(id_file).await?;
-        for ft in &file_tours {
-            let pagos_proveedores = self.pago_proveedor_repository
-                .find_by_file_tour(ft.id)
-                .await?;
-
-            if pagos_proveedores.is_empty() {
-                continue;
-            }
-
-            let monto_total_tour: BigDecimal = all_records.iter()
-                .filter(|p| p.id_file_tour == Some(ft.id) && p.tipo_registro == "deuda")
-                .map(|p| &p.monto_total)
-                .fold(zero.clone(), |acc, m| acc + m);
-
-            let monto_pagado_tour: BigDecimal = all_records.iter()
-                .filter(|p| p.id_file_tour == Some(ft.id))
-                .map(|p| &p.monto_pagado)
-                .fold(zero.clone(), |acc, m| acc + m);
-
-            info!("Propagar proveedores ft {}: total={}, pagado={}", ft.id, monto_total_tour, monto_pagado_tour);
-
-            for pp in &pagos_proveedores {
-                let proporcion = if monto_total_tour > zero {
-                    &pp.monto_total / &monto_total_tour
-                } else {
-                    zero.clone()
-                };
-
-                let monto_a_pagar_proveedor = &monto_pagado_tour * &proporcion;
-                let nuevo_monto_pagado = Some(monto_a_pagar_proveedor.clone());
-
-                let nuevo_estado = if &pp.monto_total - &monto_a_pagar_proveedor <= tolerancia {
-                    Some("pagado")
-                } else if monto_a_pagar_proveedor > zero {
-                    Some("parcial")
-                } else {
-                    None
-                };
-
-                let update = UpdatePagoProveedorModel {
-                    monto_total: None,
-                    estado: nuevo_estado,
-                    fecha_pago: nuevo_estado.map(|_| Utc::now()),
-                    comprobante_url: None,
-                    comprobante_key: None,
-                    notas: None,
-                    pagado_by,
-                    monto_pagado: nuevo_monto_pagado.clone(),
-                };
-
-                if let Err(e) = self.pago_proveedor_repository.update(pp.id, update).await {
-                    error!("Error actualizando pago proveedor {}: {}", pp.id, e);
-                } else {
-                    info!("Pago proveedor {} actualizado: monto_pagado={:?}, estado={:?}", pp.id, nuevo_monto_pagado, nuevo_estado);
-                }
-            }
-        }
-        Ok(())
     }
 
     // ========================================================================
