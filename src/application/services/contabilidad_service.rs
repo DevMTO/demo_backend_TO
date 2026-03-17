@@ -822,7 +822,7 @@ impl ContabilidadService {
                 saldo_autorizado_at: None,
                 entradas: pago.entradas,
                 entrada_precio: pago.entrada_precio.clone(),
-                cuota: Some(0),
+                cuota: pago.cuota.clone(),
                 pagado_por: None,
                 pagado_at: None,
             };
