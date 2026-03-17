@@ -282,9 +282,11 @@ impl FileStatusService {
             }
         }
 
+        /* Nuevo requisito: no propagar el estado a pagos_proveedores
         result = self
             .propagate_status_to_pagos_proveedores(file_tour_id, new_status, result)
             .await?;
+        */
 
         info!(
             "Cascada completada para FileTour {}: {} entidades actualizadas",
