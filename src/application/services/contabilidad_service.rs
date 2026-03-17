@@ -779,6 +779,31 @@ impl ContabilidadService {
             ).await {
                 warn!("Error al notificar a la agencia del pago rechazado: {}", e);
             }
+
+            // Duplicar la fila como pendiente para que la entidad vuelva a pagar
+            let nuevo_pago = NewPagoFileModel {
+                id_file: pago.id_file,
+                id_entidad: pago.id_entidad,
+                entidad: pago.entidad.as_deref(),
+                monto_total: pago.monto_total.clone(),
+                monto_pagado: BigDecimal::from(0),
+                estado: "pendiente",
+                fecha_vencimiento: pago.fecha_vencimiento,
+                notas: None,
+                created_by: Some(verificado_por),
+                id_file_tour: pago.id_file_tour,
+                tipo_registro: &pago.tipo_registro,
+                monto_saldo_favor: None,
+                saldo_autorizado: false,
+                saldo_autorizado_por: None,
+                saldo_autorizado_at: None,
+                entradas: pago.entradas,
+                entrada_precio: pago.entrada_precio.clone(),
+                cuota: Some(0),
+                pagado_por: None,
+                pagado_at: None,
+            };
+            self.pago_file_repository.create(nuevo_pago).await?;
         }
         
         if let Some(nota) = request.notas {
