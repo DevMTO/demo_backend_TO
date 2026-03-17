@@ -641,27 +641,18 @@ impl ContabilidadService {
             d.monto_pendiente -= &a_pagar;
         }
         
-        // 5. Actualizar monto_pagado en la tabla files
-        let nuevo_total_pagado = &monto_pagado_global + &request.monto;
-        let mut file = self.file_repository
-            .find_by_id(id_file)
-            .await?
-            .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", id_file)))?;
-        file.monto_pagado = nuevo_total_pagado.clone();
-        self.file_repository.update(&file).await?;
-        info!("File {} monto_pagado actualizado a S/ {}", id_file, nuevo_total_pagado);
-
-        // 6. Obtener el último registro afectado para respuesta
+        // 5. Obtener el último registro afectado para respuesta
         let pago_id = ultimo_pago_id.unwrap_or(pago_original.id);
         let pago_registrado = self.pago_file_repository.find_by_id(pago_id).await?
             .ok_or_else(|| ApplicationError::NotFound("Pago no encontrado después de registrar".into()))?;
 
-        let deuda_saldada = nuevo_total_pagado >= (&monto_total_file - &tolerancia);
+        let monto_pendiente = &monto_total_file - &monto_pagado_global;
+        let deuda_saldada = request.monto >= (&monto_pendiente - &tolerancia);
         
-        info!("Pago distribuido para file {}: S/ {} (total pagado: S/ {}, total deuda: S/ {})", 
-            id_file, request.monto, nuevo_total_pagado, monto_total_file);
+        info!("Pago distribuido para file {}: S/ {} (pendiente actual: S/ {})", 
+            id_file, request.monto, monto_pendiente);
 
-        // 7. Preparar respuesta y notificaciones
+        // 6. Preparar respuesta y notificaciones
         let agencia_nombre = self.resolve_entity_name(id_entidad, pago_original.entidad.as_deref()).await;
         
         let estado_texto = if deuda_saldada { "completo" } else { "parcial" };
@@ -675,13 +666,13 @@ impl ContabilidadService {
             vec![UserRole::SuperAdmin, UserRole::Admin],
             titulo_notif,
             &format!(
-                "Se ha registrado un pago {} para el file #{}.\nAgencia: {}\nMonto pagado ahora: S/ {}\nMonto total deuda: S/ {}\nNuevo pendiente: S/ {}\n\nEl pago está pendiente de verificación.",
+                "Se ha registrado un pago {} para el file #{}.\nAgencia: {}\nMonto pagado ahora: S/ {}\nMonto total deuda: S/ {}\nPendiente actual: S/ {}\n\nEl pago está pendiente de verificación.",
                 estado_texto,
                 id_file,
                 agencia_nombre.clone().unwrap_or_else(|| "Desconocida".to_string()),
                 request.monto,
                 monto_total_file,
-                &monto_total_file - &nuevo_total_pagado
+                monto_pendiente
             ),
             if deuda_saldada { NotificationType::Success } else { NotificationType::Info },
             NotificationCategory::Financial,
@@ -733,6 +724,28 @@ impl ContabilidadService {
         
         if request.aprobado {
             info!("Pago de file {} aprobado por {} - estado: {}", request.id_pago_file, verificado_por, estado);
+            
+            // Actualizar monto_pagado en la tabla files
+            let id_file = pago_actualizado.id_file;
+            let cuota_verificada = pago_actualizado.cuota;
+            let all_pagos = self.pago_file_repository.find_all_by_file(id_file).await?;
+            let zero = BigDecimal::from_str("0").unwrap();
+            let monto_cuota: BigDecimal = all_pagos.iter()
+                .filter(|p| p.cuota == cuota_verificada)
+                .map(|p| &p.monto_pagado)
+                .fold(zero.clone(), |acc, m| acc + m);
+            
+            let file = self.file_repository
+                .find_by_id(id_file)
+                .await?
+                .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", id_file)))?;
+            let monto_pagado_anterior = file.monto_pagado.clone();
+            let monto_pagado_nuevo = &monto_pagado_anterior + &monto_cuota;
+            let mut file_update = file.clone();
+            file_update.monto_pagado = monto_pagado_nuevo.clone();
+            self.file_repository.update(&file_update).await?;
+            info!("File {} monto_pagado actualizado de S/ {} a S/ {} tras verificación de cuota {:?} (monto cuota: S/ {})", 
+                id_file, monto_pagado_anterior, monto_pagado_nuevo, cuota_verificada, monto_cuota);
             
             // Notificar a la agencia que su pago fue aprobado
             let (roles_notif, titulo) = if estado == "pagado" {
