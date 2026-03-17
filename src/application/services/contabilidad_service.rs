@@ -279,29 +279,12 @@ impl ContabilidadService {
         file_ids.sort_unstable();
         file_ids.dedup();
 
-        // Para cada file, calcular totales correctos (sumando TODAS las deudas y pagos)
-        // clave: id_file → (monto_total_file, monto_pagado_total_file)  
-        let mut file_pagos_totals: std::collections::HashMap<i32, (BigDecimal, BigDecimal)> = std::collections::HashMap::new();
-        // Adicionalmente, para cada file_tour calcular su pendiente individual
+        // Para cada file, calcular totales por file_tour (para monto_pendiente acumulativo)
         // clave: (id_file, id_file_tour) → (monto_total_tour, monto_pagado_acum_tour)
         let mut tour_pagos_totals: std::collections::HashMap<(i32, Option<i32>), (BigDecimal, BigDecimal)> = std::collections::HashMap::new();
         
         for id_file in file_ids {
             if let Ok(all_pagos) = self.pago_file_repository.find_all_by_file(id_file).await {
-                // monto_total del file = suma de monto_total de TODAS las deudas
-                let monto_total = all_pagos.iter()
-                    .filter(|p| p.tipo_registro == "deuda")
-                    .map(|p| &p.monto_total)
-                    .fold(BigDecimal::from_str("0").unwrap(), |acc, m| acc + m);
-
-                // monto_pagado global = suma de monto_pagado de deudas + pagos
-                let monto_pagado_total = all_pagos.iter()
-                    .filter(|p| p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "pago_final")
-                    .map(|p| &p.monto_pagado)
-                    .fold(BigDecimal::from_str("0").unwrap(), |acc, m| acc + m);
-
-                file_pagos_totals.insert(id_file, (monto_total, monto_pagado_total));
-                
                 // Calcular pendiente por file_tour (para deudas)
                 for deuda in all_pagos.iter().filter(|p| p.tipo_registro == "deuda") {
                     let pagado_en_deuda = deuda.monto_pagado.clone();
@@ -344,18 +327,6 @@ impl ContabilidadService {
                 // Para pagos, cancelaciones, etc: el pendiente no aplica directamente
                 BigDecimal::from_str("0").unwrap()
             };
-
-            // Para deudas, recalcular el estado efectivo basado en el pendiente real
-            // (puede haber pagos adicionales en registros tipo "pago" que cubren el restante)
-            let mut p = p;
-            if p.tipo_registro == "deuda" {
-                let tolerancia = BigDecimal::from_str("0.01").unwrap();
-                if monto_pendiente <= tolerancia {
-                    p.estado = "pagado".to_string();
-                } else if p.monto_pagado > BigDecimal::from_str("0").unwrap() {
-                    p.estado = "parcial".to_string();
-                }
-            }
 
             responses.push(self.pago_file_to_response_with_calculated_pending(p, agencia_nombre, Some(monto_pendiente)).await);
         }
