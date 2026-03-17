@@ -42,6 +42,8 @@ pub struct AgenciaContabilidadDashboard {
     pub files_pendientes: Vec<PagoFileResponse>,
     /// Ultimos pagos realizados
     pub ultimos_pagos: Vec<PagoFileResponse>,
+    /// Files con pagos rechazados por el admin
+    pub files_rechazados: Vec<PagoFileResponse>,
 }
 
 // ============================================================================

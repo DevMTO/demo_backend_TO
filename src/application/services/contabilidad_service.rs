@@ -134,11 +134,13 @@ impl ContabilidadService {
             .find_by_entidad(id_entidad, entidad, 1000, 0)
             .await?;
         
-        // Excluir pagos de files cancelados/no_show y registros que no sean deuda/pago
-        let pagos: Vec<_> = all_pagos.into_iter()
+        // Separar rechazados antes de agrupar (evita doble conteo con el nuevo pendiente)
+        let (rechazados, activos): (Vec<_>, Vec<_>) = all_pagos.into_iter()
             .filter(|p| p.estado != "cancelado" && p.estado != "no_show"
                 && (p.tipo_registro == "deuda" || p.tipo_registro == "pago" || p.tipo_registro == "pago_final"))
-            .collect();
+            .partition(|p| p.estado == "rechazado");
+
+        let pagos = activos;
         
         // Agrupar por id_file para calcular totales correctos
         let mut file_groups: std::collections::HashMap<i32, Vec<PagoFileModel>> = std::collections::HashMap::new();
@@ -217,7 +219,14 @@ impl ContabilidadService {
         }
         
         let monto_pendiente = &global_monto_total - &global_monto_pagado;
-        
+
+        // Construir respuestas individuales para rechazados
+        let mut files_rechazados: Vec<PagoFileResponse> = Vec::new();
+        for r in rechazados {
+            let response = self.pago_file_to_response(r, Some(nombre_entidad.clone())).await;
+            files_rechazados.push(response);
+        }
+
         Ok(AgenciaContabilidadDashboard {
             id_entidad,
             nombre_agencia: nombre_entidad,
@@ -229,6 +238,7 @@ impl ContabilidadService {
             tipo_vencimiento: tipo_vencimiento_val,
             files_pendientes,
             ultimos_pagos,
+            files_rechazados,
         })
     }
 
