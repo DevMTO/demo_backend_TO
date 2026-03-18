@@ -5,6 +5,10 @@ use serde_json::Value as JsonValue;
 use ts_rs::TS;
 use validator::Validate;
 
+use super::file_relations_dto::{
+    AssignEntradaToFileTourRequest, AssignGuiaToFileTourRequest,
+    AssignRestauranteToFileTourRequest, AssignVehiculoToFileTourRequest,
+};
 use super::geo_dto::GeoLocation;
 use crate::domain::entities::File;
 
@@ -506,4 +510,83 @@ pub struct UpdateFileTourRecojoResponse {
     pub old_geo_recojo: Option<GeoLocation>,
     /// La nueva geolocalización de recojo
     pub new_geo_recojo: Option<GeoLocation>,
+}
+
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct CreateFileTourWithServicesInput {
+    #[ts(optional)]
+    pub id: Option<i32>,
+    pub id_tour: i32,
+    pub orden: Option<i32>,
+    pub precio_aplicado: Option<f64>,
+    pub notas: Option<String>,
+    pub fecha_tour: Option<String>,
+    pub turno_tour: Option<String>,
+    pub lugar_recojo: Option<String>,
+    pub hora_recojo: Option<String>,
+    pub nro_pasajeros: Option<i32>,
+    pub status: Option<String>,
+    #[ts(optional)]
+    pub restaurante: Option<AssignRestauranteToFileTourRequest>,
+    #[ts(optional)]
+    pub vehiculo: Option<AssignVehiculoToFileTourRequest>,
+    #[ts(optional)]
+    pub guia: Option<AssignGuiaToFileTourRequest>,
+    #[ts(optional)]
+    #[serde(default)]
+    pub entradas: Option<Vec<AssignEntradaToFileTourRequest>>,
+}
+
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct CreateFileWithServicesRequest {
+    pub tours: Vec<CreateFileTourWithServicesInput>,
+    pub id_entidad: Option<i32>,
+    pub fecha_inicio: String,
+    pub fecha_fin: String,
+    pub notas: Option<String>,
+    pub monto_total: f64,
+    pub nro_pasajeros: Option<i32>,
+    pub file_code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct CreateFileWithServicesResponse {
+    pub id: i32,
+    pub file_code: Option<String>,
+    pub status: String,
+    pub tours: Vec<FileTourBasicDto>,
+}
+
+#[derive(Debug, Clone, Deserialize, Validate, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct UpdateFileWithServicesRequest {
+    pub tours: Vec<CreateFileTourWithServicesInput>,
+    #[validate(length(max = 30))]
+    pub status: Option<String>,
+    #[validate(range(min = 0.0))]
+    pub monto_total: Option<f64>,
+    #[validate(range(min = 0))]
+    pub nro_pasajeros: Option<i32>,
+    pub fecha_inicio: Option<String>,
+    pub fecha_fin: Option<String>,
+    #[validate(length(max = 50))]
+    pub file_code: Option<String>,
+    pub notas: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[ts(export_to = "../../frontend/src/domain/contracts/")]
+pub struct FileTourBasicDto {
+    pub id: i32,
+    pub id_tour: i32,
+    pub orden: i32,
+    pub status: String,
 }

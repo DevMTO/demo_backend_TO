@@ -1,4 +1,6 @@
 
+use diesel_async::scoped_futures::ScopedBoxFuture;
+use diesel_async::AsyncConnection;
 use diesel_async::pooled_connection::deadpool::Pool;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use diesel_async::{AsyncPgConnection, RunQueryDsl};
@@ -81,5 +83,18 @@ impl DatabasePool {
         .map_err(|e| ApplicationError::Configuration(format!("Migration task error: {}", e)))??;
         
         Ok(())
+    }
+
+    /// Ejecuta una función dentro de una transacción de base de datos.
+    /// Si la función devuelve un error, se hace rollback automáticamente.
+    pub async fn with_transaction<'a, R, E, F>(&self, f: F) -> Result<R, E>
+    where
+        F: for<'r> FnOnce(&'r mut deadpool::managed::Object<AsyncDieselConnectionManager<AsyncPgConnection>>) -> ScopedBoxFuture<'a, 'r, Result<R, E>> + Send + 'a,
+        E: From<diesel::result::Error> + From<ApplicationError> + Send + 'a,
+        R: Send + 'a,
+    {
+        let mut conn = self.get_connection().await
+            .map_err(E::from)?;
+        diesel_async::AsyncConnection::transaction(&mut conn, f).await
     }
 }

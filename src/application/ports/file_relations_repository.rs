@@ -14,7 +14,10 @@ use chrono::{NaiveDate, NaiveTime};
 use serde_json::Value as JsonValue;
 use crate::domain::errors::ApplicationError;
 
-// Importamos los modelos que necesitamos
+use crate::application::dtos::file_dto::{
+    CreateFileTourWithServicesInput, CreateFileWithServicesResponse, FileTourBasicDto,
+};
+
 use crate::infrastructure::persistence::models::{
     FileEntradaModel, FileGuiaModel, FileGuiaWithPersonaModel, FilePasajeroModel, 
     FilePasajeroWithPersonaModel, FileRestauranteModel, 
@@ -137,4 +140,24 @@ pub trait FileTourRepositoryPort: Send + Sync {
     async fn update_recojo(&self, id: i32, hora_recojo: Option<chrono::NaiveTime>, lugar_recojo: Option<String>, geo_recojo: Option<serde_json::Value>) -> Result<FileTourModel, ApplicationError>;
     /// Actualiza el precio_aplicado de un file_tour
     async fn update_precio_aplicado(&self, id: i32, precio_aplicado: Option<BigDecimal>) -> Result<FileTourModel, ApplicationError>;
+
+    async fn create_file_with_services(
+        &self,
+        id_entidad: i32,
+        entidad: Option<String>,
+        fecha_inicio: NaiveDate,
+        fecha_fin: NaiveDate,
+        monto_total: BigDecimal,
+        nro_pasajeros: i32,
+        file_code: Option<String>,
+        tours: Vec<CreateFileTourWithServicesInput>,
+        created_by: Option<i32>,
+    ) -> Result<CreateFileWithServicesResponse, ApplicationError>;
+
+    async fn update_file_with_services(
+        &self,
+        file_id: i32,
+        tours: Vec<CreateFileTourWithServicesInput>,
+        created_by: Option<i32>,
+    ) -> Result<CreateFileWithServicesResponse, ApplicationError>;
 }

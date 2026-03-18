@@ -4,7 +4,7 @@ use axum::{extract::State, response::IntoResponse, Json};
 use tracing::{info, instrument};
 use validator::Validate;
 
-use crate::application::dtos::{AuditInfo, CreateFileRequest, ConfirmReservaRequest};
+use crate::application::dtos::{AuditInfo, CreateFileRequest, ConfirmReservaRequest, CreateFileWithServicesRequest};
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::UserRole;
 use crate::presentation::routes::AppState;
@@ -108,4 +108,25 @@ pub async fn confirmar_reserva(
         .await?;
 
     Ok(json_ok(response))
+}
+
+#[instrument(skip(state, auth, request))]
+pub async fn create_file_with_services(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(request): Json<CreateFileWithServicesRequest>
+) -> Result<impl IntoResponse, ApplicationError> {
+    request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
+
+    let response = state.container.file_service
+        .create_file_with_services(
+            request,
+            auth.user.id,
+            Some(auth.user.username.clone()),
+            auth.user.role.clone(),
+            auth.user.id_entidad,
+        )
+        .await?;
+
+    Ok(json_created(response))
 }

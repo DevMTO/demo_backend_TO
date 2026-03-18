@@ -1,7 +1,7 @@
 //! Rutas de files
 
 use axum::{
-    routing::{delete, get, patch, post},
+    routing::{delete, get, patch, post, put},
     Router,
 };
 
@@ -23,12 +23,14 @@ pub fn file_routes() -> Router<AppState> {
         .route("/agencia/{agencia_id}", get(file::list_files_by_agencia))
         // ===== Endpoint de confirmación de reserva =====
         .route("/confirmar", post(file::confirmar_reserva))
+        .route("/with-services", post(file::create_file_with_services))
         .route(
             "/{id}",
             get(file::get_file)
                 .put(file::update_file)
                 .delete(file::delete_file),
         )
+        .route("/{id}/with-services", put(file::update_file_with_services))
         .route("/{id}/restore", patch(file::restore_file))
         .route("/{id}/hard-delete", delete(file::hard_delete_file))
         // Chat/Notas

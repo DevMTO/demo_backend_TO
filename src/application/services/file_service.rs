@@ -13,10 +13,13 @@ use std::sync::Arc;
 use chrono::{NaiveDate, Datelike, Duration, Utc};
 use bigdecimal::BigDecimal;
 use tracing::{info, warn, instrument};
+use validator::Validate;
 
 use crate::application::dtos::{
     CreateFileRequest, UpdateFileRequest, FileResponse, FileTourDto,
     ConfirmReservaRequest, ConfirmReservaResponse,
+    CreateFileWithServicesRequest, CreateFileWithServicesResponse,
+    UpdateFileWithServicesRequest,
 };
 use crate::application::ports::{FileRepositoryPort, PaginationOptions, NotificationServicePort};
 use crate::application::ports::{FileTourRepositoryPort, FileTourInputData, PagoFileRepositoryPort, AgenciaRepositoryPort};
@@ -313,6 +316,128 @@ impl FileService {
         // NOTE: Deliberadamente se omitido 'Notificación a admins'
         
         Ok(self.build_file_response(created, tours_dto).await)
+    }
+
+    /// Crear un file con tours, restaurantes, entradas y vehículos en una sola transacción atómica.
+    /// Si cualquier operación falla, se hace rollback de todo.
+    #[instrument(skip(self, request))]
+    pub async fn create_file_with_services(
+        &self,
+        request: CreateFileWithServicesRequest,
+        created_by: i32,
+        created_by_username: Option<String>,
+        user_role: UserRole,
+        user_id_entidad: Option<i32>,
+    ) -> Result<CreateFileWithServicesResponse, ApplicationError> {
+        request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
+
+        if request.tours.is_empty() {
+            return Err(ApplicationError::Validation(
+                "Debe especificar al menos un tour para el file".to_string()
+            ));
+        }
+
+        let id_entidad_resolved = match user_role {
+            UserRole::Agencias | UserRole::Hoteles => {
+                user_id_entidad.ok_or_else(|| {
+                    ApplicationError::Validation("Usuario sin id_entidad configurado".to_string())
+                })?
+            },
+            UserRole::HotelesGerente => {
+                let target_hotel_id = request.id_entidad.ok_or_else(|| {
+                    ApplicationError::Validation("Debe seleccionar un hotel para crear el file".to_string())
+                })?;
+                let id_cadena = user_id_entidad.unwrap_or(0);
+                if let Ok(Some(hotel)) = self.hotel_repository.find_by_id(target_hotel_id).await {
+                    if hotel.id_cadena != id_cadena {
+                        return Err(ApplicationError::Forbidden("El hotel seleccionado no pertenece a tu cadena".to_string()));
+                    }
+                } else {
+                    return Err(ApplicationError::Validation("Hotel inválido".to_string()));
+                }
+                target_hotel_id
+            },
+            _ => {
+                request.id_entidad.ok_or_else(|| {
+                    ApplicationError::Validation("Debe seleccionar una entidad para crear el file".to_string())
+                })?
+            }
+        };
+
+        let entidad = match user_role {
+            UserRole::Hoteles | UserRole::HotelesGerente => Some("hoteles".to_string()),
+            _ => Some("agencias".to_string()),
+        };
+
+        let fecha_inicio = NaiveDate::parse_from_str(&request.fecha_inicio, "%Y-%m-%d")
+            .map_err(|_| ApplicationError::Validation("fecha_inicio inválida".to_string()))?;
+        let fecha_fin = NaiveDate::parse_from_str(&request.fecha_fin, "%Y-%m-%d")
+            .map_err(|_| ApplicationError::Validation("fecha_fin inválida".to_string()))?;
+
+        let monto_total = BigDecimal::try_from(request.monto_total).unwrap_or_default();
+        let nro_pasajeros = request.nro_pasajeros.unwrap_or(0);
+
+        let response = self.file_tour_repository
+            .create_file_with_services(
+                id_entidad_resolved,
+                entidad,
+                fecha_inicio,
+                fecha_fin,
+                monto_total,
+                nro_pasajeros,
+                request.file_code,
+                request.tours,
+                Some(created_by),
+            )
+            .await?;
+
+        info!("File {} creado con servicios (batch)", response.id);
+
+        if let Err(e) = self.logging_service.log_create::<File>(
+            Some(created_by),
+            created_by_username,
+            EntityType::File,
+            response.id,
+            &format!("File #{} - {} a {} ({} tours)", response.id, fecha_inicio, fecha_fin, response.tours.len()),
+            None,
+            None,
+        ).await {
+            warn!("Error al registrar log de creación de file con servicios: {}", e);
+        }
+
+        Ok(response)
+    }
+
+    /// Actualizar un file existente con tours, restaurantes, entradas y vehículos en una sola transacción atómica.
+    #[instrument(skip(self, request))]
+    pub async fn update_file_with_services(
+        &self,
+        id: i32,
+        request: UpdateFileWithServicesRequest,
+        updated_by: i32,
+    ) -> Result<CreateFileWithServicesResponse, ApplicationError> {
+        request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
+
+        let response = self.file_tour_repository
+            .update_file_with_services(id, request.tours, Some(updated_by))
+            .await?;
+
+        info!("File {} actualizado con servicios (batch)", response.id);
+
+        if let Err(e) = self.logging_service.log_update::<File>(
+            Some(updated_by),
+            None,
+            EntityType::File,
+            id,
+            None,
+            None,
+            None,
+            None,
+        ).await {
+            warn!("Error al registrar log de actualización de file con servicios: {}", e);
+        }
+
+        Ok(response)
     }
 
     /// Actualizar un file existente

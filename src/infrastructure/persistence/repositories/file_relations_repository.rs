@@ -1,11 +1,14 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use diesel::prelude::*;
 use diesel::sql_types::{Integer, Nullable, Text, Timestamptz};
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use bigdecimal::BigDecimal;
 use tracing::{info, instrument};
 
+use crate::application::dtos::file_dto::{
+    CreateFileTourWithServicesInput, CreateFileWithServicesResponse, FileTourBasicDto,
+};
 use crate::domain::errors::ApplicationError;
 use crate::infrastructure::persistence::{
     database::DatabasePool,
@@ -16,8 +19,9 @@ use crate::infrastructure::persistence::{
         FileRestauranteModel, NewFileRestauranteModel,
         FileVehiculoModel, FileVehiculoWithPersonaModel, NewFileVehiculoModel,
         FileTourModel, NewFileTourModel, FileTourWithTourModel,
+        NewFileModel, FileModel,
     },
-    schema::{file_entradas, file_guias, file_pasajeros, file_restaurantes, file_vehiculos, file_tours, tours},
+    schema::{file_entradas, file_guias, file_pasajeros, file_restaurantes, file_vehiculos, file_tours, tours, files},
 };
 
 // Importar traits y structs de input desde application/ports
@@ -1056,5 +1060,367 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
 
         info!("FileTour {} precio_aplicado actualizado a {:?}", id, precio_aplicado);
         Ok(result)
+    }
+
+    #[instrument(skip(self))]
+    async fn create_file_with_services(
+        &self,
+        id_entidad: i32,
+        entidad: Option<String>,
+        fecha_inicio: NaiveDate,
+        fecha_fin: NaiveDate,
+        monto_total: BigDecimal,
+        nro_pasajeros: i32,
+        file_code: Option<String>,
+        tours: Vec<CreateFileTourWithServicesInput>,
+        created_by: Option<i32>,
+    ) -> Result<CreateFileWithServicesResponse, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+
+        conn.transaction::<_, _, _>(|conn| {
+            Box::pin(async move {
+                let new_file = NewFileModel {
+                    id_entidad,
+                    entidad: entidad.as_deref(),
+                    fecha_inicio,
+                    fecha_fin,
+                    notas: None,
+                    status: "reservado",
+                    monto_total: monto_total.clone(),
+                    monto_pagado: BigDecimal::from(0),
+                    created_by,
+                    updated_by: None,
+                    is_active: true,
+                    nro_pasajeros,
+                    file_code: file_code.as_deref(),
+                    deadline_confirmacion: None,
+                };
+
+                let file: FileModel = diesel::insert_into(files::table)
+                    .values(&new_file)
+                    .returning(FileModel::as_returning())
+                    .get_result(conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(format!("Error creando file: {}", e)))?;
+
+                info!("File {} creado (batch)", file.id);
+
+                let mut file_tour_ids: Vec<i32> = Vec::new();
+                for tour_input in &tours {
+                    let orden = tour_input.orden.unwrap_or(1);
+                    let status = tour_input.status.clone().unwrap_or_else(|| "reservado".to_string());
+                    let precio = tour_input.precio_aplicado.map(|p| BigDecimal::try_from(p).unwrap_or_default());
+
+                    let hora_recojo: Option<NaiveTime> = tour_input.hora_recojo
+                        .as_ref()
+                        .and_then(|s| {
+                            let s = s.trim();
+                            if s.is_empty() {
+                                None
+                            } else if s.len() == 5 {
+                                NaiveTime::parse_from_str(s, "%H:%M").ok()
+                            } else {
+                                NaiveTime::parse_from_str(s, "%H:%M:%S").ok()
+                            }
+                        });
+
+                    let fecha_tour: Option<NaiveDate> = tour_input.fecha_tour
+                        .as_ref()
+                        .and_then(|s| {
+                            let s = s.trim();
+                            if s.is_empty() { None } else { NaiveDate::parse_from_str(s, "%Y-%m-%d").ok() }
+                        });
+
+                    let new_ft = NewFileTourModel {
+                        id_file: file.id,
+                        id_tour: tour_input.id_tour,
+                        orden,
+                        precio_aplicado: precio,
+                        notas: None,
+                        created_by,
+                        fecha_tour,
+                        turno_tour: tour_input.turno_tour.clone(),
+                        lugar_recojo: tour_input.lugar_recojo.clone(),
+                        hora_recojo,
+                        status,
+                        geo_recojo: None,
+                        nro_pasajeros: tour_input.nro_pasajeros,
+                    };
+
+                    let ft: FileTourModel = diesel::insert_into(file_tours::table)
+                        .values(&new_ft)
+                        .returning(FileTourModel::as_returning())
+                        .get_result(conn)
+                        .await
+                        .map_err(|e| ApplicationError::Repository(format!("Error creando file_tour: {}", e)))?;
+
+                    file_tour_ids.push(ft.id);
+                }
+
+                info!("{} tours creados para file {} (batch)", file_tour_ids.len(), file.id);
+
+                for (i, tour_input) in tours.iter().enumerate() {
+                    let ft_id = file_tour_ids[i];
+
+                    if let Some(ref rest) = tour_input.restaurante {
+                        let new_rest = NewFileRestauranteModel {
+                            id_file_tour: ft_id,
+                            id_restaurante: rest.id_restaurante,
+                            tipo_servicio: rest.tipo_servicio.as_deref(),
+                            created_by,
+                            precio: rest.precio.map(|p| BigDecimal::try_from(p).unwrap_or_default()),
+                            status: Some("reservado"),
+                        };
+                        let _: FileRestauranteModel = diesel::insert_into(file_restaurantes::table)
+                            .values(&new_rest)
+                            .returning(FileRestauranteModel::as_returning())
+                            .get_result(conn)
+                            .await
+                            .map_err(|e| ApplicationError::Repository(format!("Error asignando restaurante: {}", e)))?;
+                    }
+
+                    if let Some(entradas) = &tour_input.entradas {
+                        for entrada in entradas {
+                            let new_entrada = NewFileEntradaModel {
+                                id_file_tour: ft_id,
+                                id_entrada: entrada.id_entrada,
+                                cantidad: entrada.cantidad,
+                                created_by,
+                                id_entrada_precio: entrada.id_entrada_precio,
+                                status: Some("reservado"),
+                            };
+                            let _: FileEntradaModel = diesel::insert_into(file_entradas::table)
+                                .values(&new_entrada)
+                                .returning(FileEntradaModel::as_returning())
+                                .get_result(conn)
+                                .await
+                                .map_err(|e| ApplicationError::Repository(format!("Error asignando entrada: {}", e)))?;
+                        }
+                    }
+
+                    if let Some(ref veh) = tour_input.vehiculo {
+                        let new_veh = NewFileVehiculoModel {
+                            id_file_tour: ft_id,
+                            id_vehiculo: veh.id_vehiculo,
+                            id_conductor: veh.id_conductor,
+                            created_by,
+                            capacidad_asignada: veh.capacidad_asignada.unwrap_or(0),
+                            status: Some("reservado"),
+                        };
+                        let _: FileVehiculoModel = diesel::insert_into(file_vehiculos::table)
+                            .values(&new_veh)
+                            .returning(FileVehiculoModel::as_returning())
+                            .get_result(conn)
+                            .await
+                            .map_err(|e| ApplicationError::Repository(format!("Error asignando vehiculo: {}", e)))?;
+                    }
+
+                    if let Some(ref guia) = tour_input.guia {
+                        let new_guia = NewFileGuiaModel {
+                            id_file_tour: ft_id,
+                            id_guia: guia.id_guia,
+                            rol: guia.rol.as_deref(),
+                            created_by,
+                            estado_confirmacion: Some("aceptado"),
+                            status: Some("reservado"),
+                        };
+                        let _: FileGuiaModel = diesel::insert_into(file_guias::table)
+                            .values(&new_guia)
+                            .returning(FileGuiaModel::as_returning())
+                            .get_result(conn)
+                            .await
+                            .map_err(|e| ApplicationError::Repository(format!("Error asignando guia: {}", e)))?;
+                    }
+                }
+
+                let tours_response: Vec<FileTourBasicDto> = file_tours::table
+                    .filter(file_tours::id_file.eq(file.id))
+                    .order(file_tours::orden.asc())
+                    .select((file_tours::id, file_tours::id_tour, file_tours::orden, file_tours::status))
+                    .load(conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(format!("Error al cargar tours: {}", e)))?
+                    .into_iter()
+                    .map(|(id, id_tour, orden, status)| FileTourBasicDto {
+                        id,
+                        id_tour,
+                        orden,
+                        status,
+                    })
+                    .collect();
+
+                Ok(CreateFileWithServicesResponse {
+                    id: file.id,
+                    file_code: file.file_code,
+                    status: file.status,
+                    tours: tours_response,
+                })
+            })
+        }).await
+    }
+
+    async fn update_file_with_services(
+        &self,
+        file_id: i32,
+        tours: Vec<CreateFileTourWithServicesInput>,
+        created_by: Option<i32>,
+    ) -> Result<CreateFileWithServicesResponse, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+
+        conn.transaction::<_, _, _>(|conn| {
+            Box::pin(async move {
+                diesel::delete(file_tours::table.filter(file_tours::id_file.eq(file_id)))
+                    .execute(conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(format!("Error eliminando file_tours: {}", e)))?;
+
+                for tour_input in &tours {
+                    let orden = tour_input.orden.unwrap_or(1);
+                    let status = tour_input.status.clone().unwrap_or_else(|| "reservado".to_string());
+                    let precio = tour_input.precio_aplicado.map(|p| BigDecimal::try_from(p).unwrap_or_default());
+
+                    let hora_recojo: Option<NaiveTime> = tour_input.hora_recojo
+                        .as_ref()
+                        .and_then(|s| {
+                            let s = s.trim();
+                            if s.is_empty() { None } else if s.len() == 5 {
+                                NaiveTime::parse_from_str(s, "%H:%M").ok()
+                            } else {
+                                NaiveTime::parse_from_str(s, "%H:%M:%S").ok()
+                            }
+                        });
+
+                    let fecha_tour: Option<NaiveDate> = tour_input.fecha_tour
+                        .as_ref()
+                        .and_then(|s| {
+                            let s = s.trim();
+                            if s.is_empty() { None } else { NaiveDate::parse_from_str(s, "%Y-%m-%d").ok() }
+                        });
+
+                    let new_ft = NewFileTourModel {
+                        id_file: file_id,
+                        id_tour: tour_input.id_tour,
+                        orden,
+                        precio_aplicado: precio,
+                        notas: None,
+                        created_by,
+                        fecha_tour,
+                        turno_tour: tour_input.turno_tour.clone(),
+                        lugar_recojo: tour_input.lugar_recojo.clone(),
+                        hora_recojo,
+                        status,
+                        geo_recojo: None,
+                        nro_pasajeros: tour_input.nro_pasajeros,
+                    };
+
+                    let ft: FileTourModel = diesel::insert_into(file_tours::table)
+                        .values(&new_ft)
+                        .returning(FileTourModel::as_returning())
+                        .get_result(conn)
+                        .await
+                        .map_err(|e| ApplicationError::Repository(format!("Error creando file_tour: {}", e)))?;
+
+                    if let Some(ref rest) = tour_input.restaurante {
+                        let new_rest = NewFileRestauranteModel {
+                            id_file_tour: ft.id,
+                            id_restaurante: rest.id_restaurante,
+                            tipo_servicio: rest.tipo_servicio.as_deref(),
+                            created_by,
+                            precio: rest.precio.map(|p| BigDecimal::try_from(p).unwrap_or_default()),
+                            status: Some("reservado"),
+                        };
+                        let _: FileRestauranteModel = diesel::insert_into(file_restaurantes::table)
+                            .values(&new_rest)
+                            .returning(FileRestauranteModel::as_returning())
+                            .get_result(conn)
+                            .await
+                            .map_err(|e| ApplicationError::Repository(format!("Error asignando restaurante: {}", e)))?;
+                    }
+
+                    if let Some(entradas) = &tour_input.entradas {
+                        for entrada in entradas {
+                            let new_entrada = NewFileEntradaModel {
+                                id_file_tour: ft.id,
+                                id_entrada: entrada.id_entrada,
+                                cantidad: entrada.cantidad,
+                                created_by,
+                                id_entrada_precio: entrada.id_entrada_precio,
+                                status: Some("reservado"),
+                            };
+                            let _: FileEntradaModel = diesel::insert_into(file_entradas::table)
+                                .values(&new_entrada)
+                                .returning(FileEntradaModel::as_returning())
+                                .get_result(conn)
+                                .await
+                                .map_err(|e| ApplicationError::Repository(format!("Error asignando entrada: {}", e)))?;
+                        }
+                    }
+
+                    if let Some(ref veh) = tour_input.vehiculo {
+                        let new_veh = NewFileVehiculoModel {
+                            id_file_tour: ft.id,
+                            id_vehiculo: veh.id_vehiculo,
+                            id_conductor: veh.id_conductor,
+                            created_by,
+                            capacidad_asignada: veh.capacidad_asignada.unwrap_or(0),
+                            status: Some("reservado"),
+                        };
+                        let _: FileVehiculoModel = diesel::insert_into(file_vehiculos::table)
+                            .values(&new_veh)
+                            .returning(FileVehiculoModel::as_returning())
+                            .get_result(conn)
+                            .await
+                            .map_err(|e| ApplicationError::Repository(format!("Error asignando vehiculo: {}", e)))?;
+                    }
+
+                    if let Some(ref guia) = tour_input.guia {
+                        let new_guia = NewFileGuiaModel {
+                            id_file_tour: ft.id,
+                            id_guia: guia.id_guia,
+                            rol: guia.rol.as_deref(),
+                            created_by,
+                            estado_confirmacion: Some("aceptado"),
+                            status: Some("reservado"),
+                        };
+                        let _: FileGuiaModel = diesel::insert_into(file_guias::table)
+                            .values(&new_guia)
+                            .returning(FileGuiaModel::as_returning())
+                            .get_result(conn)
+                            .await
+                            .map_err(|e| ApplicationError::Repository(format!("Error asignando guia: {}", e)))?;
+                    }
+                }
+
+                let tours_response: Vec<FileTourBasicDto> = file_tours::table
+                    .filter(file_tours::id_file.eq(file_id))
+                    .order(file_tours::orden.asc())
+                    .select((file_tours::id, file_tours::id_tour, file_tours::orden, file_tours::status))
+                    .load(conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(format!("Error al cargar tours: {}", e)))?
+                    .into_iter()
+                    .map(|(id, id_tour, orden, status)| FileTourBasicDto {
+                        id,
+                        id_tour,
+                        orden,
+                        status,
+                    })
+                    .collect();
+
+                let file: FileModel = files::table
+                    .filter(files::id.eq(file_id))
+                    .select(FileModel::as_select())
+                    .get_result(conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(format!("Error cargando file: {}", e)))?;
+
+                Ok(CreateFileWithServicesResponse {
+                    id: file.id,
+                    file_code: file.file_code,
+                    status: file.status,
+                    tours: tours_response,
+                })
+            })
+        }).await
     }
 }

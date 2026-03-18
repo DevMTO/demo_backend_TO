@@ -99,8 +99,10 @@ pub struct PagoFileResponse {
     /// Tipo de entidad: "agencias" o "hoteles"
     pub entidad: Option<String>,
     /// Fecha de inicio del file (fecha de operación/salida)
+    #[ts(optional)]
     pub fecha_inicio: Option<String>,
     /// Fecha de fin del file
+    #[ts(optional)]
     pub fecha_fin: Option<String>,
 }
 

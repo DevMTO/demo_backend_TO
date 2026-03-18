@@ -97,6 +97,12 @@ impl From<DomainError> for ApplicationError {
     }
 }
 
+impl From<diesel::result::Error> for ApplicationError {
+    fn from(err: diesel::result::Error) -> Self {
+        ApplicationError::Repository(err.to_string())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ErrorResponse {
     pub error: String,
