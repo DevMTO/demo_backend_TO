@@ -1423,4 +1423,16 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
             })
         }).await
     }
+
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let affected = diesel::delete(file_tours::table.filter(file_tours::id.eq(id)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        info!("Eliminado file_tour {} (hard delete)", id);
+        Ok(affected > 0)
+    }
 }

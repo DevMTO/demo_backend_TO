@@ -98,6 +98,7 @@ pub struct UpdatePagoFileModel<'a> {
     pub pagado_por: Option<Option<i32>>,
     pub pagado_at: Option<Option<DateTime<Utc>>>,
     pub updated_by: Option<Option<i32>>,
+    pub id_file_tour: Option<Option<i32>>,
 }
 
 // ============================================================================

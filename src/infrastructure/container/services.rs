@@ -113,22 +113,6 @@ impl Services {
             chat_service.clone(),
         ));
 
-        let file = Arc::new(FileService::new(
-            repos.file.clone(),
-            repos.file_tour.clone(),
-            logging.clone(),
-            notify.clone(),
-            repos.pago_file.clone(),
-            repos.agencia.clone(),
-            repos.hotel.clone(),
-            repos.user.clone(),
-            repos.file_entrada.clone(),
-            repos.entrada_precio.clone(),
-            repos.file_restaurante.clone(),
-            contabilidad.clone(),
-            repos.persona.clone(),
-        ));
-
         let restaurante = Arc::new(RestauranteService::new(
             repos.restaurante.clone(),
             logging.clone(),
@@ -197,6 +181,27 @@ impl Services {
             repos.file_entrada.clone(),
             repos.entrada.clone(),
             repos.pago_proveedor.clone(),
+        ));
+
+        let file = Arc::new(FileService::new(
+            repos.file.clone(),
+            repos.file_tour.clone(),
+            logging.clone(),
+            notify.clone(),
+            repos.pago_file.clone(),
+            repos.agencia.clone(),
+            repos.hotel.clone(),
+            repos.user.clone(),
+            repos.file_entrada.clone(),
+            repos.entrada_precio.clone(),
+            repos.file_restaurante.clone(),
+            contabilidad.clone(),
+            repos.persona.clone(),
+            file_tour_status.clone(),
+            repos.pago_proveedor.clone(),
+            repos.file_vehiculo.clone(),
+            repos.file_guia.clone(),
+            repos.tarifa.clone(),
         ));
 
         let file_status = Arc::new(FileStatusService::new(

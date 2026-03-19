@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use bigdecimal::BigDecimal;
 use chrono::{NaiveDate, Utc};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
@@ -279,4 +280,32 @@ impl FileRepositoryPort for PostgresFileRepository {
         Ok(results.into_iter().flatten().collect())
     }
 
+    async fn update_monto_totals(&self, id: i32, monto_total: BigDecimal, monto_pagado: BigDecimal) -> Result<FileModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(files::table.filter(files::id.eq(id)))
+            .set((
+                files::monto_total.eq(monto_total),
+                files::monto_pagado.eq(monto_pagado),
+            ))
+            .returning(FileModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        Ok(result)
+    }
+
+    async fn update_monto_total_only(&self, id: i32, monto_total: BigDecimal) -> Result<FileModel, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let result = diesel::update(files::table.filter(files::id.eq(id)))
+            .set(files::monto_total.eq(monto_total))
+            .returning(FileModel::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        Ok(result)
+    }
 }

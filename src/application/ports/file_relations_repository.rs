@@ -15,7 +15,7 @@ use serde_json::Value as JsonValue;
 use crate::domain::errors::ApplicationError;
 
 use crate::application::dtos::file_dto::{
-    CreateFileTourWithServicesInput, CreateFileWithServicesResponse, FileTourBasicDto,
+    CreateFileTourWithServicesInput, CreateFileWithServicesResponse,
 };
 
 use crate::infrastructure::persistence::models::{
@@ -160,4 +160,7 @@ pub trait FileTourRepositoryPort: Send + Sync {
         tours: Vec<CreateFileTourWithServicesInput>,
         created_by: Option<i32>,
     ) -> Result<CreateFileWithServicesResponse, ApplicationError>;
+    
+    /// Eliminación permanente de un file_tour
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
 }

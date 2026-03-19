@@ -1,7 +1,9 @@
 use async_trait::async_trait;
+use bigdecimal::BigDecimal;
 use chrono::NaiveDate;
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::File;
+use crate::infrastructure::persistence::models::FileModel;
 use super::{PaginationOptions, PaginatedResult};
 
 #[async_trait]
@@ -34,4 +36,10 @@ pub trait FileRepositoryPort: Send + Sync {
     /// Obtiene los file_code de files activos (no completado/cancelado/no_show/anulado)
     /// filtrados por entidad
     async fn find_active_file_codes(&self, id_entidad: i32, entidad: Option<&str>) -> Result<Vec<String>, ApplicationError>;
+    
+    /// Actualiza solo los montos de un File (monto_total y monto_pagado)
+    async fn update_monto_totals(&self, id: i32, monto_total: BigDecimal, monto_pagado: BigDecimal) -> Result<FileModel, ApplicationError>;
+
+    /// Actualiza solo el monto_total de un File
+    async fn update_monto_total_only(&self, id: i32, monto_total: BigDecimal) -> Result<FileModel, ApplicationError>;
 }
