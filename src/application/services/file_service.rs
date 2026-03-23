@@ -460,6 +460,13 @@ impl FileService {
         // Phase 2: Load current state
         let existing_tours = self.file_tour_repository.find_by_file_with_tour(id).await?;
         let existing_pagos = self.pago_file_repository.find_all_by_file(id).await?;
+        
+        // Get file status to determine how to handle removed tours
+        let file_status = self.file_repository.find_by_id(id).await?
+            .map(|f| f.status)
+            .unwrap_or_else(|| "reservado".to_string());
+        
+        let is_reservado = file_status == "reservado";
 
         let mut tour_restaurantes: HashMap<i32, Vec<_>> = HashMap::new();
         let mut tour_entradas: HashMap<i32, Vec<_>> = HashMap::new();
@@ -488,43 +495,76 @@ impl FileService {
             .filter(|t| t.id.is_none())
             .collect();
 
-        // Phase 4: Cancel removed tours
+        // Phase 4: Handle removed tours (cancel or hard-delete based on file status)
         for ft in tours_to_cancel {
-            let pagos_for_tour: Vec<_> = existing_pagos.iter()
-                .filter(|p| p.id_file_tour == Some(ft.id))
-                .collect();
+            if is_reservado {
+                // For 'reservado' files: hard-delete services directly (no cancellation records)
+                
+                // Hard-delete entradas
+                for fe in self.file_entrada_repository.find_by_file_tour(ft.id).await? {
+                    self.file_entrada_repository.hard_delete(fe.id).await?;
+                    info!("Entrada {} eliminada (hard delete) para tour {}", fe.id, ft.id);
+                }
+                
+                // Hard-delete restaurantes
+                for fr in self.file_restaurante_repository.find_by_file_tour(ft.id).await? {
+                    self.file_restaurante_repository.hard_delete(fr.id).await?;
+                    info!("Restaurante {} eliminado (hard delete) para tour {}", fr.id, ft.id);
+                }
+                
+                // Hard-delete vehiculos
+                for fv in self.file_vehiculo_repository.find_by_file_tour(ft.id).await? {
+                    self.file_vehiculo_repository.hard_delete(fv.id).await?;
+                    info!("Vehiculo {} eliminado (hard delete) para tour {}", fv.id, ft.id);
+                }
+                
+                // Hard-delete guias
+                for fg in self.file_guia_repository.find_by_file_tour_with_persona(ft.id).await? {
+                    self.file_guia_repository.hard_delete(fg.id).await?;
+                    info!("Guia {} eliminado (hard delete) para tour {}", fg.id, ft.id);
+                }
+                
+                // Hard-delete file_tour
+                self.file_tour_repository.hard_delete(ft.id).await?;
+                info!("Tour {} eliminado del file (hard delete)", ft.id);
+            } else {
+                // For confirmed files: cancel services and create cancellation records
+                let pagos_for_tour: Vec<_> = existing_pagos.iter()
+                    .filter(|p| p.id_file_tour == Some(ft.id))
+                    .collect();
 
-            for pago in pagos_for_tour {
-                let mut update = UpdatePagoFileModel {
-                    estado: Some("cancelado"),
-                    tipo_registro: Some("cancelacion_tour"),
-                    ..Default::default()
-                };
+                for pago in pagos_for_tour {
+                    let mut update = UpdatePagoFileModel {
+                        estado: Some("cancelado"),
+                        tipo_registro: Some("cancelacion_tour"),
+                        ..Default::default()
+                    };
 
-                if &pago.monto_pagado > &zero {
-                    update.monto_saldo_favor = Some(pago.monto_pagado.clone());
-                    update.monto_pagado = Some(zero.clone());
-                    update.saldo_autorizado = Some(true);
-                    update.saldo_autorizado_por = Some(updated_by);
-                    update.saldo_autorizado_at = Some(Utc::now());
+                    if &pago.monto_pagado > &zero {
+                        update.monto_saldo_favor = Some(pago.monto_pagado.clone());
+                        update.monto_pagado = Some(zero.clone());
+                        update.saldo_autorizado = Some(true);
+                        update.saldo_autorizado_por = Some(updated_by);
+                        update.saldo_autorizado_at = Some(Utc::now());
+                    }
+
+                    self.pago_file_repository.update(pago.id, update).await?;
+                    info!("Pago {} cancelado para tour {} eliminado", pago.id, ft.id);
                 }
 
-                self.pago_file_repository.update(pago.id, update).await?;
-                info!("Pago {} cancelado para tour {} eliminado", pago.id, ft.id);
+                // Cancel pagos_proveedores for this tour
+                for pp in self.pago_proveedor_repository.find_by_file_tour(ft.id).await? {
+                    self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
+                    info!("Pago proveedor {} cancelado por eliminación de tour {}", pp.id, ft.id);
+                }
+
+                // Cascade status to services
+                self.file_status_service.update_file_tour_status(ft.id, "cancelado").await?;
+
+                // Hard-delete file_tour
+                self.file_tour_repository.hard_delete(ft.id).await?;
+                info!("Tour {} cancelado y eliminado del file", ft.id);
             }
-
-            // Cancel pagos_proveedores for this tour
-            for pp in self.pago_proveedor_repository.find_by_file_tour(ft.id).await? {
-                self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
-                info!("Pago proveedor {} cancelado por eliminación de tour {}", pp.id, ft.id);
-            }
-
-            // Cascade status to services
-            self.file_status_service.update_file_tour_status(ft.id, "cancelado").await?;
-
-            // Hard-delete file_tour
-            self.file_tour_repository.hard_delete(ft.id).await?;
-            info!("Tour {} cancelado y eliminado del file", ft.id);
         }
 
         // Phase 5: Update remaining tours
@@ -546,13 +586,20 @@ impl FileService {
 
             // 5a. Handle Vehiculos (replace logic)
             if !current_vehiculos.is_empty() || tour_input.vehiculo.is_some() {
-                // Cancel old vehiculos
+                // Remove old vehiculos
                 for fv in &current_vehiculos {
-                    self.file_vehiculo_repository.update_status(fv.id, "cancelado").await?;
-                    if let Some(pp) = self.pago_proveedor_repository
-                        .find_by_file_relation("transporte", Some(fv.id), None, None, None).await?
-                    {
-                        self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
+                    if is_reservado {
+                        // Hard-delete for reservado files
+                        self.file_vehiculo_repository.hard_delete(fv.id).await?;
+                        info!("Vehiculo {} eliminado (hard delete)", fv.id);
+                    } else {
+                        // Cancel for confirmed files
+                        self.file_vehiculo_repository.update_status(fv.id, "cancelado").await?;
+                        if let Some(pp) = self.pago_proveedor_repository
+                            .find_by_file_relation("transporte", Some(fv.id), None, None, None).await?
+                        {
+                            self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
+                        }
                     }
                 }
                 // Create new if provided
@@ -583,13 +630,20 @@ impl FileService {
 
             // 5c. Handle Guias (replace logic)
             if !current_guias.is_empty() || tour_input.guia.is_some() {
-                // Cancel old guias
+                // Remove old guias
                 for fg in &current_guias {
-                    self.file_guia_repository.update_status(fg.id, "cancelado").await?;
-                    if let Some(pp) = self.pago_proveedor_repository
-                        .find_by_file_relation("guia", None, None, Some(fg.id), None).await?
-                    {
-                        self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
+                    if is_reservado {
+                        // Hard-delete for reservado files
+                        self.file_guia_repository.hard_delete(fg.id).await?;
+                        info!("Guia {} eliminado (hard delete)", fg.id);
+                    } else {
+                        // Cancel for confirmed files
+                        self.file_guia_repository.update_status(fg.id, "cancelado").await?;
+                        if let Some(pp) = self.pago_proveedor_repository
+                            .find_by_file_relation("guia", None, None, Some(fg.id), None).await?
+                        {
+                            self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
+                        }
                     }
                 }
                 // Create new if provided
@@ -620,34 +674,48 @@ impl FileService {
             // 5c. Handle Restaurantes
             match (&current_rest, &tour_input.restaurante) {
                 (Some(old), None) => {
-                    // Remove
-                    if let Some(pp) = self.pago_proveedor_repository
-                        .find_by_file_relation("restaurante", None, Some(old.id), None, None).await?
-                    {
-                        self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
-                    }
-                    self.file_restaurante_repository.update_status(old.id, "cancelado").await?;
-                    
-                    // Adjust monto_total in pagos_files
-                    if let Some(pago) = pagos_for_tour.iter().find(|p| p.tipo_registro == "deuda") {
-                        if let Some(ref precio) = old.precio {
-                            let new_monto = pago.monto_total.clone() - precio;
-                            let update = UpdatePagoFileModel {
-                                monto_total: Some(new_monto),
-                                ..Default::default()
-                            };
-                            self.pago_file_repository.update(pago.id, update).await?;
+                    // Remove restaurant
+                    if is_reservado {
+                        // Hard-delete for reservado files
+                        self.file_restaurante_repository.hard_delete(old.id).await?;
+                        info!("Restaurante {} eliminado (hard delete)", old.id);
+                    } else {
+                        // Cancel for confirmed files
+                        if let Some(pp) = self.pago_proveedor_repository
+                            .find_by_file_relation("restaurante", None, Some(old.id), None, None).await?
+                        {
+                            self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
+                        }
+                        self.file_restaurante_repository.update_status(old.id, "cancelado").await?;
+                        
+                        // Adjust monto_total in pagos_files only for confirmed files
+                        if let Some(pago) = pagos_for_tour.iter().find(|p| p.tipo_registro == "deuda") {
+                            if let Some(ref precio) = old.precio {
+                                let new_monto = pago.monto_total.clone() - precio;
+                                let update = UpdatePagoFileModel {
+                                    monto_total: Some(new_monto),
+                                    ..Default::default()
+                                };
+                                self.pago_file_repository.update(pago.id, update).await?;
+                            }
                         }
                     }
                 }
                 (Some(old), Some(new)) if new.id_restaurante != old.id_restaurante => {
-                    // Replace
-                    if let Some(pp) = self.pago_proveedor_repository
-                        .find_by_file_relation("restaurante", None, Some(old.id), None, None).await?
-                    {
-                        self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
+                    // Replace restaurant
+                    if is_reservado {
+                        // Hard-delete old for reservado files
+                        self.file_restaurante_repository.hard_delete(old.id).await?;
+                        info!("Restaurante {} eliminado (hard delete) por reemplazo", old.id);
+                    } else {
+                        // Cancel old for confirmed files
+                        if let Some(pp) = self.pago_proveedor_repository
+                            .find_by_file_relation("restaurante", None, Some(old.id), None, None).await?
+                        {
+                            self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
+                        }
+                        self.file_restaurante_repository.update_status(old.id, "cancelado").await?;
                     }
-                    self.file_restaurante_repository.update_status(old.id, "cancelado").await?;
                     
                     let new_fr = self.file_restaurante_repository.add(
                         tour_id, new.id_restaurante, new.tipo_servicio.as_deref(),
@@ -670,19 +738,21 @@ impl FileService {
                         Some(updated_by),
                     ).await;
 
-                    // Adjust monto_total
-                    if let Some(pago) = pagos_for_tour.iter().find(|p| p.tipo_registro == "deuda") {
-                        let old_precio_bd = old.precio.as_ref().unwrap_or(&zero);
-                        let new_precio_bd = new.precio
-                            .map(|p| BigDecimal::try_from(p).unwrap_or_default())
-                            .unwrap_or_else(|| zero.clone());
-                        let diff = &new_precio_bd - old_precio_bd;
-                        if diff != zero {
-                            let update = UpdatePagoFileModel {
-                                monto_total: Some(pago.monto_total.clone() + &diff),
-                                ..Default::default()
-                            };
-                            self.pago_file_repository.update(pago.id, update).await?;
+                    // Adjust monto_total only for confirmed files
+                    if !is_reservado {
+                        if let Some(pago) = pagos_for_tour.iter().find(|p| p.tipo_registro == "deuda") {
+                            let old_precio_bd = old.precio.as_ref().unwrap_or(&zero);
+                            let new_precio_bd = new.precio
+                                .map(|p| BigDecimal::try_from(p).unwrap_or_default())
+                                .unwrap_or_else(|| zero.clone());
+                            let diff = &new_precio_bd - old_precio_bd;
+                            if diff != zero {
+                                let update = UpdatePagoFileModel {
+                                    monto_total: Some(pago.monto_total.clone() + &diff),
+                                    ..Default::default()
+                                };
+                                self.pago_file_repository.update(pago.id, update).await?;
+                            }
                         }
                     }
                 }
@@ -763,15 +833,19 @@ impl FileService {
 
             // Remove entradas that are no longer in the request
             for fe in &entradas_to_remove {
-                // Cancel pago_proveedor for this entrada
-                if let Some(pp) = self.pago_proveedor_repository
-                    .find_by_file_relation("entrada", None, None, None, Some(fe.id)).await?
-                {
-                    self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
+                if is_reservado {
+                    // Hard-delete for reservado files
+                    self.file_entrada_repository.hard_delete(fe.id).await?;
+                    info!("Entrada {} eliminada (hard delete)", fe.id);
+                } else {
+                    // Cancel for confirmed files
+                    if let Some(pp) = self.pago_proveedor_repository
+                        .find_by_file_relation("entrada", None, None, None, Some(fe.id)).await?
+                    {
+                        self.pago_proveedor_repository.update_status(pp.id, "cancelado").await?;
+                    }
+                    self.file_entrada_repository.update_status(fe.id, "cancelado").await?;
                 }
-
-                // Update file_entrada status to cancelado
-                self.file_entrada_repository.update_status(fe.id, "cancelado").await?;
             }
 
             // Add or update entradas using repository's upsert logic
@@ -782,8 +856,9 @@ impl FileService {
                     entrada_input.id_entrada_precio, Some(updated_by)
                 ).await?;
 
-                // Track new entrada for later status update
-                new_entradas_to_update.push((new_fe.id, tour_id, "asignado".to_string()));
+                // Track new entrada for later status update (reservado for reservado files, asignado for confirmed)
+                let entrada_status = if is_reservado { "reservado" } else { "asignado" };
+                new_entradas_to_update.push((new_fe.id, tour_id, entrada_status.to_string()));
 
                 // Create pago_proveedor
                 let monto = if let Some(precio_id) = entrada_input.id_entrada_precio {
@@ -927,9 +1002,10 @@ impl FileService {
             }
         }
 
-        // Phase 5b: Update new entrada statuses to 'asignado' (child services start as 'asignado')
+        // Phase 5b: Update new entrada statuses (reservado for reservado files, asignado for confirmed)
+        let new_entrada_status = if is_reservado { "reservado" } else { "asignado" };
         for (entrada_id, _, _) in new_entradas_to_update {
-            self.file_entrada_repository.update_status(entrada_id, "asignado").await?;
+            self.file_entrada_repository.update_status(entrada_id, new_entrada_status).await?;
         }
 
         // Phase 6: Create new tours
@@ -1009,8 +1085,9 @@ impl FileService {
                             entrada.id_entrada_precio, Some(updated_by)
                         ).await?;
 
-                        // Child services start as 'asignado'
-                        self.file_entrada_repository.update_status(new_fe.id, "asignado").await?;
+                        // Child services: reservado for reservado files, asignado for confirmed
+                        let child_status = if is_reservado { "reservado" } else { "asignado" };
+                        self.file_entrada_repository.update_status(new_fe.id, child_status).await?;
 
                         let monto = if let Some(precio_id) = entrada.id_entrada_precio {
                             if let Ok(Some(precio)) = self.entrada_precio_repository.find_by_id(precio_id).await {
@@ -1046,8 +1123,9 @@ impl FileService {
                         veh.capacidad_asignada.unwrap_or(0), Some(updated_by)
                     ).await?;
 
-                    // Child services start as 'asignado'
-                    self.file_vehiculo_repository.update_status(new_fv.id, "asignado").await?;
+                    // Child services: reservado for reservado files, asignado for confirmed
+                    let child_status = if is_reservado { "reservado" } else { "asignado" };
+                    self.file_vehiculo_repository.update_status(new_fv.id, child_status).await?;
 
                     let _ = self.contabilidad_service.auto_create_pago_proveedor(
                         "transporte",
@@ -1071,8 +1149,9 @@ impl FileService {
                         ft_id, guia.id_guia, guia.rol.as_deref(), Some(updated_by)
                     ).await?;
 
-                    // Child services start as 'asignado'
-                    self.file_guia_repository.update_status(new_fg.id, "asignado").await?;
+                    // Child services: reservado for reservado files, asignado for confirmed
+                    let child_status = if is_reservado { "reservado" } else { "asignado" };
+                    self.file_guia_repository.update_status(new_fg.id, child_status).await?;
 
                     let _ = self.contabilidad_service.auto_create_pago_proveedor(
                         "guia",

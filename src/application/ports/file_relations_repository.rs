@@ -59,6 +59,8 @@ pub trait FileEntradaRepositoryPort: Send + Sync {
     async fn update_status(&self, id: i32, status: &str) -> Result<FileEntradaModel, ApplicationError>;
     /// Transfiere una file_entrada a otro file_tour
     async fn transfer_to_file_tour(&self, id: i32, new_id_file_tour: i32) -> Result<FileEntradaModel, ApplicationError>;
+    /// Elimina permanentemente una file_entrada
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
 }
 
 /// Repositorio para file_guias (vinculado a file_tours)
@@ -74,6 +76,8 @@ pub trait FileGuiaRepositoryPort: Send + Sync {
     async fn update_status(&self, id: i32, status: &str) -> Result<FileGuiaModel, ApplicationError>;
     /// Actualiza id_guia y/o id_file_tour de una file_guia (PATCH parcial)
     async fn update(&self, id: i32, data: crate::infrastructure::persistence::models::file_guia_model::UpdateFileGuiaModel) -> Result<FileGuiaModel, ApplicationError>;
+    /// Elimina permanentemente una file_guia
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
 }
 
 #[async_trait]
@@ -102,6 +106,8 @@ pub trait FileRestauranteRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: i32) -> Result<Option<FileRestauranteModel>, ApplicationError>;
     /// Actualiza el status de una file_restaurante
     async fn update_status(&self, id: i32, status: &str) -> Result<FileRestauranteModel, ApplicationError>;
+    /// Elimina permanentemente una file_restaurante
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
 }
 
 /// Repositorio para file_vehiculos (vinculado a file_tours)
@@ -120,6 +126,8 @@ pub trait FileVehiculoRepositoryPort: Send + Sync {
     async fn update_status(&self, id: i32, status: &str) -> Result<FileVehiculoModel, ApplicationError>;
     /// Actualiza los campos de un file_vehiculo (vehículo, conductor, capacidad, status)
     async fn update(&self, id: i32, data: UpdateFileVehiculoModel) -> Result<FileVehiculoModel, ApplicationError>;
+    /// Elimina permanentemente un file_vehiculo
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError>;
 }
 
 /// Repositorio para file_tours

@@ -243,6 +243,18 @@ impl FileEntradaRepositoryPort for PostgresFileEntradaRepository {
         info!("FileEntrada {} transferida a file_tour {} (cancelaciones: {:?})", id, new_id_file_tour, nuevas_cancelaciones);
         Ok(result)
     }
+
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let affected = diesel::delete(file_entradas::table.filter(file_entradas::id.eq(id)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        info!("Eliminado file_entrada {} (hard delete)", id);
+        Ok(affected > 0)
+    }
 }
 
 // ==================== FILE GUIA REPOSITORY ====================
@@ -384,6 +396,18 @@ impl FileGuiaRepositoryPort for PostgresFileGuiaRepository {
         query.load(&mut conn)
             .await
             .map_err(|e| ApplicationError::Repository(format!("Error obteniendo guías con persona: {}", e)))
+    }
+
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let affected = diesel::delete(file_guias::table.filter(file_guias::id.eq(id)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        info!("Eliminado file_guia {} (hard delete)", id);
+        Ok(affected > 0)
     }
 }
 
@@ -614,6 +638,18 @@ impl FileRestauranteRepositoryPort for PostgresFileRestauranteRepository {
         info!("Status de file_restaurante {} actualizado a '{}'", id, status);
         Ok(result)
     }
+
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let affected = diesel::delete(file_restaurantes::table.filter(file_restaurantes::id.eq(id)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        info!("Eliminado file_restaurante {} (hard delete)", id);
+        Ok(affected > 0)
+    }
 }
 
 // ==================== FILE VEHICULO REPOSITORY ====================
@@ -793,6 +829,18 @@ impl FileVehiculoRepositoryPort for PostgresFileVehiculoRepository {
         Ok(result)
     }
     
+    async fn hard_delete(&self, id: i32) -> Result<bool, ApplicationError> {
+        let mut conn = self.pool.get_connection().await?;
+        
+        let affected = diesel::delete(file_vehiculos::table.filter(file_vehiculos::id.eq(id)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        
+        info!("Eliminado file_vehiculo {} (hard delete)", id);
+        Ok(affected > 0)
+    }
+    
     #[instrument(skip(self))]
     async fn find_by_file_tour_with_persona(&self, id_file_tour: i32) -> Result<Vec<FileVehiculoWithPersonaModel>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
@@ -887,6 +935,8 @@ impl FileTourRepositoryPort for PostgresFileTourRepository {
         info!("{} tours asignados a file {}", results.len(), id_file);
         Ok(results)
     }
+    
+    // MARKER_VEHICULO_HARD_DELETE
     
     async fn remove_by_file(&self, id_file: i32) -> Result<usize, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
