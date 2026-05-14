@@ -19,6 +19,7 @@ pub struct PersonaResponse {
     pub fecha_nacimiento: Option<NaiveDate>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub created_by: Option<i32>,
 }
 
 impl From<Persona> for PersonaResponse {
@@ -34,6 +35,7 @@ impl From<Persona> for PersonaResponse {
             fecha_nacimiento: p.fecha_nacimiento,
             created_at: p.created_at,
             updated_at: p.updated_at,
+            created_by: p.created_by,
         }
     }
 }
