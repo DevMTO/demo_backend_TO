@@ -85,6 +85,8 @@ pub struct AuthUserInfo {
     pub id_entidad: Option<i32>,
     pub is_active: bool,
     pub turno: Option<String>,
+    pub is_demo: bool,
+    pub demo_expires_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, TS)]

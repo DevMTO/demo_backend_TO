@@ -18,6 +18,8 @@ pub struct ListUsersParams {
     pub page: i64,
     #[serde(default = "default_page_size")]
     pub page_size: i64,
+    #[serde(default)]
+    pub is_demo: Option<bool>,
 }
 
 fn default_page() -> i64 { 1 }
@@ -31,7 +33,7 @@ pub async fn list_users(
     Query(params): Query<ListUsersParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     let (users, total) = state.container.user_service
-        .list_users(params.page, params.page_size)
+        .list_users(params.page, params.page_size, params.is_demo)
         .await?;
     
     let page_size = params.page_size.clamp(1, 10000);

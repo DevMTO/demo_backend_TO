@@ -20,6 +20,8 @@ pub struct UserDetailDto {
     pub updated_at: DateTime<Utc>,
     pub last_login: Option<DateTime<Utc>>,
     pub turno: Option<String>,
+    pub is_demo: bool,
+    pub demo_expires_at: Option<DateTime<Utc>>,
 }
 
 impl From<User> for UserDetailDto {
@@ -36,6 +38,8 @@ impl From<User> for UserDetailDto {
             updated_at: user.updated_at,
             last_login: user.last_login,
             turno: user.turno,
+            is_demo: user.is_demo,
+            demo_expires_at: user.demo_expires_at,
         }
     }
 }
@@ -95,6 +99,15 @@ pub struct CreateUserRequest {
 
     /// Turno asignado: "mañana", "tarde" o null
     pub turno: Option<String>,
+
+    /// Si el usuario es un usuario demo
+    #[serde(default)]
+    #[ts(optional)]
+    pub is_demo: Option<bool>,
+
+    /// Fecha de expiración del demo (solo usado cuando is_demo es true)
+    #[ts(optional)]
+    pub demo_expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Validate, TS)]
@@ -121,6 +134,14 @@ pub struct UpdateUserRequest {
 
     /// Turno asignado: "mañana", "tarde" o null
     pub turno: Option<String>,
+
+    /// Si el usuario es un usuario demo
+    #[ts(optional)]
+    pub is_demo: Option<bool>,
+
+    /// Fecha de expiración del demo (None = no change, Some(None) = remove, Some(Some(date)) = set)
+    #[ts(optional)]
+    pub demo_expires_at: Option<Option<DateTime<Utc>>>,
 }
 
 impl UpdateUserRequest {
@@ -154,6 +175,15 @@ impl UpdateUserRequest {
         // turno: siempre actualizar (permite asignar y quitar turno)
         user.turno = self.turno;
 
+        // Demo fields: siempre actualizar
+        if let Some(is_demo) = self.is_demo {
+            user.is_demo = is_demo;
+        }
+        // demo_expires_at: Some(None) = remove, Some(Some(date)) = set, None = no change
+        if let Some(demo_expires_at) = self.demo_expires_at {
+            user.demo_expires_at = demo_expires_at;
+        }
+
         user.updated_by = updated_by;
         user.updated_at = Utc::now();
         user
@@ -175,6 +205,8 @@ pub struct UserListItemDto {
     pub id_persona: Option<i32>,
     pub id_entidad: Option<i32>,
     pub turno: Option<String>,
+    pub is_demo: bool,
+    pub demo_expires_at: Option<DateTime<Utc>>,
 }
 
 #[allow(dead_code)]

@@ -557,6 +557,8 @@ diesel::table! {
         is_active -> Bool,
         #[max_length = 20]
         turno -> Nullable<Varchar>,
+        is_demo -> Bool,
+        demo_expires_at -> Nullable<Timestamptz>,
     }
 }
 

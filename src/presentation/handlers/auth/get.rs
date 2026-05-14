@@ -37,6 +37,7 @@ pub async fn verify_session_handler(
         cookies.add(session_cookie);
     }
     
+    let demo_expires_at = auth_user.user.demo_expires_at.map(|dt| dt.to_rfc3339());
     let user_info = AuthUserInfo {
         id: auth_user.user.id,
         id_persona: auth_user.user.id_persona,
@@ -46,6 +47,8 @@ pub async fn verify_session_handler(
         id_entidad: auth_user.user.id_entidad,
         is_active: auth_user.user.is_active,
         turno: auth_user.user.turno.clone(),
+        is_demo: auth_user.user.is_demo,
+        demo_expires_at,
     };
     
     info!("Sesión válida para: {}", auth_user.user.username);
@@ -66,6 +69,7 @@ pub async fn get_profile_handler(
 ) -> Result<impl IntoResponse, ApplicationError> {
     info!("Obteniendo perfil para usuario: {}", auth_user.user.username);
     
+    let demo_expires_at = auth_user.user.demo_expires_at.map(|dt| dt.to_rfc3339());
     let user_info = AuthUserInfo {
         id: auth_user.user.id,
         id_persona: auth_user.user.id_persona,
@@ -75,6 +79,8 @@ pub async fn get_profile_handler(
         id_entidad: auth_user.user.id_entidad,
         is_active: auth_user.user.is_active,
         turno: auth_user.user.turno.clone(),
+        is_demo: auth_user.user.is_demo,
+        demo_expires_at,
     };
     
     let persona_info = if let Some(id_persona) = auth_user.user.id_persona {

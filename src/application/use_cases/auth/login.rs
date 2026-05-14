@@ -97,7 +97,15 @@ impl LoginUseCase {
         
         info!("Contraseña válida para: {}", user.username);
         
-        // 4. Verificar límite de sesiones activas
+        // 4. Verificar si es usuario demo y si ha expirado
+        if user.is_demo_user() && user.is_demo_expired() {
+            warn!("Usuario demo expirado: {} (expired at: {:?})", user.username, user.demo_expires_at);
+            return Err(ApplicationError::Authentication(
+                "El período de demostración ha expirado".to_string()
+            ));
+        }
+        
+        // 5. Verificar límite de sesiones activas
         debug!("Verificando sesiones activas...");
         let active_sessions_count = self.session_repository
             .count_active_by_user_id(user.id)
@@ -140,6 +148,7 @@ impl LoginUseCase {
         self.user_repository.update(&updated_user).await?;
         
         // 8. Construir respuesta
+        let demo_expires_at_str = user.demo_expires_at.map(|dt| dt.to_rfc3339());
         let user_info = AuthUserInfo {
             id: user.id,
             id_persona: user.id_persona,
@@ -149,6 +158,8 @@ impl LoginUseCase {
             id_entidad: user.id_entidad,
             is_active: user.is_active,
             turno: user.turno.clone(),
+            is_demo: user.is_demo,
+            demo_expires_at: demo_expires_at_str,
         };
         
         let expires_in = created_session.expires_at.timestamp() - chrono::Utc::now().timestamp();

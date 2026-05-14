@@ -69,7 +69,12 @@ impl VerifySessionUseCase {
             return Err(ApplicationError::Authentication("User is inactive".to_string()));
         }
         
-        // 6. Rotar token si es necesario (para mayor seguridad)
+        // 6. Verificar si es usuario demo y si ha expirado
+        if user.is_demo_user() && user.is_demo_expired() {
+            return Err(ApplicationError::Authentication("El período de demostración ha expirado".to_string()));
+        }
+        
+        // 7. Rotar token si es necesario (para mayor seguridad)
         let new_token = if self.session_manager.should_rotate_token(&session) {
             let token_data = self.session_manager.rotate_token(&mut session)?;
             self.session_repository.update(&session).await?;
@@ -82,6 +87,7 @@ impl VerifySessionUseCase {
         };
         
         // 7. Construir respuesta
+        let demo_expires_at_str = user.demo_expires_at.map(|dt| dt.to_rfc3339());
         let user_info = AuthUserInfo {
             id: user.id,
             id_persona: user.id_persona,
@@ -91,6 +97,8 @@ impl VerifySessionUseCase {
             id_entidad: user.id_entidad,
             is_active: user.is_active,
             turno: user.turno.clone(),
+            is_demo: user.is_demo,
+            demo_expires_at: demo_expires_at_str,
         };
         
         Ok(SessionVerification {

@@ -150,6 +150,8 @@ impl UserRepositoryPort for PostgresUserRepository {
                 users::role.eq(user.role.to_string()),
                 users::id_entidad.eq(&user.id_entidad),
                 users::is_active.eq(user.is_active),
+                users::is_demo.eq(user.is_demo),
+                users::demo_expires_at.eq(&user.demo_expires_at),
                 users::last_login.eq(user.last_login),
                 users::updated_by.eq(user.updated_by),
                 users::turno.eq(&user.turno),
@@ -249,38 +251,65 @@ impl UserRepositoryPort for PostgresUserRepository {
     }
     
     #[instrument(skip(self))]
-    async fn list_users_with_details(&self, limit: i64, offset: i64) -> Result<(Vec<crate::application::dtos::UserListItemDto>, i64), ApplicationError> {
+    async fn list_users_with_details(&self, limit: i64, offset: i64, is_demo: Option<bool>) -> Result<(Vec<crate::application::dtos::UserListItemDto>, i64), ApplicationError> {
         use crate::infrastructure::persistence::schema::personas;
         
-        debug!("Listando usuarios con detalles (limit: {}, offset: {})", limit, offset);
+        debug!("Listando usuarios con detalles (limit: {}, offset: {}, is_demo: {:?})", limit, offset, is_demo);
         let mut conn = self.pool.get_connection().await?;
         
-        let total: i64 = users::table
-            .count()
-            .get_result(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+        // Execute based on filter
+        let (total, results) = match is_demo {
+            Some(true) => {
+                let total: i64 = users::table.filter(users::is_demo.eq(true)).count()
+                    .get_result(&mut conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                let results: Vec<(UserModel, Option<(String, String)>)> = users::table
+                    .filter(users::is_demo.eq(true))
+                    .left_join(personas::table.on(users::id_persona.eq(personas::id.nullable())))
+                    .select((UserModel::as_select(), (personas::nombre, personas::apellidos).nullable()))
+                    .order(users::created_at.desc()).limit(limit).offset(offset)
+                    .load(&mut conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                (total, results)
+            },
+            Some(false) => {
+                let total: i64 = users::table.filter(users::is_demo.eq(false)).count()
+                    .get_result(&mut conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                let results: Vec<(UserModel, Option<(String, String)>)> = users::table
+                    .filter(users::is_demo.eq(false))
+                    .left_join(personas::table.on(users::id_persona.eq(personas::id.nullable())))
+                    .select((UserModel::as_select(), (personas::nombre, personas::apellidos).nullable()))
+                    .order(users::created_at.desc()).limit(limit).offset(offset)
+                    .load(&mut conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                (total, results)
+            },
+            None => {
+                let total: i64 = users::table.count()
+                    .get_result(&mut conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                let results: Vec<(UserModel, Option<(String, String)>)> = users::table
+                    .left_join(personas::table.on(users::id_persona.eq(personas::id.nullable())))
+                    .select((UserModel::as_select(), (personas::nombre, personas::apellidos).nullable()))
+                    .order(users::created_at.desc()).limit(limit).offset(offset)
+                    .load(&mut conn)
+                    .await
+                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                (total, results)
+            }
+        };
         
-        let results: Vec<(UserModel, Option<(String, String)>)> = users::table
-            .left_join(personas::table.on(users::id_persona.eq(personas::id.nullable())))
-            .select((
-                UserModel::as_select(),
-                (personas::nombre, personas::apellidos).nullable(),
-            ))
-            .order(users::created_at.desc())
-            .limit(limit)
-            .offset(offset)
-            .load(&mut conn)
-            .await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-        
+        // Map results to DTOs
         let items: Vec<crate::application::dtos::UserListItemDto> = results
             .into_iter()
             .map(|(user, persona_data)| {
-                let nombre_completo = persona_data.map(|(nombre, apellidos)| {
-                    format!("{} {}", nombre, apellidos)
-                });
-                
+                let nombre_completo = persona_data.map(|(nombre, apellidos)| format!("{} {}", nombre, apellidos));
                 crate::application::dtos::UserListItemDto {
                     id: user.id,
                     nombre_completo,
@@ -293,6 +322,8 @@ impl UserRepositoryPort for PostgresUserRepository {
                     id_persona: user.id_persona,
                     id_entidad: user.id_entidad,
                     turno: user.turno,
+                    is_demo: user.is_demo,
+                    demo_expires_at: user.demo_expires_at,
                 }
             })
             .collect();

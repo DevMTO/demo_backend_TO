@@ -69,12 +69,13 @@ impl UserService {
         &self,
         page: i64,
         page_size: i64,
+        is_demo: Option<bool>,
     ) -> Result<(Vec<UserListItemDto>, i64), ApplicationError> {
         let page_size = page_size.clamp(1, 10000);
         let offset = (page - 1).max(0) * page_size;
         
         self.user_repository
-            .list_users_with_details(page_size, offset)
+            .list_users_with_details(page_size, offset, is_demo)
             .await
     }
 
@@ -125,6 +126,9 @@ impl UserService {
         
         // Crear la entidad User
         let now = Utc::now();
+        let is_demo = request.is_demo.unwrap_or(false);
+        let demo_expires_at = if is_demo { request.demo_expires_at } else { None };
+        
         let new_user = User {
             id: 0,
             id_persona,
@@ -140,6 +144,8 @@ impl UserService {
             created_by: Some(created_by),
             updated_by: Some(created_by),
             turno: request.turno.clone(),
+            is_demo,
+            demo_expires_at,
         };
         
         let created = self.user_repository.create(&new_user).await?;

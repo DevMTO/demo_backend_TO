@@ -1,0 +1,2 @@
+ALTER TABLE users DROP COLUMN IF EXISTS demo_expires_at;
+ALTER TABLE users DROP COLUMN IF EXISTS is_demo;

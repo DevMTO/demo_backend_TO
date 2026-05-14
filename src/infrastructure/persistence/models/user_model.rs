@@ -23,6 +23,8 @@ pub struct UserModel {
     pub updated_by: Option<i32>,
     pub is_active: bool,
     pub turno: Option<String>,
+    pub is_demo: bool,
+    pub demo_expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -39,6 +41,8 @@ pub struct NewUserModel<'a> {
     pub created_by: Option<i32>,
     pub updated_by: Option<i32>,
     pub turno: Option<String>,
+    pub is_demo: bool,
+    pub demo_expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, AsChangeset)]
@@ -53,6 +57,8 @@ pub struct UpdateUserModel<'a> {
     pub last_login: Option<Option<DateTime<Utc>>>,
     pub updated_by: Option<i32>,
     pub turno: Option<Option<String>>,
+    pub is_demo: Option<bool>,
+    pub demo_expires_at: Option<Option<DateTime<Utc>>>,
 }
 
 // Conversiones entre modelos de dominio y persistencia
@@ -74,6 +80,8 @@ impl From<UserModel> for User {
             created_by: model.created_by,
             updated_by: model.updated_by,
             turno: model.turno,
+            is_demo: model.is_demo,
+            demo_expires_at: model.demo_expires_at,
         }
     }
 }
@@ -104,6 +112,8 @@ impl<'a> From<&'a User> for NewUserModel<'a> {
             created_by: user.created_by,
             updated_by: user.updated_by,
             turno: user.turno.clone(),
+            is_demo: user.is_demo,
+            demo_expires_at: user.demo_expires_at,
         }
     }
 }

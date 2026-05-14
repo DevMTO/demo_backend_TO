@@ -145,6 +145,10 @@ pub struct User {
     pub updated_by: Option<i32>,
     /// Turno asignado: "mañana", "tarde" o None
     pub turno: Option<String>,
+    /// Si el usuario es un usuario demo
+    pub is_demo: bool,
+    /// Fecha de expiración del demo (null si no es demo)
+    pub demo_expires_at: Option<DateTime<Utc>>,
 }
 
 impl User {
@@ -172,6 +176,8 @@ impl User {
             created_by: None,
             updated_by: None,
             turno: None,
+            is_demo: false,
+            demo_expires_at: None,
         }
     }
     
@@ -186,6 +192,21 @@ impl User {
     ) -> Self {
         let mut user = Self::new(id_persona, username, email, password_hash, role);
         user.id_entidad = Some(id_entidad);
+        user
+    }
+    
+    /// Crear usuario demo con fecha de expiración
+    pub fn with_demo(
+        id_persona: Option<i32>,
+        username: String,
+        email: String,
+        password_hash: String,
+        role: UserRole,
+        demo_expires_at: DateTime<Utc>,
+    ) -> Self {
+        let mut user = Self::new(id_persona, username, email, password_hash, role);
+        user.is_demo = true;
+        user.demo_expires_at = Some(demo_expires_at);
         user
     }
     
@@ -296,5 +317,48 @@ impl User {
     pub fn clear_entidad(&mut self) {
         self.id_entidad = None;
         self.updated_at = Utc::now();
+    }
+    
+    // ========================================
+    // Métodos de Demo
+    // ========================================
+    
+    /// Verifica si el usuario es un usuario demo
+    pub fn is_demo_user(&self) -> bool {
+        self.is_demo
+    }
+    
+    /// Verifica si el período demo ha expirado
+    pub fn is_demo_expired(&self) -> bool {
+        if !self.is_demo {
+            return false;
+        }
+        match self.demo_expires_at {
+            Some(expires_at) => Utc::now() > expires_at,
+            None => false,
+        }
+    }
+    
+    /// Verifica si el usuario puede usar el sistema (no es demo expirado)
+    pub fn can_use_system(&self) -> bool {
+        !self.is_demo_expired()
+    }
+    
+    /// Tiempo restante del demo en segundos
+    pub fn demo_seconds_remaining(&self) -> Option<i64> {
+        if !self.is_demo {
+            return None;
+        }
+        match self.demo_expires_at {
+            Some(expires_at) => {
+                let remaining = (expires_at - Utc::now()).num_seconds();
+                if remaining > 0 {
+                    Some(remaining)
+                } else {
+                    Some(0)
+                }
+            }
+            None => None,
+        }
     }
 }

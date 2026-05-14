@@ -60,6 +60,7 @@ pub async fn update_profile_handler(
         }
     }
     
+    let demo_expires_at = auth_user.user.demo_expires_at.map(|dt| dt.to_rfc3339());
     let user_info = AuthUserInfo {
         id: auth_user.user.id,
         id_persona: auth_user.user.id_persona,
@@ -69,6 +70,8 @@ pub async fn update_profile_handler(
         id_entidad: auth_user.user.id_entidad,
         is_active: auth_user.user.is_active,
         turno: auth_user.user.turno.clone(),
+        is_demo: auth_user.user.is_demo,
+        demo_expires_at,
     };
     
     info!("Perfil actualizado exitosamente");
