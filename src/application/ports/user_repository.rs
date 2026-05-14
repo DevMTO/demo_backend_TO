@@ -3,6 +3,17 @@ use async_trait::async_trait;
 use crate::domain::{entities::User, errors::ApplicationError};
 use crate::application::dtos::UserListItemDto;
 
+/// Scope restriction for listing users based on the authenticated user's role
+#[derive(Debug)]
+pub enum UserListScope {
+    /// No restriction — SuperAdmin and Admin see all users
+    All,
+    /// Restrict to users belonging to a specific agencia
+    AgenciaScope { id_entidad: i32 },
+    /// Restrict to hoteles_gerente of this cadena plus hoteles users in its hotels
+    HotelCadenaScope { id_cadena: i32 },
+}
+
 #[allow(dead_code)]
 #[async_trait]
 pub trait UserRepositoryPort: Send + Sync {
@@ -31,7 +42,7 @@ pub trait UserRepositoryPort: Send + Sync {
     
     async fn count_active(&self) -> Result<i64, ApplicationError>;
     
-    async fn list_users_with_details(&self, limit: i64, offset: i64, is_demo: Option<bool>) -> Result<(Vec<UserListItemDto>, i64), ApplicationError>;
+    async fn list_users_with_details(&self, limit: i64, offset: i64, is_demo: Option<bool>, scope: &UserListScope) -> Result<(Vec<UserListItemDto>, i64), ApplicationError>;
     
     /// Encuentra usuarios por rol e id_entidad (para notificaciones a proveedores)
     async fn find_by_role_and_entity(&self, role: &str, entity_id: i32) -> Result<Vec<User>, ApplicationError>;

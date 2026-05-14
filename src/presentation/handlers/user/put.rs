@@ -11,8 +11,10 @@ use crate::presentation::handlers::common::json_ok;
 use crate::presentation::extractors::AuthUser;
 use crate::application::dtos::{UpdateUserRequest, AdminChangePasswordRequest};
 
+use super::post::{can_manage_role, validate_entity_for_role};
+
 /// Actualizar un usuario existente
-/// Solo SuperAdmin puede editar usuarios
+/// SuperAdmin, Admin, hoteles_gerente y agencias_gerente pueden editar usuarios
 #[instrument(skip(state, auth, request))]
 pub async fn update_user(
     State(state): State<AppState>,
@@ -20,8 +22,31 @@ pub async fn update_user(
     Path(id): Path<i32>,
     Json(request): Json<UpdateUserRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if auth.user.role != UserRole::SuperAdmin {
-        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede editar usuarios".to_string()));
+    // Check if user has permission to update users
+    let can_update = matches!(
+        auth.user.role,
+        UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente | UserRole::AgenciasGerente
+    );
+    
+    if !can_update {
+        return Err(ApplicationError::Forbidden("No tienes permisos para editar usuarios".to_string()));
+    }
+    
+    // Validate role permissions if role is being changed
+    if let Some(ref target_role) = request.role {
+        if !can_manage_role(&auth.user.role, target_role) {
+            return Err(ApplicationError::Forbidden(format!("No puedes editar usuarios con rol '{}'", target_role)));
+        }
+        
+        // Validate entity ownership for the new role
+        if let Some(target_id_entidad) = request.id_entidad {
+            validate_entity_for_role(
+                &auth.user.role,
+                auth.user.id_entidad,
+                target_role,
+                Some(target_id_entidad),
+            )?;
+        }
     }
     
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;

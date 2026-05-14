@@ -18,7 +18,7 @@ use crate::application::dtos::{
 };
 use crate::application::ports::{
     UserRepositoryPort, PersonaRepositoryPort, PasswordHasherPort,
-    NotificationServicePort,
+    NotificationServicePort, UserListScope,
 };
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
@@ -70,12 +70,13 @@ impl UserService {
         page: i64,
         page_size: i64,
         is_demo: Option<bool>,
+        scope: &UserListScope,
     ) -> Result<(Vec<UserListItemDto>, i64), ApplicationError> {
         let page_size = page_size.clamp(1, 10000);
         let offset = (page - 1).max(0) * page_size;
-        
+
         self.user_repository
-            .list_users_with_details(page_size, offset, is_demo)
+            .list_users_with_details(page_size, offset, is_demo, scope)
             .await
     }
 

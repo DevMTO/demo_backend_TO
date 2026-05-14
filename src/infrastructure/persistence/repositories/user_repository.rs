@@ -3,7 +3,7 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tracing::{debug, warn, info, instrument};
 
-use crate::application::ports::UserRepositoryPort;
+use crate::application::ports::{UserRepositoryPort, UserListScope};
 use crate::domain::{entities::User, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
@@ -251,60 +251,80 @@ impl UserRepositoryPort for PostgresUserRepository {
     }
     
     #[instrument(skip(self))]
-    async fn list_users_with_details(&self, limit: i64, offset: i64, is_demo: Option<bool>) -> Result<(Vec<crate::application::dtos::UserListItemDto>, i64), ApplicationError> {
-        use crate::infrastructure::persistence::schema::personas;
-        
-        debug!("Listando usuarios con detalles (limit: {}, offset: {}, is_demo: {:?})", limit, offset, is_demo);
+    async fn list_users_with_details(&self, limit: i64, offset: i64, is_demo: Option<bool>, scope: &UserListScope) -> Result<(Vec<crate::application::dtos::UserListItemDto>, i64), ApplicationError> {
+        use crate::infrastructure::persistence::schema::{personas, hoteles};
+        use diesel::dsl::count_star;
+
+        debug!("Listando usuarios con detalles (limit: {}, offset: {}, is_demo: {:?}, scope: {:?})", limit, offset, is_demo, scope);
         let mut conn = self.pool.get_connection().await?;
-        
-        // Execute based on filter
-        let (total, results) = match is_demo {
-            Some(true) => {
-                let total: i64 = users::table.filter(users::is_demo.eq(true)).count()
-                    .get_result(&mut conn)
-                    .await
-                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-                let results: Vec<(UserModel, Option<(String, String)>)> = users::table
-                    .filter(users::is_demo.eq(true))
-                    .left_join(personas::table.on(users::id_persona.eq(personas::id.nullable())))
-                    .select((UserModel::as_select(), (personas::nombre, personas::apellidos).nullable()))
-                    .order(users::created_at.desc()).limit(limit).offset(offset)
-                    .load(&mut conn)
-                    .await
-                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-                (total, results)
-            },
-            Some(false) => {
-                let total: i64 = users::table.filter(users::is_demo.eq(false)).count()
-                    .get_result(&mut conn)
-                    .await
-                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-                let results: Vec<(UserModel, Option<(String, String)>)> = users::table
-                    .filter(users::is_demo.eq(false))
-                    .left_join(personas::table.on(users::id_persona.eq(personas::id.nullable())))
-                    .select((UserModel::as_select(), (personas::nombre, personas::apellidos).nullable()))
-                    .order(users::created_at.desc()).limit(limit).offset(offset)
-                    .load(&mut conn)
-                    .await
-                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-                (total, results)
-            },
-            None => {
-                let total: i64 = users::table.count()
-                    .get_result(&mut conn)
-                    .await
-                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-                let results: Vec<(UserModel, Option<(String, String)>)> = users::table
-                    .left_join(personas::table.on(users::id_persona.eq(personas::id.nullable())))
-                    .select((UserModel::as_select(), (personas::nombre, personas::apellidos).nullable()))
-                    .order(users::created_at.desc()).limit(limit).offset(offset)
-                    .load(&mut conn)
-                    .await
-                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
-                (total, results)
-            }
+
+        // Pre-fetch hotel IDs for cadena scope (requires an extra query before the main one)
+        let hotel_ids: Vec<i32> = if let UserListScope::HotelCadenaScope { id_cadena } = scope {
+            hoteles::table
+                .filter(hoteles::id_cadena.eq(id_cadena))
+                .select(hoteles::id)
+                .load::<i32>(&mut conn)
+                .await
+                .map_err(|e| ApplicationError::Repository(e.to_string()))?
+        } else {
+            vec![]
         };
-        
+
+        // Compute (roles, entity_ids) to filter by, if any scope restriction applies
+        let scope_filter: Option<(Vec<String>, Vec<i32>)> = match scope {
+            UserListScope::All => None,
+            UserListScope::AgenciaScope { id_entidad } => Some((
+                vec!["agencias_gerente".into(), "agencias".into(), "agencias_contador".into()],
+                vec![*id_entidad],
+            )),
+            UserListScope::HotelCadenaScope { id_cadena } => {
+                let mut entity_ids = vec![*id_cadena];
+                entity_ids.extend_from_slice(&hotel_ids);
+                Some((
+                    vec!["hoteles_gerente".into(), "hoteles".into()],
+                    entity_ids,
+                ))
+            },
+        };
+
+        // Count query using SELECT COUNT(*) with a boxed query so we can apply filters dynamically
+        let mut count_q = users::table
+            .select(count_star())
+            .into_boxed::<diesel::pg::Pg>();
+        if let Some(demo) = is_demo {
+            count_q = count_q.filter(users::is_demo.eq(demo));
+        }
+        if let Some((ref roles, ref entity_ids)) = scope_filter {
+            count_q = count_q
+                .filter(users::role.eq_any(roles))
+                .filter(users::id_entidad.eq_any(entity_ids));
+        }
+        let total: i64 = count_q
+            .first(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+
+        // Data query with persona join, also boxed for dynamic filters
+        let mut data_q = users::table
+            .left_join(personas::table.on(users::id_persona.eq(personas::id.nullable())))
+            .select((UserModel::as_select(), (personas::nombre, personas::apellidos).nullable()))
+            .order(users::created_at.desc())
+            .into_boxed::<diesel::pg::Pg>();
+        if let Some(demo) = is_demo {
+            data_q = data_q.filter(users::is_demo.eq(demo));
+        }
+        if let Some((ref roles, ref entity_ids)) = scope_filter {
+            data_q = data_q
+                .filter(users::role.eq_any(roles))
+                .filter(users::id_entidad.eq_any(entity_ids));
+        }
+        let results: Vec<(UserModel, Option<(String, String)>)> = data_q
+            .limit(limit)
+            .offset(offset)
+            .load(&mut conn)
+            .await
+            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+
         // Map results to DTOs
         let items: Vec<crate::application::dtos::UserListItemDto> = results
             .into_iter()
@@ -327,7 +347,7 @@ impl UserRepositoryPort for PostgresUserRepository {
                 }
             })
             .collect();
-        
+
         info!("Listados {} usuarios de {} total", items.len(), total);
         Ok((items, total))
     }

@@ -38,7 +38,7 @@ pub mod contabilidad_repository;
 
 // Re-exports core
 pub use generic_repository::{PaginationOptions, PaginatedResult};
-pub use user_repository::UserRepositoryPort;
+pub use user_repository::{UserRepositoryPort, UserListScope};
 pub use session_repository::SessionRepositoryPort;
 pub use password_hasher::PasswordHasherPort;
 pub use session_manager::{SessionManagerPort, SessionTokenData};
