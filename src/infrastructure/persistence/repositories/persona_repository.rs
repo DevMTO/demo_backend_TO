@@ -3,12 +3,12 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tracing::{info, instrument};
 
-use crate::application::ports::{PersonaRepositoryPort, PaginationOptions, PaginatedResult};
+use crate::application::ports::{PersonaListScope, PersonaRepositoryPort, PaginationOptions, PaginatedResult};
 use crate::domain::{entities::Persona, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
     models::{PersonaModel, NewPersonaModel, UpdatePersonaModel},
-    schema::personas,
+    schema::{personas, users},
 };
 
 pub struct PostgresPersonaRepository { pool: DatabasePool }
@@ -115,19 +115,115 @@ impl PersonaRepositoryPort for PostgresPersonaRepository {
         Ok(self.find_by_documento(tipo, numero).await?.is_some())
     }
     
-    async fn search(&self, query: &str) -> Result<Vec<Persona>, ApplicationError> {
+    async fn search(&self, query: &str, scope: &PersonaListScope) -> Result<Vec<Persona>, ApplicationError> {
         let mut conn = self.pool.get_connection().await?;
         let pattern = format!("%{}%", query.to_lowercase());
-        let results = personas::table
+        
+        let base_query = personas::table
             .filter(
                 personas::nombre.ilike(&pattern)
                 .or(personas::apellidos.ilike(&pattern))
                 .or(personas::nro_documento.ilike(&pattern))
-            )
-            .order(personas::apellidos.asc())
-            .limit(50) // Límite fijo
-            .load::<PersonaModel>(&mut conn).await
-            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+            );
+
+        let results: Vec<PersonaModel> = match scope {
+            PersonaListScope::All => {
+                base_query
+                    .order(personas::apellidos.asc())
+                    .limit(50)
+                    .load::<PersonaModel>(&mut conn).await?
+            },
+            PersonaListScope::Empty => {
+                // Empty result for security
+                vec![]
+            },
+            PersonaListScope::GerenteScope { created_by_user_id, id_entidad } => {
+                // Get persona IDs from users in this entity
+                let entity_persona_ids: Vec<i32> = users::table
+                    .filter(users::id_entidad.eq(*id_entidad))
+                    .select(users::id_persona)
+                    .filter(users::id_persona.is_not_null())
+                    .load::<Option<i32>>(&mut conn).await
+                    .map_err(|e| ApplicationError::Repository(e.to_string()))?
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                
+                base_query
+                    .filter(
+                        personas::created_by.eq(*created_by_user_id)
+                        .or(personas::id.eq_any(&entity_persona_ids))
+                    )
+                    .order(personas::apellidos.asc())
+                    .limit(50)
+                    .load::<PersonaModel>(&mut conn).await?
+            },
+        };
+        
         Ok(results.into_iter().map(Into::into).collect())
+    }
+
+    async fn list_paginated_with_scope(
+        &self,
+        options: PaginationOptions,
+        scope: &PersonaListScope,
+    ) -> Result<PaginatedResult<Persona>, ApplicationError> {
+        let limit = options.limit.unwrap_or(50);
+        let offset = options.offset.unwrap_or(0);
+        
+        let mut conn = self.pool.get_connection().await?;
+        
+        match scope {
+            PersonaListScope::All => {
+                let total = self.count().await?;
+                let data = self.list(limit, offset).await?;
+                Ok(PaginatedResult::new(data, total, limit, offset))
+            },
+            PersonaListScope::Empty => {
+                // Empty result for security - gerente has no valid id_entidad
+                Ok(PaginatedResult::new(vec![], 0, limit, offset))
+            },
+            PersonaListScope::GerenteScope { created_by_user_id, id_entidad } => {
+                // Get persona IDs from users in this entity (non-null only)
+                let entity_persona_ids: Vec<i32> = users::table
+                    .filter(users::id_entidad.eq(*id_entidad))
+                    .select(users::id_persona)
+                    .filter(users::id_persona.is_not_null())
+                    .load::<Option<i32>>(&mut conn).await
+                    .map_err(|e| ApplicationError::Repository(e.to_string()))?
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                
+                // Get count with scope filter
+                let total = personas::table
+                    .filter(
+                        personas::created_by.eq(*created_by_user_id)
+                        .or(personas::id.eq_any(&entity_persona_ids))
+                    )
+                    .count()
+                    .get_result::<i64>(&mut conn).await
+                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                
+                // Get data with scope filter
+                let results = personas::table
+                    .filter(
+                        personas::created_by.eq(*created_by_user_id)
+                        .or(personas::id.eq_any(&entity_persona_ids))
+                    )
+                    .order(personas::apellidos.asc())
+                    .limit(limit)
+                    .offset(offset)
+                    .load::<PersonaModel>(&mut conn).await
+                    .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                
+                Ok(PaginatedResult::new(
+                    results.into_iter().map(Into::into).collect(),
+                    total,
+                    limit,
+                    offset,
+                ))
+            },
+        }
     }
 }

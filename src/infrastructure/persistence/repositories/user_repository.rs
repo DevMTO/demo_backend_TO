@@ -273,6 +273,7 @@ impl UserRepositoryPort for PostgresUserRepository {
         // Compute (roles, entity_ids) to filter by, if any scope restriction applies
         let scope_filter: Option<(Vec<String>, Vec<i32>)> = match scope {
             UserListScope::All => None,
+            UserListScope::Empty => Some((vec![], vec![0])),  // Empty result - impossible match
             UserListScope::AgenciaScope { id_entidad } => Some((
                 vec!["agencias_gerente".into(), "agencias".into(), "agencias_contador".into()],
                 vec![*id_entidad],

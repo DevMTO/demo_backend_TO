@@ -49,7 +49,7 @@ pub use notification_repository::{NotificationRepositoryPort, NotificationFilter
 pub use notification_service::NotificationServicePort;
 
 // Re-exports business entities
-pub use persona_repository::PersonaRepositoryPort;
+pub use persona_repository::{PersonaListScope, PersonaRepositoryPort};
 pub use agencia_repository::AgenciaRepositoryPort;
 pub use tour_repository::TourRepositoryPort;
 pub use transporte_repository::TransporteRepositoryPort;

@@ -13,7 +13,7 @@ use tracing::{info, warn, instrument};
 use crate::application::dtos::{
     CreatePersonaRequest, UpdatePersonaRequest, PersonaResponse,
 };
-use crate::application::ports::{PersonaRepositoryPort, PaginationOptions};
+use crate::application::ports::{PersonaListScope, PersonaRepositoryPort, PaginationOptions};
 use crate::application::services::LoggingService;
 use crate::domain::entities::{Persona, EntityType};
 use crate::domain::errors::ApplicationError;
@@ -35,14 +35,15 @@ impl PersonaService {
         }
     }
 
-    /// Listar personas con paginación
+    /// Listar personas con paginación y scope (filtrado por rol)
     #[instrument(skip(self))]
     pub async fn list_personas(
         &self,
         options: PaginationOptions,
+        scope: &PersonaListScope,
     ) -> Result<(Vec<PersonaResponse>, i64, i64), ApplicationError> {
         let result = self.persona_repository
-            .list_paginated(options)
+            .list_paginated_with_scope(options, scope)
             .await?;
         
         let total = result.total;
@@ -220,11 +221,11 @@ impl PersonaService {
         self.delete_persona(id, deleted_by, deleted_by_username).await
     }
 
-    /// Buscar personas por texto
+    /// Buscar personas por texto con scope
     #[instrument(skip(self))]
-    pub async fn search_personas(&self, query: &str) -> Result<Vec<PersonaResponse>, ApplicationError> {
+    pub async fn search_personas(&self, query: &str, scope: &PersonaListScope) -> Result<Vec<PersonaResponse>, ApplicationError> {
         let personas = self.persona_repository
-            .search(query)
+            .search(query, scope)
             .await?;
         
         info!("Búsqueda '{}' encontró {} personas", query, personas.len());

@@ -12,6 +12,8 @@ pub enum UserListScope {
     AgenciaScope { id_entidad: i32 },
     /// Restrict to hoteles_gerente of this cadena plus hoteles users in its hotels
     HotelCadenaScope { id_cadena: i32 },
+    /// Empty result - for gerentes with invalid/missing id_entidad (security)
+    Empty,
 }
 
 #[allow(dead_code)]

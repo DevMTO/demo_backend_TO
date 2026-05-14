@@ -7,6 +7,8 @@ use axum::{
 use serde::Deserialize;
 use tracing::{debug, instrument};
 
+use crate::application::ports::PersonaListScope;
+use crate::domain::entities::UserRole;
 use crate::domain::errors::ApplicationError;
 use crate::presentation::routes::AppState;
 use crate::presentation::extractors::AuthUser;
@@ -20,18 +22,36 @@ pub struct SearchQuery {
     pub q: String,
 }
 
-/// Listar personas con paginación
-#[instrument(skip(state, _auth))]
+/// Determina el scope basado en el rol del usuario autenticado
+fn get_persona_scope(auth: &AuthUser) -> PersonaListScope {
+    match auth.user.role {
+        UserRole::HotelesGerente | UserRole::AgenciasGerente => {
+            if let Some(id_entidad) = auth.user.id_entidad {
+                PersonaListScope::GerenteScope {
+                    created_by_user_id: auth.user.id,
+                    id_entidad,
+                }
+            } else {
+                PersonaListScope::Empty  // Secure: don't expose all personas
+            }
+        },
+        _ => PersonaListScope::All,
+    }
+}
+
+/// Listar personas con paginación (con scope basado en rol)
+#[instrument(skip(state, auth))]
 pub async fn list_personas(
     State(state): State<AppState>,
-    _auth: AuthUser,
+    auth: AuthUser,
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     debug!("Listando personas - página: {}, tamaño: {}", params.page, params.page_size);
     
+    let scope = get_persona_scope(&auth);
     let options = params.to_options();
     let (items, total, total_pages) = state.container.persona_service
-        .list_personas(options)
+        .list_personas(options, &scope)
         .await?;
     
     let response: PaginatedResponse<PersonaResponse> = PaginatedResponse {
@@ -63,17 +83,18 @@ pub async fn get_persona(
     Ok(json_ok(persona))
 }
 
-/// Buscar personas por texto
-#[instrument(skip(state, _auth))]
+/// Buscar personas por texto (con scope basado en rol)
+#[instrument(skip(state, auth))]
 pub async fn search_personas(
     State(state): State<AppState>,
-    _auth: AuthUser,
+    auth: AuthUser,
     Query(query): Query<SearchQuery>,
 ) -> Result<impl IntoResponse, ApplicationError> {
     debug!("Buscando personas: {}", query.q);
     
+    let scope = get_persona_scope(&auth);
     let response = state.container.persona_service
-        .search_personas(&query.q)
+        .search_personas(&query.q, &scope)
         .await?;
     
     Ok(json_ok(response))

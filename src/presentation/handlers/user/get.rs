@@ -38,11 +38,11 @@ pub async fn list_users(
     let scope = match auth.user.role {
         UserRole::AgenciasGerente => match auth.user.id_entidad {
             Some(id) => UserListScope::AgenciaScope { id_entidad: id },
-            None => UserListScope::All,
+            None => UserListScope::Empty,  // Secure: don't expose all users
         },
         UserRole::HotelesGerente => match auth.user.id_entidad {
             Some(id) => UserListScope::HotelCadenaScope { id_cadena: id },
-            None => UserListScope::All,
+            None => UserListScope::Empty,  // Secure: don't expose all users
         },
         _ => UserListScope::All,
     };
