@@ -70,6 +70,7 @@ impl Services {
         let user = Arc::new(UserService::new(
             repos.user.clone(),
             repos.persona.clone(),
+            repos.hotel.clone(),
             password_hasher,
             logging.clone(),
             notify.clone(),

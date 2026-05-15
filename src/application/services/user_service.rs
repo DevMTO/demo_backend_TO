@@ -18,7 +18,7 @@ use crate::application::dtos::{
 };
 use crate::application::ports::{
     UserRepositoryPort, PersonaRepositoryPort, PasswordHasherPort,
-    NotificationServicePort, UserListScope,
+    NotificationServicePort, UserListScope, HotelRepositoryPort,
 };
 use crate::application::services::LoggingService;
 use crate::domain::entities::{
@@ -41,6 +41,7 @@ pub struct UpdateUserResult {
 pub struct UserService {
     user_repository: Arc<dyn UserRepositoryPort>,
     persona_repository: Arc<dyn PersonaRepositoryPort>,
+    hotel_repository: Arc<dyn HotelRepositoryPort>,
     password_hasher: Arc<dyn PasswordHasherPort>,
     logging_service: Arc<LoggingService>,
     notification_service: Arc<dyn NotificationServicePort>,
@@ -50,6 +51,7 @@ impl UserService {
     pub fn new(
         user_repository: Arc<dyn UserRepositoryPort>,
         persona_repository: Arc<dyn PersonaRepositoryPort>,
+        hotel_repository: Arc<dyn HotelRepositoryPort>,
         password_hasher: Arc<dyn PasswordHasherPort>,
         logging_service: Arc<LoggingService>,
         notification_service: Arc<dyn NotificationServicePort>,
@@ -57,6 +59,7 @@ impl UserService {
         Self {
             user_repository,
             persona_repository,
+            hotel_repository,
             password_hasher,
             logging_service,
             notification_service,
@@ -127,8 +130,17 @@ impl UserService {
         
         // Crear la entidad User
         let now = Utc::now();
-        let is_demo = request.is_demo.unwrap_or(false);
-        let demo_expires_at = if is_demo { request.demo_expires_at } else { None };
+        // Herencia demo: si el creador es demo, el nuevo usuario hereda is_demo y demo_expires_at,
+        // ignorando lo que envíe el frontend. El superadmin puede editarlos después.
+        let creator = self.user_repository.find_by_id(created_by).await?;
+        let (is_demo, demo_expires_at) = match creator {
+            Some(c) if c.is_demo => (true, c.demo_expires_at),
+            _ => {
+                let is_demo = request.is_demo.unwrap_or(false);
+                let demo_expires_at = if is_demo { request.demo_expires_at } else { None };
+                (is_demo, demo_expires_at)
+            }
+        };
         
         let new_user = User {
             id: 0,
@@ -263,9 +275,19 @@ impl UserService {
         // Aplicar cambios
         let updated = request.apply_to(user, Some(updated_by));
         let result = self.user_repository.update(&updated).await?;
-        
+
         info!("Usuario actualizado: {} (ID: {})", result.username, result.id);
-        
+
+        // Propagar herencia demo a usuarios subordinados si el editado es un gerente
+        // y cambió is_demo o demo_expires_at
+        let demo_changed = old_user.is_demo != result.is_demo
+            || old_user.demo_expires_at != result.demo_expires_at;
+        if demo_changed {
+            if let Err(e) = self.propagate_demo_to_subordinates(&result, updated_by).await {
+                warn!("Error al propagar estado demo a subordinados: {}", e);
+            }
+        }
+
         // Detectar campos cambiados
         let changed_fields = self.detect_changed_fields(&old_user, &result);
         
@@ -307,6 +329,74 @@ impl UserService {
         Ok(UpdateUserResult {
             user: UserDetailDto::from(result),
         })
+    }
+
+    /// Propagar el estado demo (is_demo + demo_expires_at) de un gerente a todos sus subordinados.
+    /// - hoteles_gerente → todos los `hoteles` cuyos hoteles pertenecen a la cadena del gerente
+    /// - agencias_gerente → todos los `agencias` y `agencias_contador` de la misma agencia
+    async fn propagate_demo_to_subordinates(
+        &self,
+        manager: &User,
+        updated_by: i32,
+    ) -> Result<(), ApplicationError> {
+        let id_entidad = match manager.id_entidad {
+            Some(e) => e,
+            None => return Ok(()),
+        };
+
+        let subordinates: Vec<User> = match manager.role {
+            UserRole::HotelesGerente => {
+                // id_entidad del gerente = id_cadena. Buscar todos los hoteles de esa cadena
+                // y por cada hotel sus usuarios con rol "hoteles".
+                let hotels = self.hotel_repository
+                    .list_by_cadena(id_entidad, 10000, 0)
+                    .await?;
+                let mut users = Vec::new();
+                for hotel in hotels {
+                    let mut hu = self.user_repository
+                        .find_by_role_and_entity("hoteles", hotel.id)
+                        .await?;
+                    users.append(&mut hu);
+                }
+                users
+            }
+            UserRole::AgenciasGerente => {
+                let mut users = self.user_repository
+                    .find_by_role_and_entity("agencias", id_entidad)
+                    .await?;
+                let mut contadores = self.user_repository
+                    .find_by_role_and_entity("agencias_contador", id_entidad)
+                    .await?;
+                users.append(&mut contadores);
+                users
+            }
+            _ => return Ok(()),
+        };
+
+        let now = Utc::now();
+        let mut propagated = 0usize;
+        for mut sub in subordinates {
+            if sub.is_demo == manager.is_demo && sub.demo_expires_at == manager.demo_expires_at {
+                continue;
+            }
+            sub.is_demo = manager.is_demo;
+            sub.demo_expires_at = manager.demo_expires_at;
+            sub.updated_at = now;
+            sub.updated_by = Some(updated_by);
+            if let Err(e) = self.user_repository.update(&sub).await {
+                warn!("Error propagando demo a usuario {}: {}", sub.id, e);
+                continue;
+            }
+            propagated += 1;
+        }
+
+        if propagated > 0 {
+            info!(
+                "Propagado estado demo (is_demo={}) a {} subordinado(s) del gerente {} (ID: {})",
+                manager.is_demo, propagated, manager.username, manager.id
+            );
+        }
+        Ok(())
     }
 
     /// Detectar campos que cambiaron entre dos estados de usuario
