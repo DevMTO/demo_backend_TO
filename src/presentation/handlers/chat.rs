@@ -22,7 +22,7 @@ fn can_access_chat(role: &UserRole) -> bool {
     matches!(role, 
         UserRole::SuperAdmin | UserRole::Admin | 
         UserRole::Agencias | UserRole::AgenciasGerente | UserRole::AgenciasContador |
-        UserRole::Hoteles | UserRole::HotelesGerente
+        UserRole::Hoteles | UserRole::HotelesGerente | UserRole::HotelesGerenteCadena
     )
 }
 
@@ -49,7 +49,7 @@ async fn check_file_access(state: &AppState, auth: &AuthUser, file_id: i32) -> R
     }
 
     // HotelesGerente: verificar si el file pertenece a un hotel de su cadena
-    if auth.user.role == UserRole::HotelesGerente {
+    if auth.user.role == UserRole::HotelesGerenteCadena {
         if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(file.id_entidad).await {
             if hotel.id_cadena == user_entidad {
                 return Ok(());
@@ -89,7 +89,7 @@ async fn check_file_tour_access(state: &AppState, auth: &AuthUser, file_tour_id:
     }
 
     // HotelesGerente: verificar si el file pertenece a un hotel de su cadena
-    if auth.user.role == UserRole::HotelesGerente {
+    if auth.user.role == UserRole::HotelesGerenteCadena {
         if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(file.id_entidad).await {
             if hotel.id_cadena == user_entidad {
                 return Ok(());

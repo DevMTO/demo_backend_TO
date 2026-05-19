@@ -40,8 +40,12 @@ pub async fn list_users(
             Some(id) => UserListScope::AgenciaScope { id_entidad: id },
             None => UserListScope::Empty,  // Secure: don't expose all users
         },
-        UserRole::HotelesGerente => match auth.user.id_entidad {
+        UserRole::HotelesGerenteCadena => match auth.user.id_entidad {
             Some(id) => UserListScope::HotelCadenaScope { id_cadena: id },
+            None => UserListScope::Empty,  // Secure: don't expose all users
+        },
+        UserRole::HotelesGerente => match auth.user.id_entidad {
+            Some(id) => UserListScope::HotelScope { id_hotel: id },
             None => UserListScope::Empty,  // Secure: don't expose all users
         },
         _ => UserListScope::All,

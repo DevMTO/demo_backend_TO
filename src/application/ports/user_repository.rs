@@ -10,8 +10,11 @@ pub enum UserListScope {
     All,
     /// Restrict to users belonging to a specific agencia
     AgenciaScope { id_entidad: i32 },
-    /// Restrict to hoteles_gerente of this cadena plus hoteles users in its hotels
+    /// Restrict to hoteles_gerente_cadena of this cadena, hoteles_gerente of its hotels,
+    /// and hoteles users of its hotels
     HotelCadenaScope { id_cadena: i32 },
+    /// Restrict to hoteles_gerente and hoteles users of a specific hotel
+    HotelScope { id_hotel: i32 },
     /// Empty result - for gerentes with invalid/missing id_entidad (security)
     Empty,
 }

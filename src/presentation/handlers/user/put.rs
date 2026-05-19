@@ -25,7 +25,7 @@ pub async fn update_user(
     // Check if user has permission to update users
     let can_update = matches!(
         auth.user.role,
-        UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente | UserRole::AgenciasGerente
+        UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerenteCadena | UserRole::HotelesGerente | UserRole::AgenciasGerente
     );
     
     if !can_update {

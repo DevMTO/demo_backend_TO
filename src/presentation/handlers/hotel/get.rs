@@ -21,7 +21,7 @@ pub async fn list_hoteles(
     auth: AuthUser,
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente) {
+    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente | UserRole::HotelesGerenteCadena) {
         return Err(ApplicationError::Forbidden("No tienes permisos para listar hoteles".to_string()));
     }
     
@@ -54,7 +54,7 @@ pub async fn list_hoteles_by_cadena(
     Path(id_cadena): Path<i32>,
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente) {
+    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente | UserRole::HotelesGerenteCadena) {
         return Err(ApplicationError::Forbidden("No tienes permisos para listar hoteles".to_string()));
     }
     
@@ -86,7 +86,7 @@ pub async fn get_hotel(
     auth: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente | UserRole::Hoteles) {
+    if !matches!(auth.user.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente | UserRole::HotelesGerenteCadena | UserRole::Hoteles) {
         return Err(ApplicationError::Forbidden("No tienes permisos para ver este hotel".to_string()));
     }
     

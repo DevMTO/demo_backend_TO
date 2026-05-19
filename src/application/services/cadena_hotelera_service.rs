@@ -303,7 +303,7 @@ impl CadenaHoteleraService {
         
         let mut cadena: Option<CadenaHotelera> = None;
         
-        let is_cadena_user = *user_role == UserRole::HotelesGerente;
+        let is_cadena_user = *user_role == UserRole::HotelesGerenteCadena;
         
         if is_cadena_user {
             if let Some(entity_id) = id_entidad {

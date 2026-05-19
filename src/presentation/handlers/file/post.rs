@@ -82,7 +82,7 @@ pub async fn confirmar_reserva(
     let file = state.container.file_service.get_file(file_id).await?;
     if !auth.user.role.is_admin() {
         let user_entidad = auth.user.id_entidad.unwrap_or(0);
-        let check_cadena = if auth.user.role == UserRole::HotelesGerente {
+        let check_cadena = if auth.user.role == UserRole::HotelesGerenteCadena {
             if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(file.id_entidad).await {
                 hotel.id_cadena == user_entidad
             } else {

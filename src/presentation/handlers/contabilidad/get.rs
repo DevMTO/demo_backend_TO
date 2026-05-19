@@ -29,13 +29,13 @@ async fn is_own_agencia(state: &AppState, auth: &AuthUser, id_entidad: i32) -> b
     // Si es la misma entidad
     if matches!(role, 
         UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente |
-        UserRole::Hoteles | UserRole::HotelesGerente
+        UserRole::Hoteles | UserRole::HotelesGerente | UserRole::HotelesGerenteCadena
     ) && user_entidad == Some(id_entidad) {
         return true;
     }
 
     // Si es Gerente de Cadena y busca un hotel de su cadena
-    if *role == UserRole::HotelesGerente {
+    if *role == UserRole::HotelesGerenteCadena {
         if let Some(id_cadena) = user_entidad {
             if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(id_entidad).await {
                 return hotel.id_cadena == id_cadena;
@@ -71,7 +71,7 @@ pub async fn get_agencia_dashboard(
     // Para roles no-admin, filtrar por tipo de entidad
     let entidad_filter = if is_admin { 
         None 
-    } else if auth.user.role == UserRole::HotelesGerente {
+    } else if auth.user.role == UserRole::HotelesGerenteCadena {
         if query.entidad.as_deref() == Some("cadenas_hoteleras") {
             Some("cadenas_hoteleras")
         } else {
@@ -107,7 +107,7 @@ pub async fn list_pagos_files(
         params.id_entidad
     } else if matches!(auth.user.role, 
         UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente | 
-        UserRole::Hoteles | UserRole::HotelesGerente
+        UserRole::Hoteles | UserRole::HotelesGerente | UserRole::HotelesGerenteCadena
     ) {
         auth.user.id_entidad
     } else {
@@ -117,7 +117,7 @@ pub async fn list_pagos_files(
     };
 
     // Si es Gerente de Cadena y se solicita un hotel específico de su cadena
-    if auth.user.role == UserRole::HotelesGerente {
+    if auth.user.role == UserRole::HotelesGerenteCadena {
         if let Some(requested_id) = params.id_entidad {
             if let Some(id_cadena) = auth.user.id_entidad {
                 if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(requested_id).await {
@@ -132,7 +132,7 @@ pub async fn list_pagos_files(
     // Para roles no-admin, filtrar por tipo de entidad del usuario
     let entidad_filter = if is_admin_or_operador(&auth.user.role) {
         None
-    } else if auth.user.role == UserRole::HotelesGerente {
+    } else if auth.user.role == UserRole::HotelesGerenteCadena {
         if params.entidad.as_deref() == Some("cadenas_hoteleras") {
             Some("cadenas_hoteleras")
         } else {

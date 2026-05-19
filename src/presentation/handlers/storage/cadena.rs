@@ -41,7 +41,7 @@ pub async fn upload_cadena_logo(
         })?;
     
     // Permisos: SuperAdmin, Admin, o usuario hotel con id_entidad de esta cadena
-    let is_hotel_user = matches!(auth_user.user.role, UserRole::Hoteles | UserRole::HotelesGerente);
+    let is_hotel_user = matches!(auth_user.user.role, UserRole::Hoteles | UserRole::HotelesGerente | UserRole::HotelesGerenteCadena);
     
     let mut can_upload = auth_user.user.role == UserRole::SuperAdmin 
         || auth_user.user.role == UserRole::Admin;

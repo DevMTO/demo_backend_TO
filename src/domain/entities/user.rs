@@ -26,8 +26,10 @@ pub enum UserRole {
     Restaurantes,
     /// Hotel - similar a agencia, puede crear files para su hotel
     Hoteles,
-    /// Gerente de cadena hotelera - ve info de todos los hoteles de su cadena
+    /// Gerente de un hotel concreto - puede crear recepcionistas de su mismo hotel
     HotelesGerente,
+    /// Gerente de cadena hotelera - ve info de todos los hoteles de su cadena
+    HotelesGerenteCadena,
 }
 
 impl std::fmt::Display for UserRole {
@@ -44,6 +46,7 @@ impl std::fmt::Display for UserRole {
             UserRole::Restaurantes => write!(f, "restaurantes"),
             UserRole::Hoteles => write!(f, "hoteles"),
             UserRole::HotelesGerente => write!(f, "hoteles_gerente"),
+            UserRole::HotelesGerenteCadena => write!(f, "hoteles_gerente_cadena"),
         }
     }
 }
@@ -64,6 +67,7 @@ impl std::str::FromStr for UserRole {
             "restaurantes" | "restaurante" | "restaurant" => Ok(UserRole::Restaurantes),
             "hoteles" | "hotel" => Ok(UserRole::Hoteles),
             "hoteles_gerente" | "gerente_hotel" => Ok(UserRole::HotelesGerente),
+            "hoteles_gerente_cadena" | "gerente_cadena_hotelera" => Ok(UserRole::HotelesGerenteCadena),
             _ => Err(format!("Invalid role: {s}")),
         }
     }
@@ -105,7 +109,8 @@ impl UserRole {
         match self {
             UserRole::Agencias | UserRole::AgenciasContador | UserRole::AgenciasGerente => Some("agencias"),
             UserRole::Hoteles => Some("hoteles"),
-            UserRole::HotelesGerente => Some("cadenas_hoteleras"),
+            UserRole::HotelesGerente => Some("hoteles"),
+            UserRole::HotelesGerenteCadena => Some("cadenas_hoteleras"),
             UserRole::Transportes => Some("transportes"),
             UserRole::Conductores => Some("conductores"),
             UserRole::Guias => Some("guias"),
@@ -271,7 +276,7 @@ impl User {
     
     /// Verifica si puede acceder al panel de administración
     pub fn can_access_management(&self) -> bool {
-        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias | UserRole::AgenciasGerente | UserRole::Hoteles | UserRole::HotelesGerente)
+        matches!(self.role, UserRole::SuperAdmin | UserRole::Admin | UserRole::Agencias | UserRole::AgenciasGerente | UserRole::Hoteles | UserRole::HotelesGerente | UserRole::HotelesGerenteCadena)
     }
     
     /// Verifica si puede gestionar vehículos

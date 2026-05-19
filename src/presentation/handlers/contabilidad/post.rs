@@ -42,7 +42,7 @@ pub async fn registrar_pago_file(
     let mut is_owner = auth.user.id_entidad.map(|id| id == pago.id_entidad).unwrap_or(false);
     
     // Si es gerente de hotel, verificar si el hotel del pago pertenece a su cadena
-    if auth.user.role == UserRole::HotelesGerente {
+    if auth.user.role == UserRole::HotelesGerenteCadena {
         if let Some(id_cadena) = auth.user.id_entidad {
             if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(pago.id_entidad).await {
                 if hotel.id_cadena == id_cadena {

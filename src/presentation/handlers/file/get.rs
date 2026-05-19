@@ -90,7 +90,7 @@ pub async fn list_files_by_agencia(
     if !auth.user.role.is_admin() {
         let user_entidad = auth.user.id_entidad.unwrap_or(0);
         
-        let check_cadena = if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
+        let check_cadena = if auth.user.role == crate::domain::entities::UserRole::HotelesGerenteCadena {
             if query.entidad.as_deref() == Some("cadenas_hoteleras") {
                 // Si la consulta es por cadena completa, validamos la propiedad en el repositorio directo usando user_entidad
                 final_agencia_id = user_entidad;
@@ -119,7 +119,7 @@ pub async fn list_files_by_agencia(
     // Para non-admin, forzar entidad desde su rol o permitir la consulta de su jerarquía
     let entidad_filter = if auth.user.role.is_admin() {
         query.entidad.as_deref()
-    } else if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
+    } else if auth.user.role == crate::domain::entities::UserRole::HotelesGerenteCadena {
         if query.entidad.as_deref() == Some("cadenas_hoteleras") {
             Some("cadenas_hoteleras")
         } else {
@@ -194,7 +194,7 @@ pub async fn get_active_file_codes(
         })?
     };
 
-    let entidad_filter = if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
+    let entidad_filter = if auth.user.role == crate::domain::entities::UserRole::HotelesGerenteCadena {
         if query.entidad.as_deref() == Some("cadenas_hoteleras") {
             Some("cadenas_hoteleras")
         } else {
@@ -222,7 +222,7 @@ pub async fn get_active_file_codes_by_entity(
     if !auth.user.role.is_admin() {
         let user_entidad = auth.user.id_entidad.unwrap_or(0);
         
-        let check_cadena = if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
+        let check_cadena = if auth.user.role == crate::domain::entities::UserRole::HotelesGerenteCadena {
             if query.entidad.as_deref() == Some("cadenas_hoteleras") {
                 final_entidad_id = user_entidad;
                 true
@@ -248,7 +248,7 @@ pub async fn get_active_file_codes_by_entity(
 
     let entidad_filter = if auth.user.role.is_admin() {
         query.entidad.as_deref()
-    } else if auth.user.role == crate::domain::entities::UserRole::HotelesGerente {
+    } else if auth.user.role == crate::domain::entities::UserRole::HotelesGerenteCadena {
         if query.entidad.as_deref() == Some("cadenas_hoteleras") {
             Some("cadenas_hoteleras")
         } else {

@@ -14,7 +14,8 @@ use crate::application::dtos::CreateUserRequest;
 pub fn can_manage_role(manager_role: &UserRole, target_role: &str) -> bool {
     match manager_role {
         UserRole::SuperAdmin | UserRole::Admin => true,
-        UserRole::HotelesGerente => target_role == "hoteles_gerente" || target_role == "hoteles",
+        UserRole::HotelesGerenteCadena => target_role == "hoteles_gerente" || target_role == "hoteles",
+        UserRole::HotelesGerente => target_role == "hoteles",
         UserRole::AgenciasGerente => target_role == "agencias_gerente" || target_role == "agencias" || target_role == "agencias_contador",
         _ => false,
     }
@@ -46,20 +47,22 @@ pub fn validate_entity_for_role(
     
     match manager_role {
         UserRole::SuperAdmin | UserRole::Admin => Ok(()),
-        UserRole::HotelesGerente => {
+        UserRole::HotelesGerenteCadena => {
             // Target must be a hotel belonging to the manager's cadena
-            if target_role == "hoteles" {
+            if target_role == "hoteles" || target_role == "hoteles_gerente" {
                 if manager_id_entidad.is_some() {
                     // We'll validate the hotel belongs to the cadena in the service layer
                     // by checking the hotel's id_cadena
                     return Ok(());
                 }
             }
-            // Hoteles_gerente can only manage hotels
-            if target_role == "hoteles_gerente" {
-                // Creating another gerente - entity must match
+            Ok(())
+        },
+        UserRole::HotelesGerente => {
+            // Hotel manager can only create users in their own hotel
+            if target_role == "hoteles" {
                 if target_entidad != manager_id_entidad.unwrap_or(0) {
-                    return Err(ApplicationError::Forbidden("No puedes crear un gerente de cadena para una cadena diferente".to_string()));
+                    return Err(ApplicationError::Forbidden("No puedes crear usuarios para un hotel diferente".to_string()));
                 }
             }
             Ok(())
@@ -88,7 +91,7 @@ pub async fn create_user(
     // Check if user has permission to create users
     let can_create = matches!(
         auth.user.role,
-        UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerente | UserRole::AgenciasGerente
+        UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerenteCadena | UserRole::HotelesGerente | UserRole::AgenciasGerente
     );
     
     if !can_create {

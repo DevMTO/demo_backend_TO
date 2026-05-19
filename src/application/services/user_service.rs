@@ -332,7 +332,8 @@ impl UserService {
     }
 
     /// Propagar el estado demo (is_demo + demo_expires_at) de un gerente a todos sus subordinados.
-    /// - hoteles_gerente → todos los `hoteles` cuyos hoteles pertenecen a la cadena del gerente
+    /// - hoteles_gerente_cadena → todos los `hoteles_gerente` y `hoteles` cuyos hoteles pertenecen a la cadena del gerente
+    /// - hoteles_gerente → todos los `hoteles` de su mismo hotel
     /// - agencias_gerente → todos los `agencias` y `agencias_contador` de la misma agencia
     async fn propagate_demo_to_subordinates(
         &self,
@@ -345,9 +346,9 @@ impl UserService {
         };
 
         let subordinates: Vec<User> = match manager.role {
-            UserRole::HotelesGerente => {
+            UserRole::HotelesGerenteCadena => {
                 // id_entidad del gerente = id_cadena. Buscar todos los hoteles de esa cadena
-                // y por cada hotel sus usuarios con rol "hoteles".
+                // y por cada hotel sus usuarios con rol "hoteles" y "hoteles_gerente".
                 let hotels = self.hotel_repository
                     .list_by_cadena(id_entidad, 10000, 0)
                     .await?;
@@ -357,8 +358,18 @@ impl UserService {
                         .find_by_role_and_entity("hoteles", hotel.id)
                         .await?;
                     users.append(&mut hu);
+                    let mut hg = self.user_repository
+                        .find_by_role_and_entity("hoteles_gerente", hotel.id)
+                        .await?;
+                    users.append(&mut hg);
                 }
                 users
+            }
+            UserRole::HotelesGerente => {
+                // id_entidad del gerente = id_hotel. Solo propagar a recepcionistas del mismo hotel.
+                self.user_repository
+                    .find_by_role_and_entity("hoteles", id_entidad)
+                    .await?
             }
             UserRole::AgenciasGerente => {
                 let mut users = self.user_repository

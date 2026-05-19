@@ -282,10 +282,14 @@ impl UserRepositoryPort for PostgresUserRepository {
                 let mut entity_ids = vec![*id_cadena];
                 entity_ids.extend_from_slice(&hotel_ids);
                 Some((
-                    vec!["hoteles_gerente".into(), "hoteles".into()],
+                    vec!["hoteles_gerente_cadena".into(), "hoteles_gerente".into(), "hoteles".into()],
                     entity_ids,
                 ))
             },
+            UserListScope::HotelScope { id_hotel } => Some((
+                vec!["hoteles_gerente".into(), "hoteles".into()],
+                vec![*id_hotel],
+            )),
         };
 
         // Count query using SELECT COUNT(*) with a boxed query so we can apply filters dynamically

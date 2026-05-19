@@ -730,9 +730,9 @@ impl ContabilidadService {
             
             // Notificar a la agencia que su pago fue aprobado
             let (roles_notif, titulo) = if estado == "pagado" {
-                (vec![UserRole::Agencias, UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::Hoteles, UserRole::HotelesGerente], "Pago aprobado")
+                (vec![UserRole::Agencias, UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::Hoteles, UserRole::HotelesGerente, UserRole::HotelesGerenteCadena], "Pago aprobado")
             } else {
-                (vec![UserRole::Agencias, UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::Hoteles, UserRole::HotelesGerente], "Pago parcial aprobado")
+                (vec![UserRole::Agencias, UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::Hoteles, UserRole::HotelesGerente, UserRole::HotelesGerenteCadena], "Pago parcial aprobado")
             };
             
             if let Err(e) = self.notification_service.notify_roles_for_entity(
@@ -757,7 +757,7 @@ impl ContabilidadService {
             
             // Notificar a la agencia que su pago fue rechazado
             if let Err(e) = self.notification_service.notify_roles_for_entity(
-                vec![UserRole::Agencias, UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::Hoteles, UserRole::HotelesGerente],
+                vec![UserRole::Agencias, UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::Hoteles, UserRole::HotelesGerente, UserRole::HotelesGerenteCadena],
                 pago_actualizado.id_entidad,
                 "Pago rechazado",
                 &format!(

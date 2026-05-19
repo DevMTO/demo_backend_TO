@@ -25,7 +25,7 @@ pub struct SearchQuery {
 /// Determina el scope basado en el rol del usuario autenticado
 fn get_persona_scope(auth: &AuthUser) -> PersonaListScope {
     match auth.user.role {
-        UserRole::HotelesGerente | UserRole::AgenciasGerente => {
+        UserRole::HotelesGerente | UserRole::HotelesGerenteCadena | UserRole::AgenciasGerente => {
             if let Some(id_entidad) = auth.user.id_entidad {
                 PersonaListScope::GerenteScope {
                     created_by_user_id: auth.user.id,

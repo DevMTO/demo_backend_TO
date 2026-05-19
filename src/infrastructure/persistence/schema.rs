@@ -546,7 +546,7 @@ diesel::table! {
         #[max_length = 255]
         email -> Varchar,
         password_hash -> Text,
-        #[max_length = 20]
+        #[max_length = 30]
         role -> Varchar,
         id_entidad -> Nullable<Int4>,
         last_login -> Nullable<Timestamptz>,

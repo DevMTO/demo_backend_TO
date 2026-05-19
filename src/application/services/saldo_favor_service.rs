@@ -439,7 +439,7 @@ impl SaldoFavorService {
         let file = self.file_repo.find_by_id(request.id_file).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", request.id_file)))?;
         let _ = self.notification_service.notify_roles_for_entity(
-            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::HotelesGerente],
+            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::HotelesGerenteCadena, UserRole::HotelesGerente],
             file.id_entidad,
             "No-Show Registrado",
             &format!("File #{} marcado como no-show.", request.id_file),
@@ -521,7 +521,7 @@ impl SaldoFavorService {
         let file = self.file_repo.find_by_id(ft.id_file).await?
             .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", ft.id_file)))?;
         let _ = self.notification_service.notify_roles_for_entity(
-            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::HotelesGerente],
+            vec![UserRole::AgenciasContador, UserRole::AgenciasGerente, UserRole::HotelesGerenteCadena, UserRole::HotelesGerente],
             file.id_entidad,
             "No-Show Registrado",
             &format!("FileTour #{} marcado como no-show.", request.id_file_tour),

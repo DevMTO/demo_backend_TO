@@ -26,7 +26,7 @@ fn is_admin(role: &UserRole) -> bool {
 
 /// Helper: ¿puede gestionar contabilidad?
 fn can_manage_contabilidad(role: &UserRole) -> bool {
-    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador | UserRole::Agencias | UserRole::Hoteles | UserRole::HotelesGerente)
+    matches!(role, UserRole::SuperAdmin | UserRole::Admin | UserRole::AgenciasContador | UserRole::Agencias | UserRole::Hoteles | UserRole::HotelesGerente | UserRole::HotelesGerenteCadena)
 }
 
 /// Helper: Verificar si el usuario es dueño del file o de la cadena del hotel del file
@@ -37,7 +37,7 @@ async fn check_file_ownership(state: &AppState, auth: &AuthUser, file_id: i32) -
         .ok_or_else(|| ApplicationError::NotFound(format!("File {} no encontrado", file_id)))?;
         
     let user_entidad = auth.user.id_entidad.unwrap_or(0);
-    let check_cadena = if auth.user.role == UserRole::HotelesGerente {
+    let check_cadena = if auth.user.role == UserRole::HotelesGerenteCadena {
         if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(file.id_entidad).await {
             hotel.id_cadena == user_entidad
         } else {
@@ -265,7 +265,7 @@ pub async fn usar_saldo(
     
     if !is_admin(&auth.user.role) {
         let user_entidad = auth.user.id_entidad.unwrap_or(0);
-        let check_cadena = if auth.user.role == UserRole::HotelesGerente {
+        let check_cadena = if auth.user.role == UserRole::HotelesGerenteCadena {
             if let Ok(Some(hotel)) = state.container.hotel_repository.find_by_id(request.id_entidad).await {
                 hotel.id_cadena == user_entidad
             } else {
