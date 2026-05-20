@@ -1,17 +1,21 @@
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use crate::domain::errors::ApplicationError;
 use crate::domain::entities::Persona;
 use super::{PaginationOptions, PaginatedResult};
 
 /// Scope restriction for listing personas based on authenticated user's role
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PersonaListScope {
     /// No restriction — SuperAdmin, Admin see all personas
     All,
     /// Gerentes see personas they created OR personas with users in their entity
     GerenteScope {
         created_by_user_id: i32,
+        /// The entity ID of the manager (cadena_id for HotelesGerenteCadena, hotel_id for HotelesGerente, agencia_id for AgenciasGerente)
         id_entidad: i32,
+        /// The role of the manager - needed to resolve hierarchy (e.g., HotelesGerenteCadena needs to find hotels under their cadena)
+        manager_role: String,
     },
     /// Empty result - for gerentes with invalid/missing id_entidad (security)
     Empty,

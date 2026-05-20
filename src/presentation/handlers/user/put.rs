@@ -11,7 +11,7 @@ use crate::presentation::handlers::common::json_ok;
 use crate::presentation::extractors::AuthUser;
 use crate::application::dtos::{UpdateUserRequest, AdminChangePasswordRequest};
 
-use super::post::{can_manage_role, validate_entity_for_role};
+use super::post::{can_manage_role, validate_entity_for_role, can_manage_target_user};
 
 /// Actualizar un usuario existente
 /// SuperAdmin, Admin, hoteles_gerente y agencias_gerente pueden editar usuarios
@@ -41,11 +41,12 @@ pub async fn update_user(
         // Validate entity ownership for the new role
         if let Some(target_id_entidad) = request.id_entidad {
             validate_entity_for_role(
+                &state,
                 &auth.user.role,
                 auth.user.id_entidad,
                 target_role,
                 Some(target_id_entidad),
-            )?;
+            ).await?;
         }
     }
     
@@ -58,7 +59,8 @@ pub async fn update_user(
     Ok(json_ok(result.user))
 }
 
-/// Cambiar contraseña de un usuario (solo SuperAdmin)
+/// Cambiar contraseña de un usuario
+/// SuperAdmin, Admin, HotelesGerenteCadena, HotelesGerente y AgenciasGerente pueden cambiar contraseñas en su ámbito
 #[instrument(skip(state, auth, request))]
 pub async fn admin_change_password(
     State(state): State<AppState>,
@@ -66,9 +68,24 @@ pub async fn admin_change_password(
     Path(id): Path<i32>,
     Json(request): Json<AdminChangePasswordRequest>,
 ) -> Result<impl IntoResponse, ApplicationError> {
-    if auth.user.role != UserRole::SuperAdmin {
-        return Err(ApplicationError::Forbidden("Solo SuperAdmin puede cambiar contraseñas de otros usuarios".to_string()));
+    // Check if user has permission to change passwords
+    let can_change_password = matches!(
+        auth.user.role,
+        UserRole::SuperAdmin | UserRole::Admin | UserRole::HotelesGerenteCadena | UserRole::HotelesGerente | UserRole::AgenciasGerente
+    );
+    
+    if !can_change_password {
+        return Err(ApplicationError::Forbidden("No tienes permisos para cambiar contraseñas".to_string()));
     }
+    
+    // Get the target user to validate scope
+    let target_user = state.container.user_repository
+        .find_by_id(id)
+        .await?
+        .ok_or_else(|| ApplicationError::NotFound(format!("Usuario {} no encontrado", id)))?;
+    
+    // Validate that the manager has scope over this user
+    can_manage_target_user(&state, &auth.user.role, auth.user.id_entidad, &target_user).await?;
     
     request.validate().map_err(|e| ApplicationError::Validation(e.to_string()))?;
     

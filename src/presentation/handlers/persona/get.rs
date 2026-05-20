@@ -27,9 +27,16 @@ fn get_persona_scope(auth: &AuthUser) -> PersonaListScope {
     match auth.user.role {
         UserRole::HotelesGerente | UserRole::HotelesGerenteCadena | UserRole::AgenciasGerente => {
             if let Some(id_entidad) = auth.user.id_entidad {
+                let manager_role = match auth.user.role {
+                    UserRole::HotelesGerenteCadena => "hoteles_gerente_cadena",
+                    UserRole::HotelesGerente => "hoteles_gerente",
+                    UserRole::AgenciasGerente => "agencias_gerente",
+                    _ => "",
+                };
                 PersonaListScope::GerenteScope {
                     created_by_user_id: auth.user.id,
                     id_entidad,
+                    manager_role: manager_role.to_string(),
                 }
             } else {
                 PersonaListScope::Empty  // Secure: don't expose all personas

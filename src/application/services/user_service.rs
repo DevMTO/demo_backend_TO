@@ -133,7 +133,7 @@ impl UserService {
         // Herencia demo: si el creador es demo, el nuevo usuario hereda is_demo y demo_expires_at,
         // ignorando lo que envíe el frontend. El superadmin puede editarlos después.
         let creator = self.user_repository.find_by_id(created_by).await?;
-        let (is_demo, demo_expires_at) = match creator {
+        let (is_demo, demo_expires_at) = match &creator {
             Some(c) if c.is_demo => (true, c.demo_expires_at),
             _ => {
                 let is_demo = request.is_demo.unwrap_or(false);
@@ -141,7 +141,7 @@ impl UserService {
                 (is_demo, demo_expires_at)
             }
         };
-        
+
         let new_user = User {
             id: 0,
             id_persona,

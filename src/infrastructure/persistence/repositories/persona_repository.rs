@@ -8,7 +8,7 @@ use crate::domain::{entities::Persona, errors::ApplicationError};
 use crate::infrastructure::persistence::{
     database::DatabasePool,
     models::{PersonaModel, NewPersonaModel, UpdatePersonaModel},
-    schema::{personas, users},
+    schema::{personas, users, hoteles},
 };
 
 pub struct PostgresPersonaRepository { pool: DatabasePool }
@@ -137,17 +137,45 @@ impl PersonaRepositoryPort for PostgresPersonaRepository {
                 // Empty result for security
                 vec![]
             },
-            PersonaListScope::GerenteScope { created_by_user_id, id_entidad } => {
-                // Get persona IDs from users in this entity
-                let entity_persona_ids: Vec<i32> = users::table
-                    .filter(users::id_entidad.eq(*id_entidad))
-                    .select(users::id_persona)
-                    .filter(users::id_persona.is_not_null())
-                    .load::<Option<i32>>(&mut conn).await
-                    .map_err(|e| ApplicationError::Repository(e.to_string()))?
-                    .into_iter()
-                    .flatten()
-                    .collect();
+            PersonaListScope::GerenteScope { created_by_user_id, id_entidad, manager_role } => {
+                // Get persona IDs based on manager role and hierarchy
+                let entity_persona_ids: Vec<i32> = match manager_role.as_str() {
+                    "hoteles_gerente_cadena" => {
+                        // For HotelesGerenteCadena: Get hotels that belong to their cadena, then users in those hotels
+                        let hotel_ids: Vec<i32> = hoteles::table
+                            .filter(hoteles::id_cadena.eq(*id_entidad))
+                            .select(hoteles::id)
+                            .load::<i32>(&mut conn).await
+                            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                        
+                        if hotel_ids.is_empty() {
+                            vec![]
+                        } else {
+                            users::table
+                                .filter(users::id_entidad.eq_any(&hotel_ids))
+                                .select(users::id_persona)
+                                .filter(users::id_persona.is_not_null())
+                                .load::<Option<i32>>(&mut conn).await
+                                .map_err(|e| ApplicationError::Repository(e.to_string()))?
+                                .into_iter()
+                                .flatten()
+                                .collect()
+                        }
+                    },
+                    "hoteles_gerente" | "agencias_gerente" => {
+                        // For HotelesGerente and AgenciasGerente: Get users in their entity
+                        users::table
+                            .filter(users::id_entidad.eq(*id_entidad))
+                            .select(users::id_persona)
+                            .filter(users::id_persona.is_not_null())
+                            .load::<Option<i32>>(&mut conn).await
+                            .map_err(|e| ApplicationError::Repository(e.to_string()))?
+                            .into_iter()
+                            .flatten()
+                            .collect()
+                    },
+                    _ => vec![],
+                };
                 
                 base_query
                     .filter(
@@ -183,17 +211,70 @@ impl PersonaRepositoryPort for PostgresPersonaRepository {
                 // Empty result for security - gerente has no valid id_entidad
                 Ok(PaginatedResult::new(vec![], 0, limit, offset))
             },
-            PersonaListScope::GerenteScope { created_by_user_id, id_entidad } => {
-                // Get persona IDs from users in this entity (non-null only)
-                let entity_persona_ids: Vec<i32> = users::table
-                    .filter(users::id_entidad.eq(*id_entidad))
-                    .select(users::id_persona)
-                    .filter(users::id_persona.is_not_null())
-                    .load::<Option<i32>>(&mut conn).await
-                    .map_err(|e| ApplicationError::Repository(e.to_string()))?
-                    .into_iter()
-                    .flatten()
-                    .collect();
+            PersonaListScope::GerenteScope { created_by_user_id, id_entidad, manager_role } => {
+                // Get persona IDs based on manager role and hierarchy
+                let entity_persona_ids: Vec<i32> = match manager_role.as_str() {
+                    "hoteles_gerente_cadena" => {
+                        // For HotelesGerenteCadena: Get hotels that belong to their cadena, then users in those hotels
+                        let hotel_ids: Vec<i32> = hoteles::table
+                            .filter(hoteles::id_cadena.eq(*id_entidad))
+                            .select(hoteles::id)
+                            .load::<i32>(&mut conn).await
+                            .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                        
+                        if hotel_ids.is_empty() {
+                            vec![]
+                        } else {
+                            users::table
+                                .filter(users::id_entidad.eq_any(&hotel_ids))
+                                .select(users::id_persona)
+                                .filter(users::id_persona.is_not_null())
+                                .load::<Option<i32>>(&mut conn).await
+                                .map_err(|e| ApplicationError::Repository(e.to_string()))?
+                                .into_iter()
+                                .flatten()
+                                .collect()
+                        }
+                    },
+                    "hoteles_gerente" | "agencias_gerente" => {
+                        // For HotelesGerente and AgenciasGerente: Get users in their entity (original logic)
+                        users::table
+                            .filter(users::id_entidad.eq(*id_entidad))
+                            .select(users::id_persona)
+                            .filter(users::id_persona.is_not_null())
+                            .load::<Option<i32>>(&mut conn).await
+                            .map_err(|e| ApplicationError::Repository(e.to_string()))?
+                            .into_iter()
+                            .flatten()
+                            .collect()
+                    },
+                    _ => vec![],
+                };
+                
+                if entity_persona_ids.is_empty() && *created_by_user_id > 0 {
+                    // Only show personas created by this user if no entity personas found
+                    let created_by_personas: Vec<i32> = personas::table
+                        .filter(personas::created_by.eq(*created_by_user_id))
+                        .select(personas::id)
+                        .load::<i32>(&mut conn).await
+                        .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                    
+                    let total = created_by_personas.len() as i64;
+                    let results = personas::table
+                        .filter(personas::created_by.eq(*created_by_user_id))
+                        .order(personas::apellidos.asc())
+                        .limit(limit)
+                        .offset(offset)
+                        .load::<PersonaModel>(&mut conn).await
+                        .map_err(|e| ApplicationError::Repository(e.to_string()))?;
+                    
+                    return Ok(PaginatedResult::new(
+                        results.into_iter().map(Into::into).collect(),
+                        total,
+                        limit,
+                        offset,
+                    ));
+                }
                 
                 // Get count with scope filter
                 let total = personas::table
